@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div onClick="{{ noop }}" title="Переключить канал" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <div style="width: 18px; height: 18px; border-radius: 2px; background: #94D2BD; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">C</div>
+      <div style="font-size: 13px; font-weight: 500;">Cursus</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+      <div onClick="{{ noop }}" title="Переименовать выпуск" style="font-size: 13px; font-weight: 500; cursor: text; padding: 2px 4px; border-radius: 4px; white-space: nowrap;" style-hover="background: #16171A;">Every Rank on a Pirate Ship (Powder Monkey to Captain)</div>
+      <div style="font-size: 12px; color: #9A9C9F; white-space: nowrap;">генерация</div>
+    </div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+    <div onClick="{{ noop }}" title="Горячие клавиши" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">?</div>
+    <div onClick="{{ noop }}" title="Настройки и расходы" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V4.4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0;">
+
+    <div style="width: 56px; flex: 0 0 56px; background: #0C0D0F; border-right: 1px solid #26282C; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px;">
+      <sc-for list="{{ stages }}" as="s" hint-placeholder-count="6">
+        <div onClick="{{ s.go }}" title="{{ s.tip }}" tabIndex="0" style="{{ s.wrapStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+          <div style="color: {{ s.icoColor }}; display: flex;">
+            <sc-if value="{{ s.isIdea }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8 14a5 5 0 1 1 8 0c-.7.9-1.2 1.8-1.4 4H9.4C9.2 15.8 8.7 14.9 8 14Z"></path></svg></sc-if>
+            <sc-if value="{{ s.isScript }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></sc-if>
+            <sc-if value="{{ s.isGen }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 4 1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8Z"></path><path d="M18 15v4"></path><path d="M16 17h4"></path></svg></sc-if>
+            <sc-if value="{{ s.isEdit }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M8 5v14"></path><path d="M16 5v14"></path><path d="M3 12h18"></path></svg></sc-if>
+            <sc-if value="{{ s.isExport }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"></path></svg></sc-if>
+            <sc-if value="{{ s.isPub }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="m11 10 4 2-4 2Z"></path></svg></sc-if>
+          </div>
+          <div style="{{ s.glyphStyle }}"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+      <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+        <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Генерация</div>
+        <div style="font-size: 12px; color: #9A9C9F;">{{ headNote }}</div>
+        <div style="flex: 1;"></div>
+        <div onClick="{{ toggleView }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ viewToggleLabel }}</div>
+      </div>
+
+      <div style="height: 72px; flex: 0 0 72px; display: flex; border-bottom: 1px solid #26282C;">
+        <sc-for list="{{ tracks }}" as="t" hint-placeholder-count="2">
+          <div style="{{ t.wrapStyle }}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="{{ t.glyphStyle }}"></div>
+              <div style="font-size: 13px; font-weight: 600;">{{ t.title }}</div>
+              <div style="font-size: 12px; color: {{ t.etaColor }};">{{ t.eta }}</div>
+              <div style="flex: 1;"></div>
+              <div onClick="{{ t.pause }}" tabIndex="0" title="{{ t.pauseTip }}" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <sc-if value="{{ t.running }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 5v14"></path><path d="M15 5v14"></path></svg></sc-if>
+                <sc-if value="{{ t.paused }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8Z"></path></svg></sc-if>
+              </div>
+              <div onClick="{{ t.cancel }}" tabIndex="0" title="Отменить очередь" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #BB3E031F; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              </div>
+            </div>
+            <div style="height: 4px; border-radius: 1px; background: #202225; overflow: hidden; display: flex;">
+              <div style="{{ t.doneStyle }}"></div>
+              <div style="{{ t.runStyle }}"></div>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 12px; font-size: 11px; color: #9A9C9F;">
+              <div><span style="color: #F2F1EE;">{{ t.spent }}</span> из {{ t.budget }} по смете</div>
+              <div>{{ t.parallel }}</div>
+              <div style="flex: 1;"></div>
+              <div>{{ t.failNote }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex;">
+
+        <div style="width: 280px; flex: 0 0 280px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+          <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+            <div style="font-size: 13px; font-weight: 600;">Канон выпуска</div>
+            <div style="font-size: 11px; color: #9A9C9F;">только чтение</div>
+          </div>
+          <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 12px;">
+                <span style="color: #9A9C9F;">Стиль канала</span>
+                <span style="font-weight: 500;">Cursus v4</span>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 12px;">
+                <span style="color: #9A9C9F;">Период выпуска</span>
+                <span style="font-weight: 500;">Карибы, 1716</span>
+              </div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 12px;">
+                <span style="color: #9A9C9F;">Свет и оптика</span>
+                <span>лантерна, 35 мм</span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #26282C;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Облики персонажей</div>
+              <sc-for list="{{ canon }}" as="c" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 4px; border-radius: 4px;" style-hover="background: #0C0D0F;">
+                  <div style="{{ c.faceStyle }}">
+                    <div style="font-family: 'Courier Prime', monospace; font-size: 9px; color: #9A9C9F;">{{ c.faceLabel }}</div>
+                  </div>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                    <div class="cl1" style="font-size: 12px; font-weight: 500;">{{ c.name }}</div>
+                    <div style="font-size: 11px; line-height: 14px; color: {{ c.stColor }};">{{ c.stLabel }}</div>
+                  </div>
+                  <div style="{{ c.glyphStyle }}"></div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="padding-top: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+              <a href="#" onClick="{{ openCanon }}" style="font-size: 12px; font-weight: 500;">Открыть канон</a>
+              <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">Правка облика меняет опорные портреты и требует перерисовки затронутых кадров.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+          <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+            <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px 12px;">
+              <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="4">
+                <div>
+                  <div style="position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 4px; background: #000000; border-bottom: 1px solid #26282C;">
+                    <div style="font-size: 13px; font-weight: 600;">{{ sec.title }}</div>
+                    <div style="font-size: 12px; color: #9A9C9F;">{{ sec.note }}</div>
+                    <div style="flex: 1;"></div>
+                    <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: {{ sec.stColor }};">{{ sec.stNote }}</div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 8px 4px 12px 4px;">
+                    <sc-for list="{{ sec.shots }}" as="sh" hint-placeholder-count="10">
+                      <div onClick="{{ sh.toggle }}" onMouseEnter="{{ sh.enter }}" onMouseLeave="{{ sh.leave }}" style="{{ sh.wrapStyle }}">
+                        <div style="{{ sh.frameStyle }}">
+                          <div style="position: absolute; left: 4px; top: 4px; font-family: 'Courier Prime', monospace; font-size: 11px; color: {{ sh.numColor }};">{{ sh.num }}</div>
+                          <div style="position: absolute; right: 4px; top: 4px; display: flex; align-items: center; gap: 4px;">
+                            <div style="font-size: 10px; color: {{ sh.stColor }};">{{ sh.stLabel }}</div>
+                            <div style="{{ sh.glyphStyle }}"></div>
+                          </div>
+                          <sc-if value="{{ sh.picked }}" hint-placeholder-val="{{ false }}">
+                            <div style="position: absolute; left: 4px; bottom: 4px; width: 14px; height: 14px; border-radius: 3px; background: #94D2BD; display: flex; align-items: center; justify-content: center;">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                            </div>
+                          </sc-if>
+                          <div style="position: absolute; right: 4px; bottom: 4px; display: flex; gap: 3px;">
+                            <sc-for list="{{ sh.versions }}" as="v" hint-placeholder-count="3">
+                              <div title="{{ v.tip }}" style="{{ v.style }}"></div>
+                            </sc-for>
+                          </div>
+                          <sc-if value="{{ sh.failed }}" hint-placeholder-val="{{ false }}">
+                            <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 6px; background: #000000ee; border-top: 1px solid #BB3E03;">
+                              <div class="cl2" style="font-size: 10px; line-height: 13px; color: #F08C5D;">{{ sh.failReason }}</div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ sh.hovered }}" hint-placeholder-val="{{ false }}">
+                            <div style="position: absolute; inset: 0; background: #000000ee; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px;">
+                              <sc-for list="{{ sh.actions }}" as="a" hint-placeholder-count="4">
+                                <div onClick="{{ a.run }}" tabIndex="0" style="{{ a.style }}" style-hover="background: #ffffff14;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">{{ a.label }}</div>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="{{ selBarStyle }}">
+              <div style="font-size: 12px; color: {{ selColor }};">{{ selLabel }}</div>
+              <div style="flex: 1;"></div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 12px; color: #9A9C9F;">Модель</div>
+                <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+                  <sc-for list="{{ models }}" as="m" hint-placeholder-count="3">
+                    <div onClick="{{ m.pick }}" tabIndex="0" title="{{ m.tip }}" style="{{ m.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ m.label }}</div>
+                  </sc-for>
+                </div>
+              </div>
+              <div onClick="{{ redrawSelected }}" tabIndex="0" style="{{ redrawStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ redrawLabel }}</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isCompare }}" hint-placeholder-val="{{ false }}">
+            <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+              <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+                <div style="font-size: 13px; font-weight: 600;">Версии кадра s061</div>
+                <div style="font-size: 12px; color: #9A9C9F;">Quartermaster, голосование команды</div>
+                <div style="flex: 1;"></div>
+                <div onClick="{{ toggleView }}" tabIndex="0" style="height: 22px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Закрыть сравнение</div>
+              </div>
+
+              <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-family: 'Courier Prime', monospace; font-size: 12px; line-height: 18px; color: #9A9C9F; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 4px;">{{ comparePrompt }}</div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+                  <sc-for list="{{ compare }}" as="v" hint-placeholder-count="3">
+                    <div onClick="{{ v.pick }}" style="{{ v.wrapStyle }}">
+                      <div style="{{ v.frameStyle }}">
+                        <div style="position: absolute; left: 6px; top: 6px; font-family: 'Courier Prime', monospace; font-size: 11px; color: #9A9C9F;">{{ v.label }}</div>
+                        <sc-if value="{{ v.chosen }}" hint-placeholder-val="{{ false }}">
+                          <div style="position: absolute; right: 6px; top: 6px; height: 18px; display: flex; align-items: center; gap: 4px; padding: 0 6px; background: #94D2BD; border-radius: 4px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                            <span style="font-size: 11px; font-weight: 600; color: #000000;">выбрана</span>
+                          </div>
+                        </sc-if>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+                        <sc-for list="{{ v.rows }}" as="row" hint-placeholder-count="4">
+                          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px;">
+                            <span style="color: #9A9C9F;">{{ row.k }}</span>
+                            <span style="font-family: 'IBM Plex Sans Condensed', sans-serif; color: {{ row.color }};">{{ row.v }}</span>
+                          </div>
+                        </sc-for>
+                        <div style="display: flex; gap: 8px; padding-top: 6px; border-top: 1px solid #202225;">
+                          <div onClick="{{ v.pick }}" tabIndex="0" style="{{ v.pickStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ v.pickLabel }}</div>
+                          <div onClick="{{ v.reference }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Сделать опорным</div>
+                        </div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                  <div style="font-size: 12px; color: #9A9C9F;">{{ compareNote }}</div>
+                  <div style="flex: 1;"></div>
+                  <div onClick="{{ redrawOne }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Добавить версию (~$0.07)</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="width: 320px; flex: 0 0 320px; border-left: 1px solid #26282C; display: flex; flex-direction: column;">
+          <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+            <div style="font-size: 13px; font-weight: 600;">Голос</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ voiceNote }}</div>
+          </div>
+
+          <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;">
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div onClick="{{ togglePlay }}" tabIndex="0" title="{{ playTip }}" style="width: 32px; height: 32px; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <sc-if value="{{ playing }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2F1EE" stroke-width="1.5" stroke-linecap="round"><path d="M9 5v14"></path><path d="M15 5v14"></path></svg></sc-if>
+                  <sc-if value="{{ stopped }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2F1EE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8Z"></path></svg></sc-if>
+                </div>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                  <div style="font-size: 13px; font-weight: 500;">Cursus narrator — Rowan</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ voiceMeta }}</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: flex-end; gap: 2px; height: 28px;">
+                <sc-for list="{{ wave }}" as="w" hint-placeholder-count="48">
+                  <div style="{{ w.style }}"></div>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 12px; color: #9A9C9F;">Модель</div>
+                <div style="flex: 1; height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+                  <sc-for list="{{ voiceModels }}" as="vm" hint-placeholder-count="2">
+                    <div onClick="{{ vm.pick }}" tabIndex="0" style="{{ vm.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ vm.label }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding: 8px 12px; display: flex; flex-direction: column; gap: 2px;">
+              <sc-for list="{{ voSections }}" as="v" hint-placeholder-count="8">
+                <div onClick="{{ v.select }}" style="{{ v.rowStyle }}" style-hover="background: #1B1D20;">
+                  <div style="{{ v.glyphStyle }}"></div>
+                  <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px;">{{ v.name }}</div>
+                  <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: {{ v.durColor }};">{{ v.dur }}</div>
+                </div>
+              </sc-for>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 6px 4px 0 4px; font-size: 11px; color: #9A9C9F;">
+                <div>Готово {{ voDone }}</div>
+                <div style="flex: 1;"></div>
+                <div>ElevenLabs: 212 400 из 600 000 знаков</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 8px;">
+            <div onClick="{{ voiceAll }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; justify-content: center; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Озвучить всё (23 400 символов, ~$2.34)</div>
+            <div style="display: flex; gap: 8px;">
+              <div onClick="{{ revoice }}" tabIndex="0" style="{{ revoiceStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ revoiceLabel }}</div>
+              <div onClick="{{ upload }}" tabIndex="0" style="flex: 0 0 auto; white-space: nowrap; padding: 0 10px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Загрузить свою</div>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">Своя озвучка выравнивается по тексту сценария, кадры подстроятся под её длительность.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <div style="width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;"></div>
+      {{ statusLeft }}
+    </div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>R перерисовать кадр</div>
+    <div>V версии кадра</div>
+    <div>? горячие клавиши</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Сетка кадров&quot;,&quot;Сравнение версий&quot;],&quot;default&quot;:&quot;Сетка кадров&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Экран&quot;}}">
+const FLOW = {
+  isIdea: 'Studio - 2 Идеи.dc.html',
+  isScript: 'Studio - 3 Сценарий и план.dc.html',
+  isGen: 'Studio - 4 Генерация.dc.html',
+  isEdit: 'Studio - 5 Монтаж.dc.html',
+  isExport: 'Studio - 7 Экспорт.dc.html',
+  isPub: 'Studio - 8 Публикация.dc.html'
+};
+const goTo = href => { window.location.href = encodeURI(href); };
+
+const STAGES = [
+  { tip: 'Идея — готово', state: 'done', flag: 'isIdea' },
+  { tip: 'Сценарий — готово', state: 'done', flag: 'isScript' },
+  { tip: 'Генерация — в работе', state: 'active', flag: 'isGen' },
+  { tip: 'Монтаж — не начат', state: 'todo', flag: 'isEdit' },
+  { tip: 'Экспорт — не начат', state: 'todo', flag: 'isExport' },
+  { tip: 'Публикация — не начата', state: 'todo', flag: 'isPub' }
+];
+
+const CANON = [
+  { name: 'You — powder monkey', st: 'ok', face: '11' },
+  { name: 'You — landsman', st: 'ok', face: '19' },
+  { name: 'You — able seaman', st: 'ok', face: '23' },
+  { name: 'You — boatswain', st: 'ok', face: '34' },
+  { name: 'You — quartermaster', st: 'no', face: '—' }
+];
+
+const SECTIONS = [
+  { title: 'Cold open', from: 1, n: 6, st: 'ready' },
+  { title: 'Powder monkey', from: 7, n: 15, st: 'ready' },
+  { title: 'Landsman', from: 22, n: 13, st: 'ready' },
+  { title: 'Able seaman', from: 35, n: 14, st: 'mixed' },
+  { title: 'Boatswain', from: 49, n: 13, st: 'run' },
+  { title: 'Quartermaster', from: 62, n: 16, st: 'run' },
+  { title: 'Captain', from: 78, n: 19, st: 'queued' },
+  { title: 'Outro', from: 97, n: 8, st: 'queued' }
+];
+
+const VO = [
+  { name: 'Cold open', dur: '00:00:48', st: 'ready' },
+  { name: 'Powder monkey', dur: '00:02:41', st: 'ready' },
+  { name: 'Landsman', dur: '00:02:18', st: 'ready' },
+  { name: 'Able seaman', dur: '00:02:52', st: 'ready' },
+  { name: 'Boatswain', dur: '00:02:30', st: 'run' },
+  { name: 'Quartermaster', dur: '~00:03:10', st: 'queued' },
+  { name: 'Captain', dur: '~00:03:40', st: 'queued' },
+  { name: 'Outro', dur: '~00:01:29', st: 'queued' }
+];
+
+const FAILED = { s047: 'Отказ фильтра безопасности: насилие', s071: 'Отказ фильтра безопасности: насилие' };
+
+class Component extends DCLogic {
+  state = {
+    view: null, hover: null, picked: {}, model: 'Nano Banana 2', voiceModel: 'v3',
+    playing: false, chosen: 2, voSel: 'Boatswain', paused: {}, toast: '', toastBar: '#94D2BD'
+  };
+
+  componentDidMount() {
+    const picked = {};
+    ['s035', 's038', 's041', 's042', 's043', 's044', 's045', 's046', 's047', 's048', 's049', 's050'].forEach(k => { picked[k] = true; });
+    this.setState({ picked });
+  }
+
+  shotStatus(i) {
+    const id = 's' + String(i).padStart(3, '0');
+    if (FAILED[id]) return 'fail';
+    if (i <= 70) return 'ready';
+    if (i <= 78) return 'run';
+    return 'queued';
+  }
+
+  renderVals() {
+    const view = this.state.view ?? this.props.view ?? 'Сетка кадров';
+    const isGrid = view === 'Сетка кадров';
+    const picked = this.state.picked;
+    const pickedIds = Object.keys(picked).filter(k => picked[k]);
+
+    const stGlyph = {
+      ready: { label: 'готово', color: '#F2F1EE', glyph: 'width: 8px; height: 8px; border-radius: 50%; background: #F2F1EE;' },
+      run: { label: 'рисуется', color: '#94D2BD', glyph: 'width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;' },
+      queued: { label: 'в очереди', color: '#8B8D91', glyph: 'width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #5C5E62;' },
+      fail: { label: 'ошибка', color: '#F08C5D', glyph: 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;' }
+    };
+
+    const sections = SECTIONS.map(sec => {
+      const shots = [];
+      for (let i = sec.from; i < sec.from + sec.n; i++) {
+        const id = 's' + String(i).padStart(3, '0');
+        const st = this.shotStatus(i);
+        const g = stGlyph[st];
+        const on = !!picked[id];
+        const hov = this.state.hover === id;
+        const vcount = st === 'ready' ? (i % 3 === 0 ? 3 : i % 2 === 0 ? 2 : 1) : 1;
+        const chosen = vcount === 3 ? 2 : 1;
+        shots.push({
+          num: id,
+          numColor: st === 'fail' ? '#F08C5D' : '#9A9C9F',
+          stLabel: st === 'run' ? 'рисуется' : '',
+          stColor: g.color,
+          glyphStyle: g.glyph + ' flex: 0 0 auto;',
+          picked: on, hovered: hov, failed: st === 'fail',
+          failReason: FAILED[id] || '',
+          toggle: () => this.setState(s => ({ picked: Object.assign({}, s.picked, { [id]: !s.picked[id] }) })),
+          enter: () => this.setState({ hover: id }),
+          leave: () => this.setState(s => (s.hover === id ? { hover: null } : {})),
+          wrapStyle: 'display: flex; flex-direction: column; cursor: pointer;',
+          frameStyle: 'position: relative; aspect-ratio: 16 / 9; border-radius: 2px; overflow: hidden; background: '
+            + (st === 'queued' ? '#08090A' : '#1B1D20') + '; border: 1px solid '
+            + (st === 'fail' ? '#BB3E03' : on ? '#94D2BD' : st === 'run' ? '#94D2BD80' : '#26282C') + ';'
+            + (st === 'run' ? ' box-shadow: inset 0 -3px 0 0 #94D2BD;' : ''),
+          versions: Array.from({ length: vcount }).map((_, vi) => ({
+            tip: 'Версия ' + (vi + 1) + ' из ' + vcount + (vi + 1 === chosen ? ', выбрана' : ''),
+            style: 'width: 5px; height: 5px; border-radius: 50%; background: '
+              + (vi + 1 === chosen ? '#94D2BD' : '#6C6E72') + ';'
+          })),
+          actions: (st === 'fail'
+            ? [{ l: 'Смягчить промпт через Claude', t: 'Промпт смягчён, кадр в очереди' }, { l: 'Перерисовать', t: 'Перерисовано' }, { l: 'Открыть в монтаже', t: 'Открыт в монтаже: ' + id }]
+            : [{ l: 'Перерисовать', t: 'Перерисовано' }, { l: 'С правкой…', t: 'Открыта правка промпта' }, { l: 'Сделать опорным', t: 'Кадр ' + id + ' стал опорным' }, { l: 'Открыть в монтаже', t: 'Открыт в монтаже: ' + id }]
+          ).map(a => ({
+            label: a.l,
+            run: () => this.setState({ toast: a.t, toastBar: '#0A9396' }),
+            style: 'height: 20px; display: flex; align-items: center; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: '
+              + (a.l.indexOf('Смягчить') === 0 ? '#EE9B00' : '#F2F1EE') + ';'
+          }))
+        });
+      }
+      const stNote = { ready: 'все готовы', mixed: '1 ошибка, 13 готовы', run: 'рисуется', queued: 'в очереди' }[sec.st];
+      const stColor = { ready: '#9A9C9F', mixed: '#F08C5D', run: '#94D2BD', queued: '#8B8D91' }[sec.st];
+      return { title: sec.title, note: sec.n + ' кадров', stNote, stColor, shots };
+    });
+
+    const tracks = [
+      {
+        title: 'Кадры: 78 из 104', eta: 'осталось ~9 мин', etaColor: '#94D2BD',
+        done: 68, run: 10, spent: '$5.23', budget: '$6.97', parallel: 'параллельно 3 запроса',
+        failNote: '2 ошибки', running: true
+      },
+      {
+        title: 'Голос: 4 из 7 разделов', eta: 'осталось ~4 мин', etaColor: '#94D2BD',
+        done: 57, run: 14, spent: '$1.34', budget: '$2.34', parallel: 'параллельно 1 запрос',
+        failNote: 'ошибок нет', running: true
+      }
+    ].map((t, idx) => {
+      const paused = !!this.state.paused[idx];
+      return {
+        title: t.title, eta: paused ? 'на паузе' : t.eta, etaColor: paused ? '#EE9B00' : t.etaColor,
+        spent: t.spent, budget: t.budget, parallel: t.parallel, failNote: t.failNote,
+        running: !paused, paused,
+        pauseTip: paused ? 'Продолжить' : 'Пауза',
+        pause: () => this.setState(s => ({ paused: Object.assign({}, s.paused, { [idx]: !s.paused[idx] }), toast: s.paused[idx] ? 'Очередь продолжена' : 'Очередь на паузе', toastBar: '#EE9B00' })),
+        cancel: () => this.setState({ toast: 'Очередь отменена, начатые кадры дорисуются', toastBar: '#BB3E03' }),
+        doneStyle: 'width: ' + t.done + '%; height: 4px; background: #F2F1EE;',
+        runStyle: 'width: ' + t.run + '%; height: 4px; '
+          + (paused ? 'background: #EE9B00;' : 'background: repeating-linear-gradient(45deg, #94D2BD 0 3px, #14312C 3px 6px); animation: hatch 1.2s linear infinite;'),
+        glyphStyle: (paused
+          ? 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;'
+          : 'width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;') + ' flex: 0 0 auto;',
+        wrapStyle: 'flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 0 16px; '
+          + (idx === 0 ? 'border-right: 1px solid #26282C;' : '')
+      };
+    });
+
+    const canonMap = { ok: { label: 'лист опорных портретов готов', color: '#9A9C9F' }, no: { label: 'лист не собран', color: '#EE9B00' } };
+    const canon = CANON.map(c => {
+      const m = canonMap[c.st];
+      return {
+        name: c.name, stLabel: m.label, stColor: m.color, faceLabel: c.face,
+        faceStyle: 'width: 36px; height: 36px; flex: 0 0 36px; border-radius: 2px; display: flex; align-items: center; justify-content: center; background: '
+          + (c.st === 'ok' ? '#1B1D20' : 'transparent') + '; border: 1px ' + (c.st === 'ok' ? 'solid #26282C' : 'dashed #EE9B00') + ';',
+        glyphStyle: c.st === 'ok'
+          ? 'width: 8px; height: 8px; border-radius: 50%; background: #F2F1EE; flex: 0 0 auto;'
+          : 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00; flex: 0 0 auto;'
+      };
+    });
+
+    const models = [
+      { k: 'Nano Banana 2', label: '2', tip: 'Nano Banana 2 — $0.067 за кадр' },
+      { k: 'Nano Banana 2 Lite', label: '2 Lite', tip: 'Nano Banana 2 Lite — $0.031 за кадр' },
+      { k: 'Nano Banana 2 Pro', label: 'Pro', tip: 'Nano Banana 2 Pro — $0.134 за кадр' }
+    ].map(m => ({
+      label: m.label, tip: m.tip,
+      pick: () => this.setState({ model: m.k }),
+      style: 'display: flex; align-items: center; padding: 0 10px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.model === m.k ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const rate = { 'Nano Banana 2': 0.067, 'Nano Banana 2 Lite': 0.031, 'Nano Banana 2 Pro': 0.134 }[this.state.model];
+    const sum = (pickedIds.length * rate).toFixed(2);
+
+    const voMap = {
+      ready: { color: '#F2F1EE', glyph: 'width: 8px; height: 8px; border-radius: 50%; background: #0A9396;' },
+      run: { color: '#94D2BD', glyph: 'width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;' },
+      queued: { color: '#8B8D91', glyph: 'width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #5C5E62;' }
+    };
+    const voSections = VO.map(v => {
+      const m = voMap[v.st];
+      const on = this.state.voSel === v.name;
+      return {
+        name: v.name, dur: v.dur, durColor: m.color,
+        glyphStyle: m.glyph + ' flex: 0 0 auto;',
+        select: () => this.setState({ voSel: v.name }),
+        rowStyle: 'display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 4px; border-radius: 4px; cursor: pointer; '
+          + (on ? 'background: #1B1D20; box-shadow: inset 2px 0 0 #94D2BD;' : '')
+      };
+    });
+
+    const wave = Array.from({ length: 48 }).map((_, i) => {
+      const h = 4 + Math.round(Math.abs(Math.sin(i * 0.7) * Math.cos(i * 0.23)) * 22);
+      const passed = i < 26;
+      return { style: 'flex: 1; height: ' + h + 'px; border-radius: 1px; background: ' + (passed ? '#0A9396' : '#26282C') + ';' };
+    });
+
+    const voiceModels = ['v3', 'Multilingual v2'].map(v => ({
+      label: v,
+      pick: () => this.setState({ voiceModel: v }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.voiceModel === v ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const compare = [1, 2, 3].map(v => {
+      const on = this.state.chosen === v;
+      const rows = [
+        { k: 'Модель', v: v === 3 ? 'Nano Banana 2 Pro' : 'Nano Banana 2', color: '#F2F1EE' },
+        { k: 'Seed', v: v === 1 ? '418 902' : v === 2 ? '771 344' : '905 117', color: '#9A9C9F' },
+        { k: 'Создана', v: v === 1 ? '11:41' : v === 2 ? '11:58' : '12:24', color: '#9A9C9F' },
+        { k: 'Цена', v: v === 3 ? '$0.134' : '$0.067', color: '#F2F1EE' },
+        { k: 'Соответствие канону', v: v === 2 ? 'высокое' : v === 1 ? 'среднее' : 'высокое', color: v === 1 ? '#EE9B00' : '#0A9396' }
+      ];
+      return {
+        label: 'версия ' + v + ' из 3', chosen: on, rows,
+        pick: () => this.setState({ chosen: v, toast: 'Выбрана версия ' + v + ', остальные в истории кадра', toastBar: '#0A9396' }),
+        reference: () => this.setState({ toast: 'Версия ' + v + ' стала опорным портретом ранга', toastBar: '#0A9396' }),
+        pickLabel: on ? 'Выбрана' : 'Выбрать версию ' + v,
+        pickStyle: 'flex: 1; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; '
+          + (on ? 'background: #16171A; border: 1px solid #26282C; color: #6C6E72; cursor: default;' : 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE; cursor: pointer;'),
+        wrapStyle: 'display: flex; flex-direction: column; border-radius: 6px; background: #0C0D0F; border: 1px solid ' + (on ? '#94D2BD' : '#26282C') + '; cursor: pointer;',
+        frameStyle: 'position: relative; aspect-ratio: 16 / 9; border-radius: 6px 6px 0 0; background: #1B1D20; border-bottom: 1px solid ' + (on ? '#94D2BD' : '#26282C') + ';'
+      };
+    });
+
+    return {
+      stages: STAGES.map(s => ({
+        tip: s.tip,
+        go: () => goTo(FLOW[s.flag]),
+        isIdea: s.flag === 'isIdea', isScript: s.flag === 'isScript', isGen: s.flag === 'isGen',
+        isEdit: s.flag === 'isEdit', isExport: s.flag === 'isExport', isPub: s.flag === 'isPub',
+        icoColor: s.state === 'active' ? '#0C0D0F' : s.state === 'done' ? '#F2F1EE' : '#6C6E72',
+        wrapStyle: 'position: relative; width: 40px; height: 40px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; '
+          + (s.state === 'active' ? 'background: #94D2BD;' : ''),
+        glyphStyle: s.state === 'done'
+          ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: #F2F1EE;'
+          : s.state === 'todo'
+            ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; border: 1px solid #6C6E72;'
+            : 'display: none;'
+      })),
+      headNote: isGrid ? '104 кадра, 8 разделов' : 'сравнение версий кадра',
+      viewToggleLabel: isGrid ? 'Сравнить версии кадра' : 'К сетке кадров',
+      toggleView: () => this.setState({ view: isGrid ? 'Сравнение версий' : 'Сетка кадров' }),
+      isGrid, isCompare: !isGrid,
+      tracks, canon, sections,
+      openCanon: () => this.setState({ toast: 'Открыт канон: Cursus v4, Карибы 1716', toastBar: '#94D2BD' }),
+
+      models,
+      selLabel: pickedIds.length
+        ? 'Выбрано ' + pickedIds.length + ' кадров, из них 1 с ошибкой'
+        : 'Клик выбирает кадр, ⇧-клик — диапазон. Наведение открывает действия кадра',
+      selColor: pickedIds.length ? '#F2F1EE' : '#9A9C9F',
+      selBarStyle: 'height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-top: 1px solid #26282C; background: #08090A;',
+      redrawLabel: pickedIds.length
+        ? 'Перерисовать выбранные (' + pickedIds.length + ', ~$' + sum + ')'
+        : 'Перерисовать выбранные',
+      redrawStyle: 'height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; '
+        + (pickedIds.length ? 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE; cursor: pointer;' : 'background: #16171A; border: 1px solid #16171A; color: #6C6E72; cursor: default;'),
+      redrawSelected: () => pickedIds.length && this.setState({ toast: 'Перерисовано ' + pickedIds.length + ' кадров, списано $' + sum, toastBar: '#0A9396' }),
+
+      comparePrompt: 'Crowded main deck at dusk, raised hands of a voting crew, captain standing apart by the rail, cool blue light',
+      compare,
+      compareNote: 'Выбранная версия идёт в монтаж. Остальные остаются в истории кадра и доступны в любой момент.',
+      redrawOne: () => this.setState({ toast: 'Добавлена версия 4, списано $0.07', toastBar: '#0A9396' }),
+
+      voiceNote: 'ElevenLabs, ' + this.state.voiceModel,
+      voiceMeta: 'стабильность 0.42, схожесть 0.78, скорость 1.00',
+      playing: this.state.playing, stopped: !this.state.playing,
+      playTip: this.state.playing ? 'Пауза' : 'Прослушать раздел',
+      togglePlay: () => this.setState(s => ({ playing: !s.playing })),
+      wave, voiceModels, voSections,
+      voDone: '4 из 8 разделов, 00:08:19',
+      voiceAll: () => this.setState({ toast: 'Озвучено 8 разделов, списано $2.34', toastBar: '#0A9396' }),
+      revoiceLabel: 'Переозвучить раздел',
+      revoiceStyle: 'flex: 1 1 auto; min-width: 0; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;',
+      revoice: () => this.setState({ toast: 'Раздел «' + this.state.voSel + '» переозвучен', toastBar: '#0A9396' }),
+      upload: () => this.setState({ toast: 'Своя озвучка загружена, идёт выравнивание по тексту', toastBar: '#94D2BD' }),
+
+      statusLeft: 'Кадры 78 из 104, голос 4 из 7 разделов',
+      statusMid: '2 кадра с отказом фильтра: s047, s071',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

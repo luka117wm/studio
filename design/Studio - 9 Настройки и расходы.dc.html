@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Настройки</div>
+    <div style="font-size: 12px; color: #9A9C9F;">{{ headNote }}</div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+    <div onClick="{{ close }}" tabIndex="0" title="Закрыть настройки" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex;">
+
+    <div style="width: 224px; flex: 0 0 224px; background: #0C0D0F; border-right: 1px solid #26282C; display: flex; flex-direction: column; padding: 8px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+        <div onClick="{{ n.pick }}" tabIndex="0" style="{{ n.style }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+          <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 500;">{{ n.label }}</div>
+          <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: {{ n.noteColor }};">{{ n.note }}</div>
+          <div style="{{ n.glyphStyle }}"></div>
+        </div>
+      </sc-for>
+      <div style="flex: 1;"></div>
+      <div style="padding: 8px; font-size: 11px; line-height: 15px; color: #9A9C9F;">Ключи лежат в системном хранилище и в файлы проекта не попадают.</div>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+      <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+        <div style="font-size: 13px; font-weight: 600;">{{ sectionTitle }}</div>
+        <div style="font-size: 12px; color: #9A9C9F;">{{ sectionNote }}</div>
+        <div style="flex: 1;"></div>
+        <div style="font-size: 11px; color: #9A9C9F;">{{ sectionAside }}</div>
+      </div>
+
+      <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto;">
+
+        <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 12px;">
+            <div style="display: flex; align-items: center; height: 24px; padding: 0 8px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+              <div style="width: 200px; flex: 0 0 200px;">Провайдер</div>
+              <div style="flex: 1; min-width: 0;">Ключ</div>
+              <div style="width: 240px; flex: 0 0 240px;">Статус</div>
+              <div style="width: 120px; flex: 0 0 120px; text-align: right;">Расход месяца</div>
+              <div style="width: 96px; flex: 0 0 96px;"></div>
+            </div>
+            <sc-for list="{{ providers }}" as="p" hint-placeholder-count="6">
+              <div style="{{ p.rowStyle }}" style-hover="background: #0C0D0F;">
+                <div style="width: 200px; flex: 0 0 200px; display: flex; flex-direction: column;">
+                  <div class="cl1" style="font-size: 13px; font-weight: 500;">{{ p.name }}</div>
+                  <div class="cl1" style="font-size: 11px; color: #9A9C9F;">{{ p.role }}</div>
+                </div>
+                <div style="flex: 1; min-width: 0; padding-right: 12px;">
+                  <div style="height: 24px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid {{ p.keyBorder }}; border-radius: 4px;">
+                    <input value="{{ p.key }}" onChange="{{ p.setKey }}" placeholder="{{ p.keyPlaceholder }}" spellCheck="{{ false }}" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: {{ p.keyColor }}; font-family: 'Courier Prime', monospace; font-size: 12px;">
+                  </div>
+                </div>
+                <div style="width: 240px; flex: 0 0 240px; display: flex; align-items: center; gap: 8px; padding-right: 12px;">
+                  <div style="{{ p.glyphStyle }}"></div>
+                  <div style="min-width: 0; display: flex; flex-direction: column;">
+                    <div style="font-size: 12px; line-height: 15px; color: {{ p.stColor }};">{{ p.stLabel }}</div>
+                    <div class="cl1" style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ p.stHint }}</div>
+                  </div>
+                </div>
+                <div style="width: 120px; flex: 0 0 120px; padding-right: 12px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 13px; color: {{ p.spentColor }};">{{ p.spent }}</div>
+                <div style="width: 96px; flex: 0 0 96px; display: flex; justify-content: flex-end;">
+                  <div onClick="{{ p.check }}" tabIndex="0" style="{{ p.btnStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ p.btnLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: #9A9C9F;">{{ providersFootnote }}</div>
+              <div onClick="{{ checkAll }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Проверить все ключи</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRouting }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 12px;">
+            <div style="display: flex; align-items: center; height: 24px; padding: 0 8px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+              <div style="width: 168px; flex: 0 0 168px;">Этап</div>
+              <div style="width: 148px; flex: 0 0 148px;">Провайдер</div>
+              <div style="flex: 1; min-width: 0;">Модель</div>
+              <div style="width: 168px; flex: 0 0 168px; padding-right: 12px; text-align: right;">Цена за единицу</div>
+              <div style="width: 200px; flex: 0 0 200px; padding-left: 2px;">Режим</div>
+            </div>
+            <sc-for list="{{ routes }}" as="r" hint-placeholder-count="12">
+              <div style="{{ r.rowStyle }}" style-hover="background: #0C0D0F;">
+                <div style="width: 168px; flex: 0 0 168px; display: flex; align-items: center; gap: 8px;">
+                  <div style="{{ r.chipStyle }}"></div>
+                  <div class="cl1" style="font-size: 13px; font-weight: 500;">{{ r.stage }}</div>
+                </div>
+                <div onClick="{{ r.cycleProvider }}" tabIndex="0" style="width: 148px; flex: 0 0 148px; padding-right: 8px;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-radius: 4px; cursor: pointer;" style-hover="background: #16171A;">
+                    <div class="cl1" style="flex: 1; min-width: 0; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ r.provider }}</div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                  </div>
+                </div>
+                <div onClick="{{ r.cycleModel }}" tabIndex="0" style="flex: 1; min-width: 0; padding-right: 8px;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-radius: 4px; cursor: pointer;" style-hover="background: #16171A;">
+                    <div class="cl1" style="flex: 1; min-width: 0; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ r.model }}</div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                  </div>
+                </div>
+                <div style="width: 168px; flex: 0 0 168px; padding-right: 12px; text-align: right; display: flex; flex-direction: column;">
+                  <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ r.price }}</div>
+                  <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ r.unit }}</div>
+                </div>
+                <div style="width: 200px; flex: 0 0 200px; display: flex; gap: 2px; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; height: 24px;">
+                  <sc-for list="{{ r.modes }}" as="m" hint-placeholder-count="2">
+                    <div onClick="{{ m.pick }}" tabIndex="0" title="{{ m.tip }}" style="{{ m.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ m.label }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: #9A9C9F;">{{ routingFootnote }}</div>
+              <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 13px;">{{ routingTotal }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBudgets }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-width: 900px;">
+            <sc-for list="{{ budgets }}" as="b" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;">{{ b.title }}</div>
+                  <div style="font-size: 12px; color: #9A9C9F;">{{ b.hint }}</div>
+                  <div style="flex: 1;"></div>
+                  <div style="display: flex; align-items: center; gap: 4px; width: 92px; height: 24px; padding: 0 6px; background: #16171A; border: 1px solid #26282C; border-radius: 4px;">
+                    <span style="font-size: 12px; color: #9A9C9F;">$</span>
+                    <input value="{{ b.value }}" onChange="{{ b.set }}" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; text-align: right;">
+                  </div>
+                </div>
+                <div style="position: relative; height: 4px; background: #26282C; border-radius: 1px; overflow: hidden;">
+                  <div style="{{ b.fillStyle }}"></div>
+                </div>
+                <div style="display: flex; align-items: baseline; gap: 8px; font-size: 11px;">
+                  <div style="color: {{ b.usedColor }};">{{ b.used }}</div>
+                  <div style="flex: 1;"></div>
+                  <div style="color: #9A9C9F;">{{ b.left }}</div>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="font-size: 13px; font-weight: 600;">При превышении лимита</div>
+              <sc-for list="{{ overflowOptions }}" as="o" hint-placeholder-count="2">
+                <div onClick="{{ o.pick }}" tabIndex="0" style="{{ o.rowStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="{{ o.radioStyle }}">
+                    <div style="{{ o.dotStyle }}"></div>
+                  </div>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                    <div style="font-size: 12px; font-weight: 500;">{{ o.name }}</div>
+                    <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">{{ o.meta }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSpend }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+
+            <div style="display: flex; gap: 12px;">
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;">Сентябрь по дням</div>
+                  <div style="font-size: 12px; color: #9A9C9F;">$61.40 за 14 дней</div>
+                  <div style="flex: 1;"></div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5">
+                      <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="{{ l.chipStyle }}"></div>
+                        <div style="font-size: 11px; color: #9A9C9F;">{{ l.label }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="flex: 1; min-height: 128px; display: flex; align-items: stretch; gap: 4px;">
+                  <sc-for list="{{ days }}" as="d" hint-placeholder-count="14">
+                    <div title="{{ d.tip }}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px;">
+                      <div style="{{ d.barWrapStyle }}">
+                        <sc-for list="{{ d.parts }}" as="p" hint-placeholder-count="3">
+                          <div style="{{ p.style }}"></div>
+                        </sc-for>
+                      </div>
+                      <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 10px; color: {{ d.labelColor }};">{{ d.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="width: 240px; flex: 0 0 240px; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="font-size: 13px; font-weight: 600;">Итог по выпускам</div>
+                <sc-for list="{{ episodeTotals }}" as="e" hint-placeholder-count="4">
+                  <div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 6px; border-bottom: 1px solid #202225;">
+                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                      <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px;">{{ e.name }}</div>
+                      <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 500;">{{ e.sum }}</div>
+                    </div>
+                    <div style="font-size: 11px; color: #9A9C9F;">{{ e.meta }}</div>
+                  </div>
+                </sc-for>
+                <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px;">
+                  <div style="display: flex; align-items: baseline; gap: 8px;">
+                    <div style="flex: 1; font-size: 12px; color: #9A9C9F;">Средняя цена ролика</div>
+                    <div style="font-size: 15px; font-weight: 600;">$14.86</div>
+                  </div>
+                  <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">Cursus $17.20, Otto's Timeline $9.40. Раз в два дня — около $223 в месяц при текущих ценах.</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+              <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+                <div style="font-size: 13px; font-weight: 600;">Операции</div>
+                <div style="font-size: 12px; color: #9A9C9F;">последние 9 из 1 284</div>
+                <div style="flex: 1;"></div>
+                <div onClick="{{ exportCsv }}" tabIndex="0" style="height: 22px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Выгрузить CSV</div>
+              </div>
+              <div style="height: 24px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+                <div style="width: 96px; flex: 0 0 96px;">Время</div>
+                <div style="flex: 1; min-width: 0;">Выпуск</div>
+                <div style="width: 132px; flex: 0 0 132px;">Этап</div>
+                <div style="width: 200px; flex: 0 0 200px;">Модель</div>
+                <div style="width: 132px; flex: 0 0 132px; text-align: right;">Единицы</div>
+                <div style="width: 84px; flex: 0 0 84px; text-align: right;">Сумма</div>
+              </div>
+              <sc-for list="{{ ops }}" as="o" hint-placeholder-count="9">
+                <div style="{{ o.rowStyle }}" style-hover="background: #16171A;">
+                  <div style="width: 96px; flex: 0 0 96px; font-family: 'Courier Prime', monospace; font-size: 12px; color: #9A9C9F;">{{ o.time }}</div>
+                  <div class="cl1" style="flex: 1; min-width: 0; padding-right: 12px; font-size: 12px;">{{ o.episode }}</div>
+                  <div style="width: 132px; flex: 0 0 132px; display: flex; align-items: center; gap: 6px;">
+                    <div style="{{ o.chipStyle }}"></div>
+                    <div class="cl1" style="min-width: 0; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ o.stage }}</div>
+                  </div>
+                  <div class="cl1" style="width: 200px; flex: 0 0 200px; padding-right: 12px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ o.model }}</div>
+                  <div style="width: 132px; flex: 0 0 132px; padding-right: 12px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ o.units }}</div>
+                  <div style="width: 84px; flex: 0 0 84px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 500;">{{ o.sum }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isChannels }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; gap: 12px;">
+              <sc-for list="{{ channels }}" as="c" hint-placeholder-count="2">
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+                  <div style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+                    <div style="{{ c.avatarStyle }}">{{ c.initial }}</div>
+                    <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 600;">{{ c.name }}</div>
+                    <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ c.counts }}</div>
+                  </div>
+                  <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <sc-for list="{{ c.fields }}" as="f" hint-placeholder-count="5">
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 116px; flex: 0 0 116px; font-size: 12px; color: #9A9C9F;">{{ f.label }}</div>
+                        <div onClick="{{ f.cycle }}" tabIndex="0" style="flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                          <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px;">{{ f.value }}</div>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                        </div>
+                      </div>
+                    </sc-for>
+
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                      <div style="width: 116px; flex: 0 0 116px; padding-top: 4px; font-size: 12px; color: #9A9C9F;">Теги по умолчанию</div>
+                      <div style="flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px;">
+                        <sc-for list="{{ c.tags }}" as="t" hint-placeholder-count="4">
+                          <div style="height: 22px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 11px;">{{ t.name }}</div>
+                        </sc-for>
+                      </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid #202225;">
+                      <div style="{{ c.authGlyphStyle }}"></div>
+                      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                        <div class="cl1" style="font-family: 'Courier Prime', monospace; font-size: 12px;">{{ c.account }}</div>
+                        <div style="font-size: 11px; color: {{ c.authColor }};">{{ c.authLabel }}</div>
+                      </div>
+                      <div onClick="{{ c.reauth }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Переподключить</div>
+                    </div>
+
+                    <div style="font-family: 'Courier Prime', monospace; font-size: 11px; line-height: 16px; color: #9A9C9F;">{{ c.folder }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A9396" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 16px;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+              <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: #9A9C9F;">Каналы изолированы: у каждого свой токен Google, своя папка проектов и свой канон. Ассеты между каналами не переносятся.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isStorage }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px; max-width: 900px;">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="font-size: 13px; font-weight: 600;">Папка проектов</div>
+                <div style="flex: 1;"></div>
+                <div style="font-size: 12px; color: #9A9C9F;">свободно 214 ГБ</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-family: 'Courier Prime', monospace; font-size: 12px;">~/Studio</div>
+                <div onClick="{{ pickFolder }}" tabIndex="0" style="flex: 0 0 auto; height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Выбрать</div>
+              </div>
+              <div style="display: flex; height: 8px; border-radius: 2px; overflow: hidden;">
+                <sc-for list="{{ storageParts }}" as="s" hint-placeholder-count="4">
+                  <div title="{{ s.tip }}" style="{{ s.style }}"></div>
+                </sc-for>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                <sc-for list="{{ storageParts }}" as="s" hint-placeholder-count="4">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="{{ s.chipStyle }}"></div>
+                    <div style="font-size: 11px; color: #9A9C9F;">{{ s.label }}</div>
+                    <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px;">{{ s.size }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="font-size: 13px; font-weight: 600;">Что удалять автоматически</div>
+              <sc-for list="{{ cleanRules }}" as="c" hint-placeholder-count="3">
+                <div onClick="{{ c.toggle }}" tabIndex="0" style="display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">
+                  <div style="{{ c.boxStyle }}">
+                    <sc-if value="{{ c.on }}" hint-placeholder-val="{{ true }}">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                    </sc-if>
+                  </div>
+                  <div style="flex: 1; min-width: 0; font-size: 12px;">{{ c.label }}</div>
+                  <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ c.size }}</div>
+                </div>
+              </sc-for>
+              <div onClick="{{ cleanNow }}" tabIndex="0" style="align-self: flex-start; height: 28px; display: flex; align-items: center; padding: 0 12px; margin-top: 4px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ cleanLabel }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isHotkeys }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 12px; display: flex; gap: 12px; align-items: flex-start;">
+            <sc-for list="{{ hotkeyGroups }}" as="g" hint-placeholder-count="3">
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+                <div style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+                  <div style="font-size: 13px; font-weight: 600;">{{ g.title }}</div>
+                </div>
+                <sc-for list="{{ g.items }}" as="k" hint-placeholder-count="8">
+                  <div style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-bottom: 1px solid #1E2023;" style-hover="background: #16171A;">
+                    <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px;">{{ k.label }}</div>
+                    <div style="{{ k.keyStyle }}">{{ k.key }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>{{ statusLeft }}</div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>Esc закрыть настройки</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Провайдеры&quot;,&quot;Маршрутизация моделей&quot;,&quot;Бюджеты&quot;,&quot;Расходы&quot;,&quot;Каналы&quot;,&quot;Хранилище&quot;,&quot;Горячие клавиши&quot;],&quot;default&quot;:&quot;Провайдеры&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Экран&quot;}}">
+const NAV = [
+  { k: 'Провайдеры', note: '1 ошибка', bad: true },
+  { k: 'Маршрутизация моделей', note: '12', bad: false },
+  { k: 'Бюджеты', note: '$150', bad: false },
+  { k: 'Расходы', note: '$61.40', bad: false },
+  { k: 'Каналы', note: '2', bad: false },
+  { k: 'Хранилище', note: '214 ГБ', bad: false },
+  { k: 'Горячие клавиши', note: '', bad: false }
+];
+
+const PROVIDERS = [
+  { name: 'Anthropic', role: 'сценарий, план, метаданные', key: 'sk-ant-api03-•••••••••••4f2a', st: 'ok', hint: 'проверен сегодня в 11:58', spent: '$3.14' },
+  { name: 'Google Gemini', role: 'кадры, обложки, анимация Veo', key: 'AIza•••••••••••••••7bQ1', st: 'ok', hint: 'проверен сегодня в 11:58', spent: '$41.82' },
+  { name: 'ElevenLabs', role: 'закадровый голос', key: 'sk_•••••••••••••••c093', st: 'ok', hint: '212 400 из 600 000 знаков', spent: '$14.30' },
+  { name: 'Kling', role: 'анимация кадров, альтернатива Veo', key: '', st: 'none', hint: 'ключ не задан, этап уйдёт в Veo', spent: '$0.00' },
+  { name: 'YouTube (OAuth)', role: 'загрузка и обложки', key: 'oauth: otto.cursus@gmail.com', st: 'fail', hint: 'токен истёк 12 сентября', spent: '$0.00' },
+  { name: 'Шлюз (OpenAI-совместимый)', role: 'резерв для текстовых этапов', key: 'https://gate.local/v1', st: 'ok', hint: 'проверен 11 сентября', spent: '$2.14' }
+];
+
+const STAGE_COLOR = {
+  'Тренды': '#7FA8B0', 'Сценарий': '#7FA8B0', 'Факт-чек': '#7FA8B0', 'Режиссёрский план': '#7FA8B0',
+  'Метаданные': '#7FA8B0', 'Кадры': '#E9D8A6', 'Hero-кадры': '#E9D8A6', 'Обложки': '#E9D8A6',
+  'Голос': '#0A9396', 'Анимация': '#94D2BD', 'SFX': '#CA6702', 'Музыка': '#3A6E7E'
+};
+
+const ROUTES = [
+  { stage: 'Тренды', provider: 'Google', model: 'YouTube Data API v3', price: '$0.0032', unit: 'за запрос квоты', mode: 'API' },
+  { stage: 'Сценарий', provider: 'Anthropic', model: 'Claude Sonnet 4.5', price: '$3.00 / $15.00', unit: 'за 1M вход / выход', mode: 'API' },
+  { stage: 'Факт-чек', provider: 'Anthropic', model: 'Claude Sonnet 4.5 + поиск', price: '$0.01', unit: 'за утверждение', mode: 'API' },
+  { stage: 'Режиссёрский план', provider: 'Anthropic', model: 'Claude Opus 4.1', price: '$15.00 / $75.00', unit: 'за 1M вход / выход', mode: 'Мост' },
+  { stage: 'Метаданные', provider: 'Anthropic', model: 'Claude Haiku 4.5', price: '$1.00 / $5.00', unit: 'за 1M вход / выход', mode: 'API' },
+  { stage: 'Кадры', provider: 'Google', model: 'Nano Banana 2', price: '$0.067', unit: 'за кадр', mode: 'API' },
+  { stage: 'Hero-кадры', provider: 'Google', model: 'Nano Banana 2 Pro', price: '$0.134', unit: 'за кадр', mode: 'API' },
+  { stage: 'Обложки', provider: 'Google', model: 'Nano Banana 2 Pro', price: '$0.134', unit: 'за вариант', mode: 'API' },
+  { stage: 'Голос', provider: 'ElevenLabs', model: 'Eleven v3', price: '$0.18', unit: 'за 1 000 знаков', mode: 'API' },
+  { stage: 'Анимация', provider: 'Google', model: 'Veo 3.1 Lite', price: '$0.03', unit: 'за секунду', mode: 'API' },
+  { stage: 'SFX', provider: 'ElevenLabs', model: 'Sound Effects', price: '$0.01', unit: 'за эффект', mode: 'API' },
+  { stage: 'Музыка', provider: 'Локально', model: 'библиотека канала', price: '$0.00', unit: 'подложки куплены', mode: 'API' }
+];
+
+const PROVIDER_CYCLE = ['Anthropic', 'Google', 'ElevenLabs', 'Kling', 'Шлюз', 'Локально'];
+const MODEL_CYCLE = {
+  'Anthropic': ['Claude Sonnet 4.5', 'Claude Opus 4.1', 'Claude Haiku 4.5'],
+  'Google': ['Nano Banana 2', 'Nano Banana 2 Lite', 'Nano Banana 2 Pro', 'Veo 3.1 Lite'],
+  'ElevenLabs': ['Eleven v3', 'Multilingual v2', 'Sound Effects'],
+  'Kling': ['Kling 3.0'],
+  'Шлюз': ['gpt-oss-120b'],
+  'Локально': ['библиотека канала']
+};
+
+const DAYS = [
+  { d: 1, parts: [['Кадры', 2.1], ['Голос', 0.8]] },
+  { d: 2, parts: [['Текст', 0.4]] },
+  { d: 3, parts: [['Кадры', 5.4], ['Голос', 1.9], ['Текст', 0.6]] },
+  { d: 4, parts: [['Кадры', 1.2], ['Анимация', 0.9]] },
+  { d: 5, parts: [['Текст', 0.3]] },
+  { d: 6, parts: [['Кадры', 6.1], ['Голос', 2.2], ['SFX', 0.2]] },
+  { d: 7, parts: [['Кадры', 2.4], ['Анимация', 1.4]] },
+  { d: 8, parts: [['Текст', 0.5], ['Голос', 0.7]] },
+  { d: 9, parts: [['Кадры', 7.2], ['Голос', 2.4], ['Текст', 0.8]] },
+  { d: 10, parts: [['Кадры', 1.8], ['SFX', 0.3]] },
+  { d: 11, parts: [['Кадры', 4.6], ['Голос', 1.4], ['Текст', 0.9]] },
+  { d: 12, parts: [['Анимация', 1.2], ['SFX', 0.2]] },
+  { d: 13, parts: [['Кадры', 0.9], ['Текст', 0.4]] },
+  { d: 14, parts: [['Кадры', 5.2], ['Голос', 1.9], ['Анимация', 0.6]] }
+];
+
+const GROUP_COLOR = { 'Кадры': '#E9D8A6', 'Голос': '#0A9396', 'Текст': '#7FA8B0', 'Анимация': '#94D2BD', 'SFX': '#CA6702' };
+
+const OPS = [
+  { time: '12:41:08', ep: 'Pirate Ship', stage: 'Кадры', model: 'Nano Banana 2', units: '12 кадров', sum: '$0.80' },
+  { time: '12:39:52', ep: 'Pirate Ship', stage: 'Голос', model: 'Eleven v3', units: '3 140 знаков', sum: '$0.57' },
+  { time: '12:24:17', ep: 'Pirate Ship', stage: 'Анимация', model: 'Veo 3.1 Lite', units: '4 с', sum: '$0.12' },
+  { time: '11:58:41', ep: 'Pirate Ship', stage: 'Режиссёрский план', model: 'Claude Opus 4.1', units: '18.2K / 9.4K', sum: '$0.98' },
+  { time: '11:54:03', ep: 'Pirate Ship', stage: 'Факт-чек', model: 'Claude Sonnet 4.5', units: '14 утверждений', sum: '$0.14' },
+  { time: '11:12:36', ep: 'Medieval Monastery', stage: 'Кадры', model: 'Nano Banana 2', units: '78 кадров', sum: '$5.23' },
+  { time: '10:47:52', ep: 'Medieval Monastery', stage: 'Сценарий', model: 'Claude Sonnet 4.5', units: '22.4K / 12.1K', sum: '$0.25' },
+  { time: '09:38:14', ep: 'Victorian Chimney Sweep', stage: 'Кадры', model: 'Nano Banana 2 Pro', units: '12 кадров', sum: '$1.61' },
+  { time: '09:02:41', ep: 'Aztec Market Day', stage: 'Метаданные', model: 'Claude Haiku 4.5', units: '4.1K / 1.2K', sum: '$0.01' }
+];
+
+const HOTKEYS = [
+  { title: 'Оболочка', items: [
+    ['Открыть настройки', '⌘,'], ['Команды', '⌘K'], ['Поиск по выпускам', '⌘⇧F'],
+    ['Сохранить', '⌘S'], ['Горячие клавиши', '?'], ['Переключить канал', '⌘⇧C'],
+    ['Свернуть боковые панели', '⌥1 / ⌥3'], ['Закрыть окно', 'Esc']
+  ] },
+  { title: 'Этапы и монтаж', items: [
+    ['Идея / Сценарий / Генерация', '⌘1 … ⌘3'], ['Монтаж / Экспорт / Публикация', '⌘4 … ⌘6'],
+    ['Воспроизведение и пауза', 'Space'], ['Назад, стоп, вперёд', 'J K L'],
+    ['Кадр назад и вперёд', '← →'], ['Раздел назад и вперёд', 'Shift+← →'],
+    ['Лезвие', 'S'], ['Дублировать', 'D'], ['Удалить', 'Del'], ['Маркер на плейхеде', 'M']
+  ] },
+  { title: 'Кадры и звук', items: [
+    ['Перерисовать кадр', 'R'], ['Оживить кадр', 'A'], ['Версии кадра', 'V'],
+    ['Сделать опорным', '⌘⇧O'], ['Звуки кадра', 'F'], ['Экспорт', 'Ctrl+E'],
+    ['Отменить', 'Ctrl+Z'], ['Вернуть', 'Ctrl+Shift+Z']
+  ] }
+];
+
+class Component extends DCLogic {
+  state = {
+    section: null, keys: {}, routes: {}, modes: {},
+    monthly: 150, perEpisode: 20, perAnim: 3, overflow: 'Спросить',
+    clean: { drafts: true, versions: true, renders: false },
+    toast: '', toastBar: '#94D2BD'
+  };
+
+  renderVals() {
+    const section = this.state.section ?? this.props.section ?? 'Провайдеры';
+
+    const nav = NAV.map(n => ({
+      label: n.k, note: n.note,
+      noteColor: n.bad ? '#EE9B00' : '#9A9C9F',
+      pick: () => this.setState({ section: n.k }),
+      style: 'display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: 4px; cursor: pointer; '
+        + (section === n.k ? 'background: #16171A; box-shadow: inset 2px 0 0 #94D2BD;' : ''),
+      glyphStyle: n.bad
+        ? 'width: 0; height: 0; flex: 0 0 auto; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid #EE9B00;'
+        : 'display: none;'
+    }));
+
+    const stMap = {
+      ok: { label: 'проверен', color: '#F2F1EE', glyph: 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;' },
+      fail: { label: 'ошибка', color: '#F08C5D', glyph: 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;' },
+      none: { label: 'не задан', color: '#8B8D91', glyph: 'width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #5C5E62;' }
+    };
+
+    const providers = PROVIDERS.map(p => {
+      const m = stMap[p.st];
+      const key = this.state.keys[p.name] ?? p.key;
+      return {
+        name: p.name, role: p.role, key,
+        keyPlaceholder: p.st === 'none' ? 'Вставить ключ' : '',
+        keyColor: key ? '#F2F1EE' : '#9A9C9F',
+        keyBorder: p.st === 'fail' ? '#BB3E03' : '#26282C',
+        setKey: e => this.setState(s => ({ keys: Object.assign({}, s.keys, { [p.name]: e.target.value }) })),
+        stLabel: m.label, stColor: m.color, stHint: p.stHint || p.hint,
+        glyphStyle: m.glyph + ' flex: 0 0 auto;',
+        spent: p.spent,
+        spentColor: p.spent === '$0.00' ? '#9A9C9F' : '#F2F1EE',
+        btnLabel: p.st === 'fail' ? 'Войти' : 'Проверить',
+        btnStyle: 'height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; background: #16171A; border: 1px solid '
+          + (p.st === 'fail' ? '#BB3E03' : '#26282C') + '; color: ' + (p.st === 'fail' ? '#F08C5D' : '#F2F1EE') + ';',
+        check: () => this.setState({
+          toast: p.st === 'fail' ? 'Открыт вход Google для ' + p.name : 'Ключ ' + p.name + ' проверен',
+          toastBar: p.st === 'fail' ? '#EE9B00' : '#0A9396'
+        }),
+        rowStyle: 'display: flex; align-items: center; min-height: 40px; padding: 6px 8px; border-bottom: 1px solid #1E2023;'
+      };
+    });
+
+    const routes = ROUTES.map(r => {
+      const provider = this.state.routes[r.stage + '_p'] ?? r.provider;
+      const model = this.state.routes[r.stage + '_m'] ?? r.model;
+      const mode = this.state.modes[r.stage] ?? r.mode;
+      const list = MODEL_CYCLE[provider] || [model];
+      return {
+        stage: r.stage, provider, model, price: r.price, unit: r.unit,
+        chipStyle: 'width: 3px; height: 16px; flex: 0 0 3px; border-radius: 1px; background: ' + STAGE_COLOR[r.stage] + ';',
+        cycleProvider: () => {
+          const i = PROVIDER_CYCLE.indexOf(provider);
+          const next = PROVIDER_CYCLE[(i + 1) % PROVIDER_CYCLE.length];
+          this.setState(s => ({ routes: Object.assign({}, s.routes, { [r.stage + '_p']: next, [r.stage + '_m']: (MODEL_CYCLE[next] || [''])[0] }) }));
+        },
+        cycleModel: () => {
+          const i = list.indexOf(model);
+          this.setState(s => ({ routes: Object.assign({}, s.routes, { [r.stage + '_m']: list[(i + 1) % list.length] }) }));
+        },
+        modes: [
+          { k: 'API', label: 'API', tip: 'Запросы идут прямо в провайдера' },
+          { k: 'Мост', label: 'Мост через чат', tip: 'Промпт копируется вручную, ответ вставляется' }
+        ].map(m => ({
+          label: m.label, tip: m.tip,
+          pick: () => this.setState(s => ({ modes: Object.assign({}, s.modes, { [r.stage]: m.k }) })),
+          style: 'flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; cursor: pointer; '
+            + (mode === m.k ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+        })),
+        rowStyle: 'display: flex; align-items: center; min-height: 36px; padding: 4px 8px; border-bottom: 1px solid #1E2023;'
+      };
+    });
+
+    const bridgeCount = ROUTES.filter(r => (this.state.modes[r.stage] ?? r.mode) === 'Мост').length;
+
+    const budgets = [
+      { k: 'monthly', title: 'Лимит в месяц', hint: 'сентябрь', value: this.state.monthly, used: 61.40, unit: 'месяц' },
+      { k: 'perEpisode', title: 'Лимит на выпуск', hint: 'Pirate Ship', value: this.state.perEpisode, used: 13.40, unit: 'выпуск' },
+      { k: 'perAnim', title: 'Лимит на анимацию в выпуске', hint: 'Pirate Ship', value: this.state.perAnim, used: 1.20, unit: 'анимация' }
+    ].map(b => {
+      const pct = Math.min(100, Math.round(b.used / b.value * 100));
+      const hot = pct >= 80;
+      return {
+        title: b.title, hint: b.hint, value: String(b.value),
+        set: e => this.setState({ [b.k]: Math.max(1, parseInt(e.target.value, 10) || 1) }),
+        fillStyle: 'height: 4px; width: ' + pct + '%; background: ' + (hot ? '#EE9B00' : '#94D2BD') + ';',
+        used: 'Потрачено $' + b.used.toFixed(2) + ' — ' + pct + ' %',
+        usedColor: hot ? '#EE9B00' : '#F2F1EE',
+        left: 'осталось $' + Math.max(0, b.value - b.used).toFixed(2)
+      };
+    });
+
+    const overflowOptions = [
+      { k: 'Спросить', name: 'Спросить', meta: 'Показать диалог с ценой и остатком, действие ждёт подтверждения.' },
+      { k: 'Остановить', name: 'Остановить', meta: 'Платные действия блокируются до конца периода, очередь ставится на паузу.' }
+    ].map(o => {
+      const on = this.state.overflow === o.k;
+      return {
+        name: o.name, meta: o.meta,
+        pick: () => this.setState({ overflow: o.k }),
+        rowStyle: 'display: flex; gap: 8px; padding: 8px; border-radius: 4px; cursor: pointer; background: #16171A; border: 1px solid ' + (on ? '#94D2BD' : '#26282C') + ';',
+        radioStyle: 'width: 14px; height: 14px; flex: 0 0 14px; margin-top: 2px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid ' + (on ? '#94D2BD' : '#5C5E62') + ';',
+        dotStyle: on ? 'width: 7px; height: 7px; border-radius: 50%; background: #94D2BD;' : 'display: none;'
+      };
+    });
+
+    const maxDay = Math.max.apply(null, DAYS.map(d => d.parts.reduce((a, p) => a + p[1], 0)));
+    const days = DAYS.map(d => {
+      const sum = d.parts.reduce((a, p) => a + p[1], 0);
+      return {
+        label: String(d.d),
+        labelColor: d.d === 14 ? '#F2F1EE' : '#9A9C9F',
+        tip: d.d + ' сентября: $' + sum.toFixed(2) + ' — ' + d.parts.map(p => p[0] + ' $' + p[1].toFixed(2)).join(', '),
+        barWrapStyle: 'width: 100%; height: ' + Math.max(2, +(sum / maxDay * 100).toFixed(1)) + '%; display: flex; flex-direction: column-reverse; border-radius: 1px; overflow: hidden;',
+        parts: d.parts.map(p => ({
+          style: 'height: ' + (p[1] / sum * 100) + '%; background: ' + GROUP_COLOR[p[0]] + ';'
+        }))
+      };
+    });
+
+    const legend = Object.keys(GROUP_COLOR).map(k => ({
+      label: k,
+      chipStyle: 'width: 8px; height: 8px; border-radius: 2px; background: ' + GROUP_COLOR[k] + ';'
+    }));
+
+    const episodeTotals = [
+      { name: 'Pirate Ship', sum: '$13.40', meta: 'Cursus · 19:48 · 104 кадра' },
+      { name: 'Medieval Monastery', sum: '$9.86', meta: 'Cursus · в генерации · 78 из 104' },
+      { name: 'Victorian Chimney Sweep', sum: '$6.12', meta: "Otto's Timeline · 12 перерисовок" },
+      { name: 'Aztec Market Day', sum: '$8.94', meta: "Otto's Timeline · опубликован" }
+    ];
+
+    const ops = OPS.map(o => ({
+      time: o.time, episode: o.ep, stage: o.stage, model: o.model, units: o.units, sum: o.sum,
+      chipStyle: 'width: 3px; height: 14px; flex: 0 0 3px; border-radius: 1px; background: ' + (STAGE_COLOR[o.stage] || '#7FA8B0') + ';',
+      rowStyle: 'display: flex; align-items: center; height: 28px; padding: 0 12px; border-bottom: 1px solid #1E2023;'
+    }));
+
+    const channels = [
+      {
+        name: 'Cursus', initial: 'C', bg: '#E9D8A6', counts: '5 выпусков · $17.20 средняя',
+        fields: [
+          { label: 'Стиль', value: 'Cursus v4 — лантерна, 35 мм' },
+          { label: 'Голос', value: 'Rowan · Eleven v3' },
+          { label: 'Пресет длительности', value: '18–25 минут, 104 кадра' },
+          { label: 'Рассказчик', value: 'второе лицо, закадровый' }
+        ],
+        tags: ['every rank', 'history documentary', 'naval history', 'ranks explained'],
+        account: 'otto.cursus@gmail.com', auth: 'fail',
+        folder: '~/Studio/cursus'
+      },
+      {
+        name: "Otto's Timeline", initial: 'O', bg: '#94D2BD', counts: '4 выпуска · $9.40 средняя',
+        fields: [
+          { label: 'Стиль', value: 'Otto v2 — тёплый дневной свет' },
+          { label: 'Голос', value: 'Otto · Multilingual v2' },
+          { label: 'Пресет длительности', value: '6–10 минут, 52 кадра' },
+          { label: 'Рассказчик', value: 'Отто, ведущий в кадре' }
+        ],
+        tags: ['i survived', 'medieval life', 'time travel', 'daily life'],
+        account: 'otto.timeline@gmail.com', auth: 'ok',
+        folder: "~/Studio/ottos-timeline"
+      }
+    ].map(c => ({
+      name: c.name, initial: c.initial, counts: c.counts, account: c.account, folder: c.folder,
+      avatarStyle: 'width: 20px; height: 20px; flex: 0 0 20px; border-radius: 2px; background: ' + c.bg + '; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;',
+      fields: c.fields.map(f => ({
+        label: f.label, value: f.value,
+        cycle: () => this.setState({ toast: 'Поле «' + f.label + '» открыто для правки', toastBar: '#94D2BD' })
+      })),
+      tags: c.tags.map(name => ({ name })),
+      authLabel: c.auth === 'ok' ? 'доступ подтверждён 11 сентября' : 'токен истёк 12 сентября',
+      authColor: c.auth === 'ok' ? '#9A9C9F' : '#F08C5D',
+      authGlyphStyle: (c.auth === 'ok'
+        ? 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;'
+        : 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;') + ' flex: 0 0 auto;',
+      reauth: () => this.setState({ toast: 'Открыт вход Google: ' + c.account, toastBar: '#EE9B00' })
+    }));
+
+    const storageParts = [
+      { label: 'Кадры', size: '184 ГБ', color: '#E9D8A6', pct: 62 },
+      { label: 'Мастера и рендеры', size: '68 ГБ', color: '#7FA8B0', pct: 23 },
+      { label: 'Голос и SFX', size: '21 ГБ', color: '#0A9396', pct: 7 },
+      { label: 'Свободно', size: '214 ГБ', color: '#26282C', pct: 8 }
+    ].map(s => ({
+      label: s.label, size: s.size,
+      tip: s.label + ': ' + s.size,
+      style: 'width: ' + s.pct + '%; background: ' + s.color + ';',
+      chipStyle: 'width: 8px; height: 8px; border-radius: 2px; background: ' + s.color + ';'
+    }));
+
+    const cleanRules = [
+      { k: 'drafts', label: 'Черновые рендеры 720p старше 7 дней', size: '12 ГБ' },
+      { k: 'versions', label: 'Невыбранные версии кадров опубликованных выпусков', size: '46 ГБ' },
+      { k: 'renders', label: 'Мастера опубликованных выпусков старше 30 дней', size: '31 ГБ' }
+    ].map(c => ({
+      label: c.label, size: c.size, on: this.state.clean[c.k],
+      toggle: () => this.setState(s => ({ clean: Object.assign({}, s.clean, { [c.k]: !s.clean[c.k] }) })),
+      boxStyle: 'width: 14px; height: 14px; flex: 0 0 14px; border-radius: 3px; display: flex; align-items: center; justify-content: center; '
+        + (this.state.clean[c.k] ? 'background: #94D2BD;' : 'border: 1px solid #3A3D42;')
+    }));
+
+    const cleanSize = ['drafts', 'versions', 'renders'].reduce((a, k, i) => a + (this.state.clean[k] ? [12, 46, 31][i] : 0), 0);
+
+    const hotkeyGroups = HOTKEYS.map(g => ({
+      title: g.title,
+      items: g.items.map(i => ({
+        label: i[0], key: i[1],
+        keyStyle: 'height: 20px; display: flex; align-items: center; padding: 0 6px; border-radius: 4px; background: #16171A; border: 1px solid #26282C; font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 11px; font-weight: 500; white-space: nowrap;'
+      }))
+    }));
+
+    const notes = {
+      'Провайдеры': ['6 провайдеров', 'ключи в системном хранилище'],
+      'Маршрутизация моделей': ['12 этапов', 'цены проверены 11.09.2026'],
+      'Бюджеты': ['месяц, выпуск, анимация', 'период: 1–30 сентября'],
+      'Расходы': ['$61.40 за сентябрь', '1 284 операции'],
+      'Каналы': ['2 канала', 'токены и папки раздельные'],
+      'Хранилище': ['~/Studio', 'занято 273 ГБ из 487'],
+      'Горячие клавиши': ['24 сочетания', 'правка сочетаний в файле keymap.json']
+    }[section] || ['', ''];
+
+    return {
+      headNote: 'локальное приложение · версия 0.9.4',
+      close: () => this.setState({ toast: 'Настройки закрыты', toastBar: '#94D2BD' }),
+      nav,
+      sectionTitle: section,
+      sectionNote: notes[0],
+      sectionAside: notes[1],
+
+      isProviders: section === 'Провайдеры',
+      isRouting: section === 'Маршрутизация моделей',
+      isBudgets: section === 'Бюджеты',
+      isSpend: section === 'Расходы',
+      isChannels: section === 'Каналы',
+      isStorage: section === 'Хранилище',
+      isHotkeys: section === 'Горячие клавиши',
+
+      providers,
+      providersFootnote: 'Токен YouTube истёк — публикация через API недоступна, пока не выполнен вход. Ключ Kling не задан: этап анимации уходит в Veo.',
+      checkAll: () => this.setState({ toast: 'Проверено 6 ключей: 4 в порядке, 1 ошибка, 1 не задан', toastBar: '#EE9B00' }),
+
+      routes,
+      routingFootnote: bridgeCount
+        ? bridgeCount + ' этап идёт через мост: промпт копируется вручную, ответ вставляется в приложение.'
+        : 'Все этапы идут через API. Мост нужен, когда у модели нет ключа или лимит исчерпан.',
+      routingTotal: 'Выпуск 20 минут: ~$13.40',
+
+      budgets, overflowOptions,
+
+      days, legend, episodeTotals, ops,
+      exportCsv: () => this.setState({ toast: 'Выгружено 1 284 операции в CSV', toastBar: '#0A9396' }),
+
+      channels,
+
+      storageParts, cleanRules,
+      cleanLabel: cleanSize ? 'Очистить сейчас (' + cleanSize + ' ГБ)' : 'Очистить сейчас',
+      cleanNow: () => cleanSize && this.setState({ toast: 'Освобождено ' + cleanSize + ' ГБ', toastBar: '#0A9396' }),
+      pickFolder: () => this.setState({ toast: 'Папка проектов выбрана', toastBar: '#94D2BD' }),
+
+      hotkeyGroups,
+
+      statusLeft: 'Расход сентября $61.40 из $' + this.state.monthly + ', средняя цена ролика $14.86',
+      statusMid: 'Токен YouTube истёк 12 сентября',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

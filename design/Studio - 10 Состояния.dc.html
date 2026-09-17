@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Состояния</div>
+    <div style="font-size: 12px; color: #9A9C9F;">{{ headNote }}</div>
+    <div style="flex: 1;"></div>
+    <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="4">
+        <div onClick="{{ g.pick }}" tabIndex="0" style="{{ g.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ g.label }}</div>
+      </sc-for>
+    </div>
+    <div onClick="{{ openKeys }}" tabIndex="0" title="Горячие клавиши" style="{{ keysBtnStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">?</div>
+  </div>
+
+  <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px;">
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="display: flex; gap: 16px;">
+          <sc-for list="{{ emptySmall }}" as="e" hint-placeholder-count="3">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">{{ e.where }}</div>
+                <div style="font-size: 11px; color: #9A9C9F;">{{ e.note }}</div>
+              </div>
+              <div style="height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="{{ e.iconWrapStyle }}">
+                  <sc-if value="{{ e.isEpisodes }}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18"></path><path d="M8 4v5"></path></svg></sc-if>
+                  <sc-if value="{{ e.isIdeas }}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8 14a5 5 0 1 1 8 0c-.7.9-1.2 1.8-1.4 4H9.4C9.2 15.8 8.7 14.9 8 14Z"></path></svg></sc-if>
+                  <sc-if value="{{ e.isPlan }}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></sc-if>
+                  <sc-if value="{{ e.isShots }}" hint-placeholder-val="{{ false }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 4 1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8Z"></path><path d="M18 15v4"></path><path d="M16 17h4"></path></svg></sc-if>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 300px;">
+                  <div style="font-size: 15px; font-weight: 600; text-align: center;">{{ e.title }}</div>
+                  <div style="font-size: 12px; line-height: 17px; color: #9A9C9F; text-align: center; text-wrap: pretty;">{{ e.body }}</div>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: 2px;">
+                  <div onClick="{{ e.primary }}" tabIndex="0" style="min-height: 28px; display: flex; align-items: center; justify-content: center; padding: 5px 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; line-height: 16px; font-weight: 500; text-align: center; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">{{ e.primaryLabel }}</div>
+                  <div onClick="{{ e.secondary }}" tabIndex="0" style="min-height: 28px; display: flex; align-items: center; justify-content: center; padding: 5px 10px; border-radius: 4px; font-size: 13px; line-height: 16px; font-weight: 500; color: #9A9C9F; text-align: center; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ e.secondaryLabel }}</div>
+                </div>
+                <div style="font-size: 11px; color: #9A9C9F;">{{ e.hint }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; gap: 16px;">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 600;">Генерация — кадры не сгенерированы</div>
+              <div style="font-size: 11px; color: #9A9C9F;">план утверждён, очередь пуста</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;">
+                <sc-for list="{{ emptyShots }}" as="s" hint-placeholder-count="12">
+                  <div style="{{ s.style }}">
+                    <div style="font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ s.num }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                  <div style="font-size: 13px; font-weight: 600;">104 кадра ждут генерации</div>
+                  <div style="font-size: 12px; line-height: 17px; color: #9A9C9F;">Промпты и движение уже в плане. Голос готов, поэтому длительности известны — кадры встанут точно под озвучку.</div>
+                </div>
+                <div onClick="{{ genAll }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Сгенерировать 104 кадра (~$6.97)</div>
+                <div onClick="{{ genSection }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Только первый раздел (6)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 600;">Монтаж — нет озвучки</div>
+            <div style="font-size: 11px; color: #EE9B00;">таймлайн по оценочным длительностям</div>
+          </div>
+          <div style="display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+            <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+              <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;"></div>
+              <div style="font-size: 12px; font-weight: 500; color: #EE9B00;">Черновой тайминг</div>
+              <div style="font-size: 12px; color: #9A9C9F;">Длительности посчитаны по тексту: 152 слова в минуту. После озвучки кадры сдвинутся.</div>
+              <div style="flex: 1;"></div>
+              <div onClick="{{ voiceAll }}" tabIndex="0" style="height: 22px; display: flex; align-items: center; padding: 0 10px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Озвучить всё (23 400 символов, ~$2.34)</div>
+            </div>
+            <div style="display: flex;">
+              <div style="width: 72px; flex: 0 0 72px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+                <sc-for list="{{ draftLabels }}" as="l" hint-placeholder-count="4">
+                  <div style="{{ l.style }}">
+                    <div style="{{ l.chipStyle }}"></div>
+                    <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: {{ l.color }};">{{ l.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex: 1; min-width: 0; position: relative;">
+                <div style="height: 16px; display: flex; border-bottom: 1px solid #26282C;">
+                  <sc-for list="{{ draftTicks }}" as="t" hint-placeholder-count="10">
+                    <div style="{{ t.style }}">
+                      <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 10px; line-height: 12px; color: #9A9C9F; padding-left: 3px;">{{ t.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="height: 26px; position: relative; border-bottom: 1px solid #1E2023; background: #050506;">
+                  <sc-for list="{{ draftSubs }}" as="c" hint-placeholder-count="8">
+                    <div title="{{ c.tip }}" style="{{ c.style }}"></div>
+                  </sc-for>
+                </div>
+                <div style="height: 48px; position: relative; border-bottom: 1px solid #1E2023; background: #050506;">
+                  <sc-for list="{{ draftShots }}" as="c" hint-placeholder-count="10">
+                    <div title="{{ c.tip }}" style="{{ c.style }}">
+                      <div style="position: absolute; left: 3px; top: 2px; font-family: 'Courier Prime', monospace; font-size: 10px; color: #EE9B00;">{{ c.num }}</div>
+                      <div style="position: absolute; right: 3px; bottom: 2px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 10px; color: #EE9B00;">{{ c.dur }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="height: 30px; position: relative; background: #050506; display: flex; align-items: center; padding: 0 10px;">
+                  <div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: repeating-linear-gradient(90deg, #26282C 0 6px, transparent 6px 12px);"></div>
+                  <div style="position: relative; display: flex; align-items: center; gap: 8px; padding: 0 8px; height: 20px; background: #0C0D0F; border: 1px dashed #EE9B00; border-radius: 2px;">
+                    <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #EE9B00;">Дорожка голоса пуста — длительности оценочные</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isProcess }}" hint-placeholder-val="{{ false }}">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+        <sc-for list="{{ processes }}" as="p" hint-placeholder-count="4">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 600;">{{ p.where }}</div>
+              <div style="font-size: 11px; color: #9A9C9F;">{{ p.note }}</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="{{ p.glyphStyle }}"></div>
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 500;">{{ p.title }}</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 13px; color: {{ p.pctColor }};">{{ p.pct }}</div>
+                <div onClick="{{ p.pause }}" tabIndex="0" title="{{ p.pauseTip }}" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <sc-if value="{{ p.running }}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 5v14"></path><path d="M15 5v14"></path></svg></sc-if>
+                  <sc-if value="{{ p.paused }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8Z"></path></svg></sc-if>
+                </div>
+                <div onClick="{{ p.cancel }}" tabIndex="0" title="Отменить" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #BB3E031F; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 2px;">
+                <sc-for list="{{ p.steps }}" as="st" hint-placeholder-count="4">
+                  <div title="{{ st.tip }}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                    <div style="{{ st.barStyle }}"></div>
+                    <div class="cl1" style="font-size: 10px; line-height: 13px; color: {{ st.color }};">{{ st.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; align-items: baseline; gap: 12px; font-size: 11px; color: #9A9C9F;">
+                <div style="color: {{ p.currentColor }};">{{ p.current }}</div>
+                <div style="flex: 1;"></div>
+                <div>{{ p.eta }}</div>
+              </div>
+              <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">{{ p.footnote }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isErrors }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+          <sc-for list="{{ errors }}" as="e" hint-placeholder-count="5">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">{{ e.where }}</div>
+                <div style="font-size: 11px; color: #9A9C9F;">{{ e.kindLabel }}</div>
+              </div>
+              <div style="{{ e.cardStyle }}">
+                <div style="display: flex; gap: 10px;">
+                  <div style="{{ e.glyphStyle }}"></div>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                    <div style="font-size: 13px; font-weight: 500; color: {{ e.titleColor }};">{{ e.title }}</div>
+                    <div style="font-size: 12px; line-height: 17px; color: #9A9C9F; text-wrap: pretty;">{{ e.body }}</div>
+                    <sc-if value="{{ e.hasDetail }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-family: 'Courier Prime', monospace; font-size: 11px; line-height: 16px; color: #9A9C9F; padding: 4px 6px; margin-top: 2px; background: #050506; border: 1px solid #26282C; border-radius: 2px;">{{ e.detail }}</div>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ e.hasCountdown }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                      <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 15px; font-weight: 600; color: #EE9B00;">{{ e.countdown }}</div>
+                      <div style="width: 48px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+                        <div style="{{ e.countdownBarStyle }}"></div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div onClick="{{ e.primary }}" tabIndex="0" style="{{ e.primaryStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ e.primaryLabel }}</div>
+                  <div onClick="{{ e.secondary }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ e.secondaryLabel }}</div>
+                  <div style="flex: 1;"></div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ e.aside }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isConflict }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 600;">Монтаж и генерация — план изменён после генерации</div>
+            <div style="font-size: 11px; color: #9A9C9F;">полоса под лентой этапов, живёт до решения</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1a1206; border: 1px solid #EE9B00; border-radius: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EE9B00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 16px;"><path d="M12 3 2.5 20h19Z"></path><path d="M12 9v5"></path><path d="M12 17h.01"></path></svg>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+              <div style="font-size: 13px; font-weight: 500; color: #EE9B00;">План изменён после генерации — 6 кадров устарели</div>
+              <div style="font-size: 12px; color: #9A9C9F;">{{ conflictBody }}</div>
+            </div>
+            <div onClick="{{ regen }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Перегенерировать 6 (~$0.40)</div>
+            <div onClick="{{ keepOld }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Оставить старые</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 600;">Что именно разошлось</div>
+            <div style="font-size: 11px; color: #9A9C9F;">6 кадров, изменения из плана от 12:38</div>
+          </div>
+          <div style="display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+            <div style="height: 24px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+              <div style="width: 40px; flex: 0 0 40px;"></div>
+              <div style="width: 64px; flex: 0 0 64px;">Кадр</div>
+              <div style="width: 132px; flex: 0 0 132px;">Раздел</div>
+              <div style="flex: 1; min-width: 0;">Что изменилось в плане</div>
+              <div style="width: 148px; flex: 0 0 148px;">Кадр нарисован</div>
+              <div style="width: 84px; flex: 0 0 84px; text-align: right;">Цена</div>
+            </div>
+            <sc-for list="{{ stale }}" as="s" hint-placeholder-count="6">
+              <div onClick="{{ s.toggle }}" style="{{ s.rowStyle }}" style-hover="background: #16171A;">
+                <div style="width: 40px; flex: 0 0 40px;">
+                  <div style="{{ s.boxStyle }}">
+                    <sc-if value="{{ s.on }}" hint-placeholder-val="{{ true }}">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                    </sc-if>
+                  </div>
+                </div>
+                <div style="width: 64px; flex: 0 0 64px; font-family: 'Courier Prime', monospace; font-size: 12px; color: #EE9B00;">{{ s.num }}</div>
+                <div class="cl1" style="width: 132px; flex: 0 0 132px; padding-right: 8px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ s.section }}</div>
+                <div class="cl1" style="flex: 1; min-width: 0; padding-right: 12px; font-size: 12px;">{{ s.change }}</div>
+                <div style="width: 148px; flex: 0 0 148px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ s.drawn }}</div>
+                <div style="width: 84px; flex: 0 0 84px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ s.price }}</div>
+              </div>
+            </sc-for>
+            <div style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid #26282C; background: #08090A;">
+              <div style="font-size: 12px; color: #9A9C9F;">{{ staleNote }}</div>
+              <div style="flex: 1;"></div>
+              <div onClick="{{ regenPicked }}" tabIndex="0" style="{{ regenPickedStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ regenPickedLabel }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>{{ statusLeft }}</div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>? горячие клавиши</div>
+  </div>
+
+  <sc-if value="{{ keysOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeKeys }}" style="position: absolute; inset: 0; z-index: 10; background: #000000cc; display: flex; align-items: center; justify-content: center; padding: 32px;">
+      <div style="width: 1000px; max-width: 100%; max-height: 100%; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #3A3D42; border-radius: 6px; box-shadow: 0 8px 24px #00000066; overflow: hidden;">
+        <div style="height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+          <div style="font-size: 13px; font-weight: 600;">Горячие клавиши</div>
+          <div style="font-size: 12px; color: #9A9C9F;">монтаж и генерация</div>
+          <div style="flex: 1;"></div>
+          <div onClick="{{ closeKeys }}" tabIndex="0" title="Закрыть" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+          </div>
+        </div>
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; gap: 12px; align-items: flex-start;">
+          <sc-for list="{{ keyGroups }}" as="g" hint-placeholder-count="3">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; height: 24px; font-size: 12px; font-weight: 600; color: #9A9C9F;">{{ g.title }}</div>
+              <sc-for list="{{ g.items }}" as="k" hint-placeholder-count="6">
+                <div style="display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; border-radius: 4px; background: #16171A; border: 1px solid #26282C;">
+                  <div style="flex: 1; min-width: 0; font-size: 12px; text-wrap: pretty;">{{ k.label }}</div>
+                  <div style="display: flex; gap: 3px;">
+                    <sc-for list="{{ k.keys }}" as="key" hint-placeholder-count="2">
+                      <div style="height: 20px; display: flex; align-items: center; padding: 0 6px; border-radius: 4px; background: #0C0D0F; border: 1px solid #3A3D42; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 600; white-space: nowrap;">{{ key.k }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="height: 32px; flex: 0 0 32px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+          <div>Сочетания меняются в настройках, раздел «Горячие клавиши»</div>
+          <div style="flex: 1;"></div>
+          <div>Esc или ? закрывает</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;group&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Пустые&quot;,&quot;Процесс&quot;,&quot;Ошибки&quot;,&quot;Конфликт&quot;],&quot;default&quot;:&quot;Пустые&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Экран&quot;}}">
+const KEYS = [
+  { title: 'Просмотр', items: [
+    { label: 'Воспроизведение и пауза', keys: ['Space'] },
+    { label: 'Назад, стоп, вперёд', keys: ['J', 'K', 'L'] },
+    { label: 'Кадр назад и вперёд', keys: ['←', '→'] },
+    { label: 'Раздел назад и вперёд', keys: ['Shift+←', 'Shift+→'] },
+    { label: 'Маркер на плейхеде', keys: ['M'] }
+  ] },
+  { title: 'Монтаж', items: [
+    { label: 'Лезвие', keys: ['S'] },
+    { label: 'Дублировать', keys: ['D'] },
+    { label: 'Удалить', keys: ['Del'] },
+    { label: 'Отменить', keys: ['Ctrl+Z'] },
+    { label: 'Вернуть', keys: ['Ctrl+Shift+Z'] }
+  ] },
+  { title: 'Кадры и вывод', items: [
+    { label: 'Перерисовать кадр', keys: ['R'] },
+    { label: 'Оживить кадр', keys: ['A'] },
+    { label: 'Экспорт', keys: ['Ctrl+E'] },
+    { label: 'Горячие клавиши', keys: ['?'] }
+  ] }
+];
+
+const STALE = [
+  { num: 's044', section: 'Powder monkey', change: 'Промпт: добавлен фонарь в руке юнги', drawn: '11 сентября, 11:12', price: '$0.07' },
+  { num: 's045', section: 'Powder monkey', change: 'VO переписан, длительность 4.0 → 5.2 с', drawn: '11 сентября, 11:12', price: '$0.07' },
+  { num: 's058', section: 'Boatswain', change: 'Герой: добавлен боцман во втором плане', drawn: '11 сентября, 11:26', price: '$0.07' },
+  { num: 's059', section: 'Boatswain', change: 'План: detail → action', drawn: '11 сентября, 11:26', price: '$0.07' },
+  { num: 's071', section: 'Quartermaster', change: 'Промпт: убраны стилевые слова', drawn: '11 сентября, 11:41', price: '$0.07' },
+  { num: 's072', section: 'Quartermaster', change: 'Раздел разбит, кадр перенесён', drawn: '11 сентября, 11:41', price: '$0.07' }
+];
+
+class Component extends DCLogic {
+  state = {
+    group: null, keysOpen: false, paused: {}, picked: {},
+    countdown: 40, toast: '', toastBar: '#94D2BD'
+  };
+
+  componentDidMount() {
+    const picked = {};
+    STALE.forEach(s => { picked[s.num] = true; });
+    this.setState({ picked });
+    this._key = e => {
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); this.setState(s => ({ keysOpen: !s.keysOpen })); }
+      if (e.key === 'Escape') this.setState({ keysOpen: false });
+    };
+    window.addEventListener('keydown', this._key);
+    this._tick = setInterval(() => this.setState(s => ({ countdown: s.countdown > 1 ? s.countdown - 1 : 40 })), 1000);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._key);
+    clearInterval(this._tick);
+  }
+
+  renderVals() {
+    const group = this.state.group ?? this.props.group ?? 'Пустые';
+    const toast = (text, bar) => () => this.setState({ toast: text, toastBar: bar || '#0A9396' });
+
+    const groups = ['Пустые', 'Процесс', 'Ошибки', 'Конфликт'].map(g => ({
+      label: g,
+      pick: () => this.setState({ group: g }),
+      style: 'display: flex; align-items: center; padding: 0 12px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (group === g ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const emptySmall = [
+      {
+        k: 'episodes', where: 'Выпуски — пусто', note: 'первый запуск',
+        title: 'Выпусков пока нет',
+        body: 'Выпуск — это один ролик от идеи до публикации. Начните с пустого или возьмите тему из радара трендов.',
+        primaryLabel: 'Новый выпуск', secondaryLabel: 'Открыть идеи',
+        hint: 'Слот публикации: 15 сентября'
+      },
+      {
+        k: 'ideas', where: 'Идеи — пусто', note: 'радар не запускался',
+        title: 'Радар ещё не собран',
+        body: 'Семена ниши заданы: every rank, medieval life, pirates, ancient jobs. Запустите радар — найдутся выбросы и кластеры тем.',
+        primaryLabel: 'Обновить радар (38 запросов квоты, ~$0.12)', secondaryLabel: 'Разобрать референс',
+        hint: 'Квота дня: 0 из 10 000'
+      },
+      {
+        k: 'plan', where: 'Сценарий и план — плана нет', note: 'сценарий готов',
+        title: 'План кадров не загружен',
+        body: 'Сценарий на 3 060 слов есть. План собирает кадры, промпты, движение и звук — частями по 26 кадров.',
+        primaryLabel: 'Собрать план (~$0.98)', secondaryLabel: 'Вставить план из чата',
+        hint: 'Оценка: 104 кадра, 8 разделов'
+      }
+    ].map(e => ({
+      where: e.where, note: e.note, title: e.title, body: e.body, hint: e.hint,
+      isEpisodes: e.k === 'episodes', isIdeas: e.k === 'ideas', isPlan: e.k === 'plan', isShots: false,
+      iconWrapStyle: 'width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #16171A; border: 1px solid #26282C; color: #9A9C9F;',
+      primaryLabel: e.primaryLabel, secondaryLabel: e.secondaryLabel,
+      primary: toast(e.k === 'episodes' ? 'Открыт диалог «Новый выпуск»' : e.k === 'ideas' ? 'Радар обновлён: 10 выбросов, 4 идеи' : 'План собран: 104 кадра', '#0A9396'),
+      secondary: toast(e.k === 'episodes' ? 'Открыты идеи' : e.k === 'ideas' ? 'Открыт разбор референса' : 'Открыта вставка плана из чата', '#94D2BD')
+    }));
+
+    const emptyShots = Array.from({ length: 12 }).map((_, i) => ({
+      num: 's' + String(i + 1).padStart(3, '0'),
+      style: 'aspect-ratio: 16 / 9; border-radius: 2px; display: flex; align-items: flex-end; padding: 3px 4px; background: #050506; border: 1px dashed #26282C;'
+    }));
+
+    const draftLabels = [
+      { label: '', h: 16, color: '#9A9C9F', chip: 'transparent' },
+      { label: 'Субтитры', h: 26, color: '#9A9C9F', chip: '#7FA8B0' },
+      { label: 'Кадры', h: 48, color: '#EE9B00', chip: '#EE9B00' },
+      { label: 'Голос', h: 30, color: '#EE9B00', chip: '#26282C' }
+    ].map((l, i) => ({
+      label: l.label, color: l.color,
+      chipStyle: 'width: 3px; height: 12px; border-radius: 1px; background: ' + l.chip + ';',
+      style: 'height: ' + l.h + 'px; flex: 0 0 ' + l.h + 'px; display: flex; align-items: center; gap: 6px; padding: 0 8px; '
+        + (i < 3 ? 'border-bottom: 1px solid #1E2023;' : '')
+    }));
+
+    const draftTicks = Array.from({ length: 10 }).map((_, i) => ({
+      label: i % 2 === 0 ? (i * 10) + ':00' : '',
+      style: 'flex: 1; min-width: 0; border-left: 1px solid ' + (i % 2 === 0 ? '#26282C' : '#1E2023') + ';'
+    }));
+
+    const draftSubs = Array.from({ length: 14 }).map((_, i) => ({
+      tip: 'Фраза ' + (i + 1) + ', длительность по тексту',
+      style: 'position: absolute; left: ' + (i * 7.1 + 0.4) + '%; width: ' + (5.4 + (i % 3) * 0.6) + '%; top: 4px; bottom: 4px; border-radius: 2px; background: #7FA8B0; opacity: 0.55;'
+    }));
+
+    const draftShots = Array.from({ length: 11 }).map((_, i) => ({
+      num: 's' + String(i + 1).padStart(3, '0'),
+      dur: (3.8 + (i % 4) * 0.6).toFixed(1) + 'с',
+      tip: 's' + String(i + 1).padStart(3, '0') + ': длительность оценочная, посчитана по тексту',
+      style: 'position: absolute; left: ' + (i * 9.05 + 0.3) + '%; width: 8.5%; top: 4px; bottom: 4px; border-radius: 2px; background: #1B1D20; border: 1px dashed #EE9B00;'
+    }));
+
+    const stepOf = (label, pct, state) => ({
+      label, tip: label + ': ' + (state === 'done' ? 'готово' : state === 'run' ? pct + ' %' : 'в очереди'),
+      color: state === 'done' ? '#F2F1EE' : state === 'run' ? '#94D2BD' : '#8B8D91',
+      barStyle: 'height: 3px; border-radius: 1px; background: '
+        + (state === 'done' ? '#F2F1EE' : state === 'run'
+          ? 'linear-gradient(90deg, #94D2BD ' + pct + '%, #26282C ' + pct + '%)'
+          : '#1E2023') + ';'
+    });
+
+    const processes = [
+      {
+        k: 'shots', where: 'Генерация — пакет кадров', note: 'очередь не блокирует работу',
+        title: 'Генерирую кадры: 78 из 104', pct: '75 %',
+        steps: [stepOf('Раздел 1–4', 100, 'done'), stepOf('Boatswain', 62, 'run'), stepOf('Quartermaster', 0, 'todo'), stepOf('Captain', 0, 'todo')],
+        current: 'Кадр s079 · параллельно 3 запроса', currentColor: '#9A9C9F',
+        eta: 'осталось ~9 мин', footnote: 'Потрачено $5.23 из $6.97 по смете. Отмена оставит уже нарисованные кадры.'
+      },
+      {
+        k: 'voice', where: 'Генерация — озвучка', note: 'голос ведёт тайминг',
+        title: 'Озвучиваю: 4 из 8 разделов', pct: '57 %',
+        steps: [stepOf('Cold open', 100, 'done'), stepOf('Able seaman', 100, 'done'), stepOf('Boatswain', 34, 'run'), stepOf('Captain и Outro', 0, 'todo')],
+        current: 'Раздел Boatswain, 2 140 из 6 300 знаков', currentColor: '#9A9C9F',
+        eta: 'осталось ~4 мин', footnote: 'После каждого раздела кадры сдвигаются под его длительность.'
+      },
+      {
+        k: 'render', where: 'Экспорт — рендер', note: 'локально, без расходов',
+        title: 'Рендер YouTube 1080p', pct: '63 %',
+        steps: [stepOf('Кадры', 100, 'done'), stepOf('Склейка', 100, 'done'), stepOf('Звук', 42, 'run'), stepOf('Субтитры и финал', 0, 'todo')],
+        current: 'Кадр 22 836 из 35 640 · s063 дополнен последним кадром', currentColor: '#EE9B00',
+        eta: 'осталось ~5 мин', footnote: 'NVENC, 61 fps. Лог ffmpeg открывается по кнопке «Показать лог».'
+      },
+      {
+        k: 'upload', where: 'Публикация — загрузка', note: 'возобновляемая',
+        title: 'Загружаю на YouTube', pct: '68 %',
+        steps: [stepOf('Видео', 68, 'run'), stepOf('Обложка', 0, 'todo'), stepOf('Субтитры', 0, 'todo'), stepOf('Расписание', 0, 'todo')],
+        current: '843 МБ из 1.24 ГБ · 11.4 МБ/с', currentColor: '#9A9C9F',
+        eta: 'осталось ~1 мин', footnote: 'После обрыва связи загрузка продолжится с 843 МБ.'
+      }
+    ].map(p => {
+      const paused = !!this.state.paused[p.k];
+      return {
+        where: p.where, note: p.note, title: p.title,
+        pct: paused ? 'на паузе' : p.pct,
+        pctColor: paused ? '#EE9B00' : '#94D2BD',
+        steps: p.steps, current: p.current, currentColor: p.currentColor,
+        eta: paused ? 'пауза' : p.eta, footnote: p.footnote,
+        running: !paused, paused,
+        pauseTip: paused ? 'Продолжить' : 'Пауза',
+        glyphStyle: (paused
+          ? 'width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid #EE9B00;'
+          : 'width: 9px; height: 9px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #14312C 2px 4px); animation: hatch 1.2s linear infinite;') + ' flex: 0 0 auto;',
+        pause: () => this.setState(s => ({
+          paused: Object.assign({}, s.paused, { [p.k]: !s.paused[p.k] }),
+          toast: s.paused[p.k] ? 'Продолжено' : 'Поставлено на паузу', toastBar: '#EE9B00'
+        })),
+        cancel: toast('Отменено', '#BB3E03')
+      };
+    });
+
+    const cd = this.state.countdown;
+
+    const errors = [
+      {
+        k: 'key', where: 'Настройки — провайдеры', kindLabel: 'ключ недействителен', kind: 'fail',
+        title: 'Ключ ElevenLabs отклонён',
+        body: 'Провайдер ответил 401: ключ отозван или скопирован не полностью. Озвучка приостановлена, кадры генерируются дальше.',
+        detail: 'POST /v1/text-to-speech → 401 invalid_api_key',
+        primaryLabel: 'Открыть провайдеры', secondaryLabel: 'Отключить озвучку',
+        aside: 'ключ хранится локально'
+      },
+      {
+        k: 'rate', where: 'Генерация — кадры', kindLabel: 'лимит провайдера', kind: 'warn',
+        title: 'Лимит запросов Gemini, повтор через 40 с',
+        body: 'Провайдер держит 60 запросов в минуту. Очередь ждёт сама, 26 кадров останутся в очереди, уже нарисованные не пропадут.',
+        primaryLabel: 'Повторить сейчас', secondaryLabel: 'Снизить параллельность до 1',
+        aside: '78 из 104 готовы', countdown: true
+      },
+      {
+        k: 'budget', where: 'Любое платное действие', kindLabel: 'бюджет превышен', kind: 'warn',
+        title: 'Лимит выпуска исчерпан: $20.00 из $20.00',
+        body: 'Перерисовка 12 кадров стоит $0.80 — выйдет за лимит выпуска. Поднимите лимит или отложите действие на следующий период.',
+        primaryLabel: 'Поднять лимит выпуска', secondaryLabel: 'Отложить действие',
+        aside: 'месяц: $61.40 из $150'
+      },
+      {
+        k: 'net', where: 'Оболочка', kindLabel: 'нет сети', kind: 'fail',
+        title: 'Сети нет — платные этапы недоступны',
+        body: 'Монтаж, правка плана и экспорт работают локально. Генерация и загрузка возобновятся сами, когда связь вернётся.',
+        primaryLabel: 'Проверить соединение', secondaryLabel: 'Работать локально',
+        aside: 'последняя синхронизация 12:41'
+      },
+      {
+        k: 'file', where: 'Монтаж — кадр', kindLabel: 'файл не найден', kind: 'fail',
+        title: 'Файл кадра s047 не найден',
+        body: 'Файл переименован или удалён вне приложения. Укажите его заново или перерисуйте кадр — промпт и параметры движения сохранились.',
+        detail: '~/Studio/cursus/pirate-ship/shots/s047.png',
+        primaryLabel: 'Указать файл', secondaryLabel: 'Перерисовать (~$0.07)',
+        aside: 'ещё 2 файла не найдены'
+      }
+    ].map(e => {
+      const warn = e.kind === 'warn';
+      return {
+        where: e.where, kindLabel: e.kindLabel, title: e.title, body: e.body,
+        hasDetail: !!e.detail, detail: e.detail || '',
+        titleColor: warn ? '#EE9B00' : '#F08C5D',
+        cardStyle: 'display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 6px; background: ' + (warn ? '#1a1206' : '#1a0b05') + '; border: 1px solid ' + (warn ? '#EE9B00' : '#BB3E03') + ';',
+        glyphStyle: (warn
+          ? 'width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 13px solid #EE9B00; margin-top: 3px;'
+          : 'width: 13px; height: 13px; border-radius: 2px; border: 1.5px solid #BB3E03; margin-top: 3px;') + ' flex: 0 0 auto;',
+        hasCountdown: !!e.countdown,
+        countdown: cd + ' с',
+        countdownBarStyle: 'height: 2px; width: ' + Math.round(cd / 40 * 100) + '%; background: #EE9B00;',
+        primaryLabel: e.primaryLabel, secondaryLabel: e.secondaryLabel, aside: e.aside,
+        primaryStyle: 'height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; background: #16171A; border: 1px solid '
+          + (warn ? '#EE9B00' : '#BB3E03') + '; color: ' + (warn ? '#EE9B00' : '#F08C5D') + ';',
+        primary: toast(e.primaryLabel, warn ? '#EE9B00' : '#BB3E03'),
+        secondary: toast(e.secondaryLabel, '#94D2BD')
+      };
+    });
+
+    const picked = Object.keys(this.state.picked).filter(k => this.state.picked[k]);
+    const stale = STALE.map(s => {
+      const on = !!this.state.picked[s.num];
+      return {
+        num: s.num, section: s.section, change: s.change, drawn: s.drawn, price: s.price, on,
+        toggle: () => this.setState(st => ({ picked: Object.assign({}, st.picked, { [s.num]: !st.picked[s.num] }) })),
+        rowStyle: 'display: flex; align-items: center; height: 32px; padding: 0 12px; border-bottom: 1px solid #1E2023; cursor: pointer; '
+          + (on ? 'box-shadow: inset 2px 0 0 #EE9B00;' : ''),
+        boxStyle: 'width: 14px; height: 14px; border-radius: 3px; display: flex; align-items: center; justify-content: center; '
+          + (on ? 'background: #94D2BD;' : 'border: 1px solid #3A3D42;')
+      };
+    });
+
+    return {
+      headNote: 'пустые, процесс, ошибки, конфликт · оверлей клавиш по «?»',
+      groups,
+      isEmpty: group === 'Пустые', isProcess: group === 'Процесс',
+      isErrors: group === 'Ошибки', isConflict: group === 'Конфликт',
+
+      keysOpen: this.state.keysOpen,
+      keysBtnStyle: 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; '
+        + (this.state.keysOpen ? 'background: #94D2BD; color: #000000;' : 'color: #9A9C9F;'),
+      openKeys: () => this.setState(s => ({ keysOpen: !s.keysOpen })),
+      closeKeys: () => this.setState({ keysOpen: false }),
+      keyGroups: KEYS.map(g => ({
+        title: g.title,
+        items: g.items.map(i => ({ label: i.label, keys: i.keys.map(k => ({ k })) }))
+      })),
+
+      emptySmall, emptyShots,
+      genAll: toast('Сгенерировано 104 кадра, списано $6.97'),
+      genSection: toast('Сгенерировано 6 кадров, списано $0.40'),
+      voiceAll: toast('Озвучено 8 разделов, списано $2.34'),
+      draftLabels, draftTicks, draftSubs, draftShots,
+
+      processes, errors,
+
+      conflictBody: 'После генерации в плане поменялись промпты, длительности и герои. Кадры нарисованы по старой версии.',
+      regen: toast('Перегенерировано 6 кадров, списано $0.40'),
+      keepOld: toast('Старые кадры оставлены, метка устаревших снята', '#94D2BD'),
+      stale,
+      staleNote: picked.length ? 'Выбрано ' + picked.length + ' из 6 кадров' : 'Кадры не выбраны',
+      regenPickedLabel: picked.length
+        ? 'Перегенерировать ' + picked.length + ' (~$' + (picked.length * 0.067).toFixed(2) + ')'
+        : 'Перегенерировать выбранные',
+      regenPickedStyle: 'height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; '
+        + (picked.length ? 'background: #94D2BD; color: #000000; cursor: pointer;' : 'background: #16171A; border: 1px solid #16171A; color: #6C6E72; cursor: default;'),
+      regenPicked: () => picked.length && this.setState({ toast: 'Перегенерировано ' + picked.length + ' кадров, списано $' + (picked.length * 0.067).toFixed(2), toastBar: '#0A9396' }),
+
+      statusLeft: group === 'Пустые' ? 'Пустые состояния: каждое предлагает следующее действие'
+        : group === 'Процесс' ? 'Процессы: этап, процент, пауза и отмена в каждом'
+        : group === 'Ошибки' ? 'Ошибки: что случилось и что сделать'
+        : 'Конфликт плана и генерации: 6 кадров устарели',
+      statusMid: 'Палитра и плотность общие с рабочими экранами',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

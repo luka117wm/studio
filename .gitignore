@@ -1,0 +1,25 @@
+# данные и секреты
+data/
+*.env
+.env*
+!.env.example
+backend/.env
+.claude/settings.local.json
+
+# сборка и кэши
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+frontend/.vite/
+
+# ос и редакторы
+.DS_Store
+*.swp
+
+# артефакты прототипов, которые не нужны в истории
+design/uploads/*.png.part

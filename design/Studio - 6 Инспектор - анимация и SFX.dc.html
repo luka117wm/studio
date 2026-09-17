@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 5 Монтаж.dc.html" title="К монтажу" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Инспектор: анимация и SFX</div>
+    <div style="font-size: 12px; color: #9A9C9F;">три состояния правой колонки монтажа, ширина 320</div>
+    <div style="flex: 1;"></div>
+    <div title="Лимит выпуска на анимацию" style="display: flex; flex-direction: column; gap: 4px; padding-right: 12px; border-right: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="color: #9A9C9F;">На анимацию</span>
+        <span style="font-weight: 500;">{{ animSpent }}</span>
+        <span style="color: #9A9C9F;">из $3.00</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="{{ animLimitStyle }}"></div>
+      </div>
+    </div>
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; justify-content: center; gap: 24px; padding: 16px 24px;">
+
+    <div style="width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <div style="width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: #94D2BD; color: #000000; font-size: 11px; font-weight: 600;">A</div>
+        <div style="font-size: 13px; font-weight: 600;">Анимация кадра</div>
+        <div style="font-size: 12px; color: #9A9C9F;">s047</div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 15 6-6 6 6"></path></svg>
+          <div style="flex: 1; font-size: 13px; font-weight: 500;">Анимация</div>
+          <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: {{ animStateColor }};">{{ animState }}</div>
+        </div>
+
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;">
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+            <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 8px; align-self: flex-start; border-radius: 4px; background: #94D2BD;">
+              <div style="font-size: 11px; font-weight: 600; color: #000000;">Рекомендуется: толпа и движение, 4 с</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <div style="display: flex; gap: 6px; font-size: 11px; line-height: 15px;">
+                <div style="width: 8px; height: 8px; flex: 0 0 8px; margin-top: 3px; border-radius: 50%; background: #0A9396;"></div>
+                <div style="color: #9A9C9F;"><span style="color: #F2F1EE;">Хорошо оживает:</span> вода, огонь, дым, толпа, ткань, медленная камера.</div>
+              </div>
+              <div style="display: flex; gap: 6px; font-size: 11px; line-height: 15px;">
+                <div style="width: 0; height: 0; flex: 0 0 8px; margin-top: 4px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid #EE9B00;"></div>
+                <div style="color: #9A9C9F;"><span style="color: #F2F1EE;">Плохо:</span> руки и лица крупным планом, текст в кадре, быстрые действия.</div>
+              </div>
+              <div style="display: flex; gap: 6px; font-size: 11px; line-height: 15px;">
+                <div style="width: 8px; height: 8px; flex: 0 0 8px; margin-top: 3px; border-radius: 2px; border: 1.5px solid #5C5E62;"></div>
+                <div style="color: #9A9C9F;">Кадр остаётся картинкой, пока анимация не выбрана вручную.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #26282C;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Промпт движения (EN)</div>
+              <div style="flex: 1;"></div>
+              <div style="font-size: 11px; color: #9A9C9F;">из промпта кадра</div>
+            </div>
+            <textarea value="{{ motionPrompt }}" onChange="{{ setMotionPrompt }}" class="sc" spellCheck="{{ false }}" style="height: 88px; resize: none; padding: 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; color: #F2F1EE; font-family: 'Courier Prime', monospace; font-size: 12px; line-height: 18px; outline: none;"></textarea>
+            <div onClick="{{ suggestPrompt }}" tabIndex="0" style="height: 24px; align-self: flex-start; display: flex; align-items: center; font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Предложить промпт</div>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Модель</div>
+            <sc-for list="{{ animModels }}" as="m" hint-placeholder-count="2">
+              <div onClick="{{ m.pick }}" tabIndex="0" style="{{ m.rowStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div style="{{ m.radioStyle }}">
+                  <div style="{{ m.radioDotStyle }}"></div>
+                </div>
+                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                  <div style="font-size: 12px; font-weight: 500;">{{ m.name }}</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ m.meta }}</div>
+                </div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: {{ m.priceColor }};">{{ m.price }}</div>
+              </div>
+            </sc-for>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 72px; flex: 0 0 72px; font-size: 11px; color: #9A9C9F;">Длительность</div>
+              <div style="flex: 1; height: 24px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+                <sc-for list="{{ animDurs }}" as="d" hint-placeholder-count="3">
+                  <div onClick="{{ d.pick }}" tabIndex="0" style="{{ d.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ d.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6C6E72" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4Z"></path><path d="m17 9 4 6"></path><path d="m21 9-4 6"></path></svg>
+              <div style="font-size: 11px; color: #9A9C9F;">Звук клипа выключен — дорожки SFX и голоса не перекрываются.</div>
+            </div>
+          </div>
+
+          <sc-if value="{{ animRunning }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid #26282C;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #14312C 2px 4px); animation: hatch 1.2s linear infinite;"></div>
+                <div style="flex: 1; font-size: 12px; color: #94D2BD;">Оживляю кадр, ~2 мин</div>
+                <div onClick="{{ cancelAnim }}" tabIndex="0" style="font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Отменить</div>
+              </div>
+              <div style="height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+                <div style="height: 2px; width: 34%; background: repeating-linear-gradient(45deg, #94D2BD 0 3px, #14312C 3px 6px); animation: hatch 1.2s linear infinite;"></div>
+              </div>
+              <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">Работа не блокируется: на клипе s047 в таймлайне идёт штриховка, монтаж доступен.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ animDone }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #0A9396;"></div>
+                <div style="flex: 1; font-size: 12px;">Клип готов, 4 с, 720p</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">$0.12</div>
+              </div>
+              <div style="height: 24px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+                <sc-for list="{{ srcToggle }}" as="s" hint-placeholder-count="2">
+                  <div onClick="{{ s.pick }}" tabIndex="0" style="{{ s.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ s.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+          <div onClick="{{ animate }}" tabIndex="0" style="{{ animateStyle }}" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">{{ animateLabel }}</div>
+          <div style="display: flex; align-items: baseline; gap: 6px; font-size: 11px; color: #9A9C9F;">
+            <span>На анимацию {{ animSpent }} из $3.00</span>
+            <div style="flex: 1;"></div>
+            <span>{{ animLeftLabel }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <div style="width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: #CA6702; color: #000000; font-size: 11px; font-weight: 600;">B</div>
+        <div style="font-size: 13px; font-weight: 600;">Звуковые эффекты</div>
+        <div style="font-size: 12px; color: #9A9C9F;">s047</div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 15 6-6 6 6"></path></svg>
+          <div style="flex: 1; font-size: 13px; font-weight: 500;">SFX</div>
+          <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ sfxNote }}</div>
+        </div>
+
+        <div style="height: 20px; flex: 0 0 20px; display: flex; align-items: center; padding: 0 8px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">
+          <div style="flex: 1; min-width: 0;">Эффект</div>
+          <div style="width: 48px; text-align: right;">Начало</div>
+          <div style="width: 40px; text-align: right;">Длина</div>
+          <div style="width: 44px; text-align: right;">Громк.</div>
+          <div style="width: 44px;"></div>
+        </div>
+
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;">
+          <sc-for list="{{ sfxRows }}" as="r" hint-placeholder-count="3">
+            <div style="{{ r.rowStyle }}" style-hover="background: #16171A;">
+              <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px;">{{ r.name }}</div>
+              <div style="width: 48px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ r.at }}</div>
+              <div style="width: 40px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">{{ r.dur }}</div>
+              <div style="width: 44px; text-align: right; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px;">{{ r.gain }}</div>
+              <div style="width: 44px; display: flex; justify-content: flex-end; gap: 2px;">
+                <div onClick="{{ r.play }}" tabIndex="0" title="Прослушать" style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 3px; color: #9A9C9F; cursor: pointer;" style-hover="background: #1B1D20; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8Z"></path></svg>
+                </div>
+                <div onClick="{{ r.remove }}" tabIndex="0" title="Удалить" style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 3px; color: #9A9C9F; cursor: pointer;" style-hover="background: #BB3E031F; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #26282C;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Из плана кадра</div>
+              <div style="flex: 1;"></div>
+              <div style="font-size: 11px; color: #9A9C9F;">{{ sfxPlanNote }}</div>
+            </div>
+            <sc-for list="{{ sfxPlan }}" as="p" hint-placeholder-count="2">
+              <div onClick="{{ p.add }}" tabIndex="0" style="{{ p.style }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div style="width: 16px; height: 16px; flex: 0 0 16px; display: flex; align-items: center; justify-content: center; color: {{ p.icoColor }};">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                </div>
+                <div class="cl1" style="flex: 1; min-width: 0; font-family: 'Courier Prime', monospace; font-size: 12px; color: {{ p.textColor }};">{{ p.name }}</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ p.at }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+          <div onClick="{{ addFromPlan }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; justify-content: center; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">{{ addFromPlanLabel }}</div>
+          <div style="display: flex; gap: 4px;">
+            <div onClick="{{ genSfx }}" tabIndex="0" style="flex: 1 1 auto; min-width: 0; height: 28px; display: flex; align-items: center; justify-content: center; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Сгенерировать (~$0.01)</div>
+            <div onClick="{{ fromLibrary }}" tabIndex="0" style="flex: 0 0 auto; height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Из библиотеки</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <div style="width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: #E9D8A6; color: #000000; font-size: 11px; font-weight: 600;">C</div>
+        <div style="font-size: 13px; font-weight: 600;">Выделено 12 кадров</div>
+        <div style="font-size: 12px; color: #9A9C9F;">групповая правка</div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+          <div style="flex: 1; font-size: 13px; font-weight: 500;">s042 – s053</div>
+          <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: #9A9C9F;">00:00:52 общей длины</div>
+        </div>
+
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;">
+
+          <div style="padding: 12px; display: flex; flex-wrap: wrap; gap: 3px; border-bottom: 1px solid #26282C;">
+            <sc-for list="{{ groupChips }}" as="c" hint-placeholder-count="12">
+              <div title="{{ c.tip }}" style="{{ c.style }}">{{ c.num }}</div>
+            </sc-for>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Движение</div>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;">
+              <sc-for list="{{ groupMotions }}" as="m" hint-placeholder-count="8">
+                <div onClick="{{ m.pick }}" tabIndex="0" style="{{ m.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ m.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: {{ motionNoteColor }};">{{ motionNote }}</div>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="flex: 1; font-size: 12px; font-weight: 500; color: #9A9C9F;">Сила движения</div>
+              <div style="display: flex; align-items: center; gap: 4px; width: 76px; flex: 0 0 76px; height: 24px; padding: 0 6px; background: #16171A; border: 1px solid #26282C; border-radius: 4px;">
+                <input value="{{ forceText }}" onChange="{{ setForce }}" placeholder="разные" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: {{ forceColor }}; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; text-align: right;">
+                <span style="font-size: 11px; color: #9A9C9F;">%</span>
+              </div>
+            </div>
+            <div onClick="{{ setForceFromClick }}" style="position: relative; height: 20px; display: flex; align-items: center; cursor: pointer;">
+              <div style="width: 100%; height: 2px; background: #26282C; border-radius: 1px;"></div>
+              <div style="{{ forceFillStyle }}"></div>
+              <div style="{{ forceKnobStyle }}"></div>
+              <sc-for list="{{ forceSpread }}" as="s" hint-placeholder-count="5">
+                <div title="{{ s.tip }}" style="{{ s.style }}"></div>
+              </sc-for>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: {{ forceNoteColor }};">{{ forceNote }}</div>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #26282C;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Переход в кадр</div>
+            <div style="display: flex; gap: 4px;">
+              <sc-for list="{{ groupTransitions }}" as="t" hint-placeholder-count="3">
+                <div onClick="{{ t.pick }}" tabIndex="0" style="{{ t.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ t.label }}</div>
+              </sc-for>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: {{ trNoteColor }};">{{ trNote }}</div>
+          </div>
+
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Платные действия для выделенных</div>
+            <div onClick="{{ groupRedraw }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; justify-content: center; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Перерисовать 12 кадров (~$0.80)</div>
+            <div onClick="{{ groupAnimate }}" tabIndex="0" style="{{ groupAnimStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ groupAnimLabel }}</div>
+            <div style="font-size: 11px; line-height: 14px; color: {{ groupAnimNoteColor }};">{{ groupAnimNote }}</div>
+          </div>
+        </div>
+
+        <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+          <div onClick="{{ applyGroup }}" tabIndex="0" style="{{ applyStyle }}" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">{{ applyLabel }}</div>
+          <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ applyNote }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>{{ statusLeft }}</div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>A анимация</div>
+    <div>F звук</div>
+    <div>⌘⏎ применить к выделенным</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864}}">
+const SFX_ROWS = [
+  { name: 'block & tackle', at: '+0.4 с', dur: '1.4 с', gain: '−6 дБ' },
+  { name: 'wind aloft', at: '+1.2 с', dur: '2.4 с', gain: '−12 дБ' },
+  { name: 'canvas snap', at: '+3.1 с', dur: '0.8 с', gain: '−9 дБ' }
+];
+
+const SFX_PLAN = [
+  { name: 'creaking wooden hull', at: '+0.0 с' },
+  { name: 'distant cannon fire', at: '+2.6 с' }
+];
+
+const GROUP = ['s042','s043','s044','s045','s046','s047','s048','s049','s050','s051','s052','s053'];
+
+class Component extends DCLogic {
+  state = {
+    animModel: 'Veo 3.1 Lite', animDur: 4, animStage: 'idle', src: 'Видео',
+    motionPrompt: 'Slow push in on a crowded gun deck: sailors shift and lean as the ship rolls, lantern flames flicker, hanging rope sways, canvas breathes. Camera moves 10 % over 4 seconds, no cuts.',
+    groupMotion: null, groupForce: null, groupTr: null,
+    sfx: { 'block & tackle': true, 'wind aloft': true, 'canvas snap': true },
+    added: {}, toast: '', toastBar: '#94D2BD'
+  };
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  renderVals() {
+    const stage = this.state.animStage;
+    const rate = this.state.animModel === 'Veo 3.1 Lite' ? 0.03 : 0.11;
+    const price = (rate * this.state.animDur).toFixed(2);
+    const spent = stage === 'done' ? 1.32 : 1.20;
+
+    const animModels = [
+      { k: 'Veo 3.1 Lite', name: 'Veo 3.1 Lite', meta: '720p, ключ Gemini', price: '$0.03/с' },
+      { k: 'Kling 3.0', name: 'Kling 3.0', meta: '1080p, дольше очередь', price: '~$0.11/с' }
+    ].map(m => {
+      const on = this.state.animModel === m.k;
+      return {
+        name: m.name, meta: m.meta, price: m.price,
+        priceColor: on ? '#F2F1EE' : '#9A9C9F',
+        pick: () => this.setState({ animModel: m.k }),
+        rowStyle: 'display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; background: #16171A; border: 1px solid '
+          + (on ? '#94D2BD' : '#26282C') + ';',
+        radioStyle: 'width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid '
+          + (on ? '#94D2BD' : '#5C5E62') + ';',
+        radioDotStyle: on ? 'width: 7px; height: 7px; border-radius: 50%; background: #94D2BD;' : 'display: none;'
+      };
+    });
+
+    const animDurs = [4, 6, 8].map(d => ({
+      label: d + ' с',
+      pick: () => this.setState({ animDur: d }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 11px; font-weight: 500; cursor: pointer; '
+        + (this.state.animDur === d ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const srcToggle = ['Картинка', 'Видео'].map(s => ({
+      label: s,
+      pick: () => this.setState({ src: s }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 11px; font-weight: 500; cursor: pointer; '
+        + (this.state.src === s ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const sfxRows = SFX_ROWS.filter(r => this.state.sfx[r.name]).map(r => ({
+      name: r.name, at: r.at, dur: r.dur, gain: r.gain,
+      play: () => this.setState({ toast: 'Прослушивание: ' + r.name, toastBar: '#94D2BD' }),
+      remove: () => this.setState(s => ({ sfx: Object.assign({}, s.sfx, { [r.name]: false }), toast: 'Звук удалён: ' + r.name, toastBar: '#BB3E03' })),
+      rowStyle: 'display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-bottom: 1px solid #1E2023;'
+    }));
+
+    const sfxPlan = SFX_PLAN.map(p => {
+      const on = !!this.state.added[p.name];
+      return {
+        name: p.name, at: p.at,
+        icoColor: on ? '#6C6E72' : '#94D2BD',
+        textColor: on ? '#6C6E72' : '#F2F1EE',
+        add: () => this.setState(s => ({ added: Object.assign({}, s.added, { [p.name]: true }), toast: on ? 'Уже добавлено' : 'Добавлено из плана: ' + p.name, toastBar: '#0A9396' })),
+        style: 'display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 4px; cursor: pointer; background: #0C0D0F; border: 1px solid #26282C;'
+      };
+    });
+
+    const groupChips = GROUP.map(n => ({
+      num: n, tip: n + ' в выделении',
+      style: 'height: 18px; display: flex; align-items: center; padding: 0 5px; border-radius: 2px; background: #E9D8A6; color: #000000; font-family: "Courier Prime", monospace; font-size: 10px;'
+    }));
+
+    const gm = this.state.groupMotion;
+    const groupMotions = ['Наезд', 'Отъезд', 'Пан ←', 'Пан →', 'Пан ↑', 'Пан ↓', 'Статично', 'Параллакс'].map(m => ({
+      label: m,
+      pick: () => this.setState({ groupMotion: m }),
+      style: 'height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; '
+        + (gm === m ? 'background: #94D2BD; color: #000000;' : 'background: #16171A; border: 1px solid #26282C; color: ' + (gm ? '#9A9C9F' : '#F2F1EE') + ';')
+    }));
+
+    const gf = this.state.groupForce;
+    const fPct = gf === null ? 0 : Math.max(0, Math.min(1, (gf - 3) / 22));
+    const forceSpread = [6, 9, 12, 14, 18].map(v => ({
+      tip: 'В выделении есть кадры с силой ' + v + ' %',
+      style: 'position: absolute; left: ' + (((v - 3) / 22) * 100) + '%; top: 3px; bottom: 3px; width: 1px; background: #3A3D42;'
+    }));
+
+    const gt = this.state.groupTr;
+    const groupTransitions = ['Встык', 'Растворение', 'Через чёрное'].map(t => ({
+      label: t,
+      pick: () => this.setState({ groupTr: t }),
+      style: 'flex: 1; min-width: 0; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; cursor: pointer; '
+        + (gt === t ? 'background: #94D2BD; color: #000000;' : 'background: #16171A; border: 1px solid #26282C; color: ' + (gt ? '#9A9C9F' : '#F2F1EE') + ';')
+    }));
+
+    const changes = [gm && 'движение', gf !== null && 'сила', gt && 'переход'].filter(Boolean);
+
+    return {
+      animSpent: '$' + spent.toFixed(2),
+      animLimitStyle: 'height: 2px; width: ' + Math.round(spent / 3 * 100) + '%; background: ' + (spent / 3 > 0.8 ? '#EE9B00' : '#94D2BD') + ';',
+      animLeftLabel: 'осталось $' + (3 - spent).toFixed(2),
+
+      animState: stage === 'running' ? 'генерация' : stage === 'done' ? 'клип 4 с' : 'выключена',
+      animStateColor: stage === 'running' ? '#94D2BD' : stage === 'done' ? '#F2F1EE' : '#9A9C9F',
+      animRunning: stage === 'running', animDone: stage === 'done',
+      motionPrompt: this.state.motionPrompt,
+      setMotionPrompt: e => this.setState({ motionPrompt: e.target.value }),
+      suggestPrompt: () => this.setState({ toast: 'Промпт движения предложен из промпта кадра', toastBar: '#0A9396' }),
+      animModels, animDurs, srcToggle,
+      animateLabel: stage === 'running'
+        ? 'Оживляю кадр (' + this.state.animDur + ' с)'
+        : stage === 'done'
+          ? 'Оживить заново (' + this.state.animDur + ' с, ~$' + price + ')'
+          : 'Оживить (' + this.state.animDur + ' с, ~$' + price + ')',
+      animateStyle: 'position: relative; overflow: hidden; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; background: #94D2BD; color: #000000;',
+      animate: () => {
+        this.setState({ animStage: 'running' });
+        clearTimeout(this._t);
+        this._t = setTimeout(() => this.setState({ animStage: 'done', src: 'Видео', toast: 'Кадр оживлён: 4 с, списано $' + price, toastBar: '#0A9396' }), 2400);
+      },
+      cancelAnim: () => { clearTimeout(this._t); this.setState({ animStage: 'idle', toast: 'Анимация отменена, деньги не списаны', toastBar: '#EE9B00' }); },
+
+      sfxRows, sfxPlan,
+      sfxNote: sfxRows.length + ' звука в кадре',
+      sfxPlanNote: '2 предложения',
+      addFromPlanLabel: 'Добавить из плана (2)',
+      addFromPlan: () => this.setState({ added: { 'creaking wooden hull': true, 'distant cannon fire': true }, toast: 'Добавлено из плана: 2 звука', toastBar: '#0A9396' }),
+      genSfx: () => this.setState({ toast: 'Звук сгенерирован, списано $0.01', toastBar: '#0A9396' }),
+      fromLibrary: () => this.setState({ toast: 'Открыта библиотека звуков', toastBar: '#94D2BD' }),
+
+      groupChips, groupMotions, groupTransitions, forceSpread,
+      motionNote: gm ? 'Будет применено ко всем 12 кадрам: ' + gm.toLowerCase() + '.' : 'Разные значения: наезд в 7 кадрах, отъезд в 3, панорама в 2.',
+      motionNoteColor: gm ? '#94D2BD' : '#9A9C9F',
+      forceText: gf === null ? '' : String(gf),
+      forceColor: gf === null ? '#9A9C9F' : '#F2F1EE',
+      setForce: e => this.setState({ groupForce: Math.max(3, Math.min(25, parseInt(e.target.value, 10) || 3)) }),
+      setForceFromClick: e => {
+        const r = e.currentTarget.getBoundingClientRect();
+        this.setState({ groupForce: Math.round(3 + ((e.clientX - r.left) / r.width) * 22) });
+      },
+      forceFillStyle: gf === null ? 'display: none;' : 'position: absolute; left: 0; height: 2px; width: ' + (fPct * 100) + '%; background: #94D2BD;',
+      forceKnobStyle: gf === null ? 'display: none;' : 'position: absolute; left: ' + (fPct * 100) + '%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 2px; background: #94D2BD;',
+      forceNote: gf === null ? 'Разные значения: от 6 до 18 %. Засечки показывают, что есть в выделении.' : 'Будет применено ко всем 12 кадрам: ' + gf + ' %.',
+      forceNoteColor: gf === null ? '#9A9C9F' : '#94D2BD',
+      trNote: gt ? 'Будет применено ко всем 12 кадрам: ' + gt.toLowerCase() + '.' : 'Разные значения: встык в 8 кадрах, растворение в 4.',
+      trNoteColor: gt ? '#94D2BD' : '#9A9C9F',
+
+      groupRedraw: () => this.setState({ toast: 'Перерисовано 12 кадров, списано $0.80', toastBar: '#0A9396' }),
+      groupAnimLabel: 'Оживить 12 кадров (4 с, ~$1.44)',
+      groupAnimStyle: 'height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 12px; font-weight: 500; background: #16171A; border: 1px solid #EE9B00; color: #EE9B00; cursor: pointer;',
+      groupAnimNote: 'Лимит выпуска на анимацию: осталось $1.80. Действие выйдет за лимит — 5 кадров уйдут в очередь на следующий день.',
+      groupAnimNoteColor: '#EE9B00',
+
+      applyLabel: changes.length ? 'Применить к 12 кадрам (' + changes.join(', ') + ')' : 'Применить к 12 кадрам',
+      applyStyle: 'height: 28px; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; text-align: center; '
+        + (changes.length ? 'background: #94D2BD; color: #000000; cursor: pointer;' : 'background: #16171A; border: 1px solid #16171A; color: #6C6E72; cursor: default;'),
+      applyGroup: () => changes.length && this.setState({ toast: 'Применено к 12 кадрам: ' + changes.join(', '), toastBar: '#0A9396' }),
+      applyNote: changes.length
+        ? 'Бесплатная правка: длина кадров не меняется, голос остаётся ведущим.'
+        : 'Измените любое поле — оно применится ко всем 12 кадрам сразу.',
+
+      statusLeft: 'Кадр s047, раздел Able seaman',
+      statusMid: stage === 'running' ? 'Анимация s047: генерация, монтаж доступен' : 'Анимация — функция по желанию, по умолчанию выключена',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

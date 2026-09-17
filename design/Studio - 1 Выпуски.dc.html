@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <div style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;">Studio</div>
+    </div>
+
+    <div onClick="{{ cycleChannel }}" title="Переключить канал" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <div style="width: 18px; height: 18px; border-radius: 2px; background: {{ chanAvatarBg }}; color: {{ chanAvatarInk }}; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">{{ chanInitial }}</div>
+      <div style="font-size: 13px; font-weight: 500;">{{ channel }}</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+
+    <sc-if value="{{ episodeOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+        <div onClick="{{ startRename }}" title="Переименовать выпуск" style="font-size: 13px; font-weight: 500; color: #F2F1EE; cursor: text; padding: 2px 4px; border-radius: 4px; white-space: nowrap;" style-hover="background: #16171A;">{{ openTitle }}</div>
+        <div style="font-size: 12px; color: #9A9C9F; white-space: nowrap;">Cursus · монтаж</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ noEpisode }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size: 13px; color: #9A9C9F;">Выпуск не открыт</div>
+    </sc-if>
+
+    <div style="flex: 1;"></div>
+
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="color: #F2F1EE; font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+
+    <div onClick="{{ noop }}" title="Горячие клавиши" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">?</div>
+    <div onClick="{{ noop }}" title="Настройки и расходы" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V4.4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0;">
+
+    <sc-if value="{{ episodeOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="width: 56px; flex: 0 0 56px; background: #0C0D0F; border-right: 1px solid #26282C; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px;">
+        <sc-for list="{{ stages }}" as="s" hint-placeholder-count="6">
+          <div onClick="{{ s.go }}" title="{{ s.tip }}" tabIndex="0" style="{{ s.wrapStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+            <div style="color: {{ s.icoColor }}; display: flex;">
+              <sc-if value="{{ s.isIdea }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8 14a5 5 0 1 1 8 0c-.7.9-1.2 1.8-1.4 4H9.4C9.2 15.8 8.7 14.9 8 14Z"></path></svg></sc-if>
+              <sc-if value="{{ s.isScript }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></sc-if>
+              <sc-if value="{{ s.isGen }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 4 1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8Z"></path><path d="M18 15v4"></path><path d="M16 17h4"></path></svg></sc-if>
+              <sc-if value="{{ s.isEdit }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M8 5v14"></path><path d="M16 5v14"></path><path d="M3 12h18"></path></svg></sc-if>
+              <sc-if value="{{ s.isExport }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"></path></svg></sc-if>
+              <sc-if value="{{ s.isPub }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="m11 10 4 2-4 2Z"></path></svg></sc-if>
+            </div>
+            <div style="{{ s.glyphStyle }}"></div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+      <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Выпуски</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ countLabel }}</div>
+        </div>
+        <div style="flex: 1;"></div>
+
+        <div style="height: 28px; display: flex; align-items: center; gap: 6px; width: 228px; padding: 0 8px; background: #16171A; border: 1px solid {{ searchBorder }}; border-radius: 4px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.6-4.6"></path></svg>
+          <input value="{{ q }}" onChange="{{ setQ }}" onFocus="{{ onSearchFocus }}" onBlur="{{ onSearchBlur }}" placeholder="Поиск по выпускам" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 13px;">
+        </div>
+
+        <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3">
+            <div onClick="{{ f.pick }}" tabIndex="0" style="{{ f.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ f.label }}</div>
+          </sc-for>
+        </div>
+
+        <div onClick="{{ openDialog }}" tabIndex="0" title="Новый выпуск — ⌘N" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+          Новый выпуск
+        </div>
+      </div>
+
+      <div style="padding: 12px 16px 8px 16px;">
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+          <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Слоты публикации, раз в два дня</div>
+          <div style="flex: 1; height: 1px; background: #26282C;"></div>
+          <div style="font-size: 12px; color: #9A9C9F;">сентябрь 2026</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{ slots }}" as="sl" hint-placeholder-count="11">
+            <div style="{{ sl.wrapStyle }}" style-hover="border-color: #3A3D42;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                <div style="display: flex; align-items: baseline; gap: 4px;">
+                  <div style="font-size: 15px; font-weight: 500; color: {{ sl.dateColor }};">{{ sl.day }}</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ sl.wd }}</div>
+                </div>
+                <div style="{{ sl.glyphStyle }}">{{ sl.glyphText }}</div>
+              </div>
+
+              <sc-if value="{{ sl.filled }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                  <div class="cl2" style="font-size: 12px; line-height: 15px; font-weight: 500; color: #F2F1EE;">{{ sl.name }}</div>
+                  <div class="cl2" style="font-size: 11px; line-height: 14px; color: {{ sl.noteColor }};">{{ sl.note }}</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ sl.empty }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ openDialog }}" tabIndex="0" style="flex: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed #26282C; border-radius: 4px; font-size: 11px; color: #9A9C9F; cursor: pointer;" style-hover="border-color: #3A3D42; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Назначить выпуск</div>
+              </sc-if>
+
+              <sc-if value="{{ sl.missed }}" hint-placeholder-val="{{ false }}">
+                <div style="flex: 1; display: flex; align-items: center; font-size: 11px; line-height: 14px; color: #9A9C9F;">Слот пропущен</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="sc" style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 8px 16px 12px 16px; overflow: hidden;">
+        <sc-for list="{{ columns }}" as="col" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #08090A; border: 1px solid #1E2023; border-radius: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; height: 28px; flex: 0 0 28px; padding: 0 8px; border-bottom: 1px solid #26282C;">
+              <div style="{{ col.markStyle }}"></div>
+              <div style="font-size: 13px; font-weight: 600; color: #F2F1EE; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ col.label }}</div>
+              <div style="font-size: 12px; color: #9A9C9F;">{{ col.count }}</div>
+            </div>
+            <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px;">
+              <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                <div tabIndex="0" style="{{ c.cardStyle }}" style-hover="border-color: #3A3D42; background: #303237;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="display: flex; gap: 8px; align-items: flex-start;">
+                    <sc-if value="{{ thumbs }}" hint-placeholder-val="{{ true }}">
+                      <div style="{{ c.thumbStyle }}">
+                        <div style="font-family: 'Courier Prime', monospace; font-size: 10px; line-height: 10px; color: #9A9C9F;">{{ c.thumbLabel }}</div>
+                      </div>
+                    </sc-if>
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                      <div class="cl3" style="font-size: 13px; line-height: 16px; font-weight: 500;">{{ c.title }}</div>
+                      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-size: 11px; line-height: 14px; color: #9A9C9F;">
+                        <span class="cl1">{{ c.channel }}</span>
+                        <span style="color: #F2F1EE;">{{ c.dur }}</span>
+                      </div>
+                    </div>
+                    <div style="{{ c.glyphStyle }}">{{ c.glyphText }}</div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; align-items: baseline; gap: 6px; font-size: 11px; line-height: 14px; color: {{ c.metaColor }};">
+                      <span class="cl2">{{ c.meta }}</span>
+                    </div>
+                    <div style="{{ c.barTrackStyle }}"><div style="{{ c.barFillStyle }}"></div></div>
+                  </div>
+
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding-top: 6px; border-top: 1px solid #202225; font-size: 11px; line-height: 14px;">
+                    <span style="color: {{ c.costColor }};">{{ c.cost }}</span>
+                    <span style="color: {{ c.slotColor }};">{{ c.slot }}</span>
+                  </div>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ col.showIdeaAdd }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ openDialog }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px dashed #26282C; border-radius: 4px; font-size: 12px; color: #9A9C9F; cursor: pointer;" style-hover="border-color: #3A3D42; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                  Из бэклога идей
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <div style="width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;"></div>
+      Генерация кадров: Medieval Monastery, 78 из 104
+    </div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>Следующий слот 13 сентября, Every Rank on a Pirate Ship: нет SFX, экспорт не запускался</div>
+    <div style="flex: 1;"></div>
+    <div>⌘K команды</div>
+    <div>⌘N новый выпуск</div>
+  </div>
+
+  <sc-if value="{{ dialog }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: #1A1B1Dcc; display: flex; align-items: center; justify-content: center;">
+      <div style="width: 480px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; box-shadow: 0 16px 48px #00000080; display: flex; flex-direction: column;">
+        <div style="height: 36px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #26282C; font-size: 13px; font-weight: 600;">Новый выпуск</div>
+
+        <div style="padding: 16px 12px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Канал</div>
+            <div style="display: flex; gap: 8px;">
+              <sc-for list="{{ dialogChannels }}" as="dc" hint-placeholder-count="2">
+                <div onClick="{{ dc.pick }}" tabIndex="0" style="{{ dc.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="width: 18px; height: 18px; border-radius: 2px; background: {{ dc.avatarBg }}; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">{{ dc.initial }}</div>
+                  <div style="display: flex; flex-direction: column;">
+                    <div style="font-size: 13px; font-weight: 500;">{{ dc.name }}</div>
+                    <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ dc.hint }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Пресет формата</div>
+            <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+              <div style="flex: 1; font-size: 13px;">{{ presetLabel }}</div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ presetHint }}</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Откуда начать</div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <sc-for list="{{ sources }}" as="src" hint-placeholder-count="3">
+                <div onClick="{{ src.pick }}" tabIndex="0" style="{{ src.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <div style="{{ src.radioStyle }}"><div style="{{ src.dotStyle }}"></div></div>
+                  <div style="flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px;">
+                    <div style="font-size: 13px;">{{ src.label }}</div>
+                    <div class="cl1" style="font-size: 11px; color: #9A9C9F;">{{ src.hint }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 48px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 12px; border-top: 1px solid #26282C;">
+          <div onClick="{{ closeDialog }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Отмена</div>
+          <div onClick="{{ create }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Создать выпуск</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid #94D2BD; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;episodeOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Оболочка&quot;},&quot;thumbs&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Доска&quot;},&quot;slotRisk&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Доска&quot;}}">
+const EPISODES = [
+  { id: 'pirate', title: 'Pirate Ship: Powder Monkey to Captain', ch: 'Cursus', dur: '19:48', stage: 'edit', st: 'warn',
+    meta: 'Кадры 104 из 104, SFX не расставлены', pct: 0.82, cost: '$3.84', slot: '13 сент', thumb: '037' },
+  { id: 'peasant', title: '24 Hours as a Medieval Peasant, 1347', ch: "Otto's Timeline", dur: '6:12', stage: 'ready', st: 'ready',
+    meta: 'Мастер 1920×1080, 1.9 ГБ', pct: 1, cost: '$2.15', slot: '11 сент, сегодня', thumb: '012' },
+  { id: 'monastery', title: 'Medieval Monastery: Oblate to Abbot', ch: 'Cursus', dur: '21:10', stage: 'gen', st: 'run',
+    meta: 'Кадры 78 из 104, ~9 мин', pct: 0.75, cost: '$2.71', slot: '15 сент', thumb: '078' },
+  { id: 'sweep', title: 'A Day as a Victorian Chimney Sweep', ch: "Otto's Timeline", dur: '6:40', stage: 'gen', st: 'fail',
+    meta: '12 кадров не удались', pct: 0.61, cost: '$1.92', slot: '19 сент', thumb: '044' },
+  { id: 'samurai', title: 'Samurai Household: every rank', ch: 'Cursus', dur: '~18:00', stage: 'script', st: 'run',
+    meta: 'Сценарий 2 140 / ~3 000 слов', pct: 0.71, cost: '$0.38', slot: '17 сент', thumb: null },
+  { id: 'arsenal', title: 'Venetian Arsenal: every rank', ch: 'Cursus', dur: '~20:00', stage: 'idea', st: 'queued',
+    meta: '6 референсов, канон не собран', pct: 0.18, cost: '$0.00', slot: '21 сент', thumb: null },
+  { id: 'janissary', title: 'Ottoman Janissary Corps', ch: 'Cursus', dur: '~22:00', stage: 'idea', st: 'queued',
+    meta: '2 референса, тренд растёт', pct: 0.08, cost: '$0.00', slot: null, thumb: null },
+  { id: 'aztec', title: 'Market Day in the Aztec Empire', ch: "Otto's Timeline", dur: '7:04', stage: 'pub', st: 'pub',
+    meta: 'CTR 6.4%, 41 200 за 48 часов', pct: 1, cost: '$2.44', slot: 'вышел 7 сент', thumb: '003' },
+  { id: 'viking', title: 'A Viking Winter', ch: "Otto's Timeline", dur: '6:55', stage: 'pub', st: 'pub',
+    meta: 'CTR 4.1%, 18 900 за 48 часов', pct: 1, cost: '$2.28', slot: 'вышел 5 сент', thumb: '021' }
+];
+
+const COLS = [
+  { key: 'idea', label: 'Идея', mark: '#5C5E62' },
+  { key: 'script', label: 'Сценарий', mark: '#7FA8B0' },
+  { key: 'gen', label: 'Генерация', mark: '#E9D8A6' },
+  { key: 'edit', label: 'Монтаж', mark: '#0A9396' },
+  { key: 'ready', label: 'Готов к публикации', mark: '#94D2BD' },
+  { key: 'pub', label: 'Опубликован', mark: '#6F86B5' }
+];
+
+const SLOTS = [
+  { day: '5', wd: 'сб', id: 'viking' },
+  { day: '7', wd: 'пн', id: 'aztec' },
+  { day: '9', wd: 'ср', missed: true },
+  { day: '11', wd: 'пт', id: 'peasant', today: true },
+  { day: '13', wd: 'вс', id: 'pirate' },
+  { day: '15', wd: 'вт', id: 'monastery' },
+  { day: '17', wd: 'чт', id: 'samurai' },
+  { day: '19', wd: 'сб', id: 'sweep' },
+  { day: '21', wd: 'пн', id: 'arsenal' },
+  { day: '23', wd: 'ср', empty: true },
+  { day: '25', wd: 'пт', empty: true }
+];
+
+const SLOT_NOTE = {
+  viking: 'Опубликован',
+  aztec: 'Опубликован',
+  peasant: 'Готов к загрузке',
+  pirate: 'Нет SFX и экспорта',
+  monastery: 'Кадры 78 / 104',
+  samurai: 'Сценарий не готов',
+  sweep: '12 кадров не удались',
+  // короче не режем: нота переносится на 2 строки
+  arsenal: 'Идея и референсы'
+};
+
+const SLOT_NAME = {
+  viking: 'Viking Winter',
+  aztec: 'Aztec Market Day',
+  peasant: 'Medieval Peasant 1347',
+  pirate: 'Pirate Ship',
+  monastery: 'Medieval Monastery',
+  samurai: 'Samurai Household',
+  sweep: 'Victorian Chimney Sweep',
+  arsenal: 'Venetian Arsenal'
+};
+
+const FLOW = {
+  isIdea: 'Studio - 2 Идеи.dc.html',
+  isScript: 'Studio - 3 Сценарий и план.dc.html',
+  isGen: 'Studio - 4 Генерация.dc.html',
+  isEdit: 'Studio - 5 Монтаж.dc.html',
+  isExport: 'Studio - 7 Экспорт.dc.html',
+  isPub: 'Studio - 8 Публикация.dc.html'
+};
+const goTo = href => { window.location.href = encodeURI(href); };
+
+const STAGES = [
+  { key: 'idea', tip: 'Идея — готово', state: 'done', flag: 'isIdea' },
+  { key: 'script', tip: 'Сценарий — готово', state: 'done', flag: 'isScript' },
+  { key: 'gen', tip: 'Генерация — готово', state: 'done', flag: 'isGen' },
+  { key: 'edit', tip: 'Монтаж — в работе', state: 'active', flag: 'isEdit' },
+  { key: 'export', tip: 'Экспорт — не начат', state: 'todo', flag: 'isExport' },
+  { key: 'pub', tip: 'Публикация — не начата', state: 'todo', flag: 'isPub' }
+];
+
+class Component extends DCLogic {
+  state = { channel: 'Все каналы', q: '', dialog: false, toast: '', searchFocus: false, dialogChannel: 'Cursus', source: 'backlog' };
+
+  glyph(st) {
+    const base = 'width: 12px; height: 12px; flex: 0 0 12px; display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 10px; font-weight: 600; margin-top: 2px;';
+    if (st === 'ready') return { style: base + ' border-radius: 50%; background: #F2F1EE;', text: '' };
+    if (st === 'pub') return { style: base + ' border-radius: 50%; border: 1.5px solid #6F86B5; background: #6F86B5;', text: '' };
+    if (st === 'queued') return { style: base + ' border-radius: 50%; border: 1.5px solid #5C5E62;', text: '' };
+    if (st === 'run') return { style: base + ' border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;', text: '' };
+    if (st === 'warn') return { style: base + ' width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid #EE9B00;', text: '' };
+    return { style: base + ' border-radius: 2px; border: 1.5px solid #BB3E03; color: #F08C5D;', text: '×' };
+  }
+
+  metaColor(st) {
+    if (st === 'fail') return '#F08C5D';
+    if (st === 'warn') return '#EE9B00';
+    if (st === 'run') return '#94D2BD';
+    return '#9A9C9F';
+  }
+
+  renderVals() {
+    const thumbs = this.props.thumbs ?? true;
+    const episodeOpen = this.props.episodeOpen ?? true;
+    const risk = this.props.slotRisk ?? true;
+    const ch = this.state.channel;
+    const q = this.state.q.trim().toLowerCase();
+    const visible = EPISODES.filter(e => (ch === 'Все каналы' || e.ch === ch) && (!q || e.title.toLowerCase().includes(q)));
+    const byId = {};
+    EPISODES.forEach(e => { byId[e.id] = e; });
+
+    const columns = COLS.map(c => {
+      const cards = visible.filter(e => e.stage === c.key).map(e => {
+        const g = this.glyph(e.st);
+        const mc = this.metaColor(e.st);
+        const fill = e.st === 'run'
+          ? 'background: repeating-linear-gradient(45deg, #94D2BD 0 3px, #14312C 3px 6px); animation: hatch 1.2s linear infinite;'
+          : e.st === 'fail' ? 'background: #BB3E03;'
+          : e.st === 'warn' ? 'background: #EE9B00;'
+          : e.st === 'queued' ? 'background: #5C5E62;'
+          : 'background: #F2F1EE;';
+        return {
+          title: e.title, channel: e.ch, dur: e.dur, meta: e.meta, cost: e.cost,
+          slot: e.slot || 'слот не назначен',
+          slotColor: e.slot ? (e.id === 'peasant' ? '#94D2BD' : '#9A9C9F') : '#9A9C9F',
+          costColor: '#9A9C9F',
+          metaColor: mc,
+          glyphStyle: g.style, glyphText: g.text,
+          thumbLabel: e.thumb || '',
+          thumbStyle: 'width: 64px; height: 36px; flex: 0 0 64px; border-radius: 2px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 3px; background: #1B1D20; border: 1px ' + (e.thumb ? 'solid #26282C' : 'dashed #26282C') + ';',
+          cardStyle: 'display: flex; flex-direction: column; gap: 8px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; cursor: default;',
+          barTrackStyle: 'height: 2px; border-radius: 1px; background: #202225; overflow: hidden;',
+          barFillStyle: 'height: 2px; width: ' + Math.round(e.pct * 100) + '%; ' + fill
+        };
+      });
+      return { label: c.label, count: cards.length, cards, showIdeaAdd: c.key === 'idea',
+        markStyle: 'width: 3px; height: 12px; border-radius: 1px; background: ' + c.mark + ';' };
+    });
+
+    const slots = SLOTS.map(s => {
+      const e = s.id ? byId[s.id] : null;
+      const dim = e && !visible.includes(e);
+      const st = e ? e.st : 'none';
+      const g = e ? this.glyph(st) : { style: 'display: none;', text: '' };
+      const border = s.today ? '#94D2BD' : (e && st === 'warn' && risk) ? '#EE9B00' : (e && st === 'fail' && risk) ? '#BB3E03' : '#26282C';
+      return {
+        day: s.day, wd: s.wd,
+        dateColor: s.today ? '#94D2BD' : '#F2F1EE',
+        filled: !!e, empty: !!s.empty, missed: !!s.missed,
+        name: e ? SLOT_NAME[s.id] : '',
+        note: e ? (risk ? SLOT_NOTE[s.id] : '') : '',
+        noteColor: e ? (risk ? this.metaColor(st) : '#9A9C9F') : '#9A9C9F',
+        glyphStyle: g.style + (g.style === 'display: none;' ? '' : ' margin-top: 0;'), glyphText: g.text,
+        wrapStyle: 'min-height: 96px; display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: #0C0D0F; border: 1px solid ' + border + '; border-radius: 6px; opacity: ' + (dim ? '0.4' : '1') + ';'
+          + (s.today ? ' box-shadow: inset 2px 0 0 #94D2BD;' : '')
+      };
+    });
+
+    const filters = ['Все каналы', 'Cursus', "Otto's Timeline"].map(f => ({
+      label: f === "Otto's Timeline" ? 'Otto' : f === 'Все каналы' ? 'Все' : f,
+      pick: () => this.setState({ channel: f }),
+      style: 'display: flex; align-items: center; padding: 0 10px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (ch === f ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const dialogChannels = [
+      { name: 'Cursus', initial: 'C', hint: '18–25 мин, рассказчик', bg: '#E9D8A6' },
+      { name: "Otto's Timeline", initial: 'O', hint: '6–10 мин, Отто', bg: '#94D2BD' }
+    ].map(d => ({
+      name: d.name, initial: d.initial, hint: d.hint, avatarBg: d.bg,
+      pick: () => this.setState({ dialogChannel: d.name }),
+      style: 'flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px; background: #16171A; border: 1px solid ' + (this.state.dialogChannel === d.name ? '#94D2BD' : '#26282C') + '; border-radius: 4px; cursor: pointer;'
+    }));
+
+    const sources = [
+      { key: 'backlog', label: 'Из бэклога идей', hint: '7 идей, 2 с готовым каноном' },
+      { key: 'ref', label: 'Из референса', hint: 'ссылка на ролик или канал' },
+      { key: 'blank', label: 'С нуля', hint: 'пустой сценарий и план' }
+    ].map(s => ({
+      label: s.label, hint: s.hint,
+      pick: () => this.setState({ source: s.key }),
+      style: 'height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 4px; cursor: pointer; background: ' + (this.state.source === s.key ? '#16171A' : 'transparent') + ';',
+      radioStyle: 'width: 12px; height: 12px; flex: 0 0 12px; border-radius: 50%; border: 1.5px solid ' + (this.state.source === s.key ? '#94D2BD' : '#3A3D42') + '; display: flex; align-items: center; justify-content: center;',
+      dotStyle: this.state.source === s.key ? 'width: 6px; height: 6px; border-radius: 50%; background: #94D2BD;' : 'display: none;'
+    }));
+
+    const cursus = this.state.dialogChannel === 'Cursus';
+
+    return {
+      thumbs, episodeOpen, noEpisode: !episodeOpen,
+      openTitle: 'Every Rank on a Pirate Ship (Powder Monkey to Captain)',
+      channel: ch === 'Все каналы' ? 'Все каналы' : ch,
+      chanInitial: ch === 'Cursus' ? 'C' : ch === "Otto's Timeline" ? 'O' : '∗',
+      chanAvatarInk: ch === 'Все каналы' ? '#F2F1EE' : '#000000',
+      chanAvatarBg: ch === 'Cursus' ? '#E9D8A6' : ch === "Otto's Timeline" ? '#94D2BD' : '#3A3D42',
+      cycleChannel: () => {
+        const order = ['Все каналы', 'Cursus', "Otto's Timeline"];
+        this.setState({ channel: order[(order.indexOf(ch) + 1) % 3] });
+      },
+      countLabel: visible.length === EPISODES.length
+        ? EPISODES.length + ' всего, 2 опубликовано'
+        : visible.length + ' из ' + EPISODES.length,
+      q: this.state.q,
+      setQ: e => this.setState({ q: e.target.value }),
+      onSearchFocus: () => this.setState({ searchFocus: true }),
+      onSearchBlur: () => this.setState({ searchFocus: false }),
+      searchBorder: this.state.searchFocus ? '#94D2BD' : '#26282C',
+      filters, columns, slots,
+      stages: STAGES.map(s => ({
+        tip: s.tip,
+        go: () => goTo(FLOW[s.flag]),
+        isIdea: s.flag === 'isIdea', isScript: s.flag === 'isScript', isGen: s.flag === 'isGen',
+        isEdit: s.flag === 'isEdit', isExport: s.flag === 'isExport', isPub: s.flag === 'isPub',
+        icoColor: s.state === 'active' ? '#000000' : s.state === 'done' ? '#F2F1EE' : '#6C6E72',
+        wrapStyle: 'position: relative; width: 40px; height: 40px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; '
+          + (s.state === 'active' ? 'background: #94D2BD;' : ''),
+        glyphStyle: s.state === 'done'
+          ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: #F2F1EE;'
+          : s.state === 'todo'
+            ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; border: 1px solid #6C6E72;'
+            : 'display: none;'
+      })),
+      dialog: this.state.dialog,
+      openDialog: () => this.setState({ dialog: true }),
+      closeDialog: () => this.setState({ dialog: false }),
+      create: () => { this.setState({ dialog: false, toast: 'Выпуск создан: ' + this.state.dialogChannel + ', слот 23 сентября' }); setTimeout(() => goTo(FLOW.isScript), 400); },
+      dialogChannels, sources,
+      presetLabel: cursus ? 'Cursus: every rank, 18–25 мин' : "Otto's Timeline: сутки в эпохе, 6–10 мин",
+      presetHint: cursus
+        ? 'Рассказчик во втором лице, 8 разделов, ~100 кадров, ~$3.80 за выпуск'
+        : 'Отто в кадре, 5 разделов, ~40 кадров, ~$2.10 за выпуск',
+      toast: this.state.toast,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div onClick="{{ cycleChannel }}" title="Переключить канал" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <div style="{{ avatarStyle }}">{{ channelInitial }}</div>
+      <div style="font-size: 13px; font-weight: 500;">{{ channel }}</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Канон</div>
+    <div style="font-size: 12px; color: #9A9C9F;">{{ headNote }}</div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+    <div onClick="{{ noop }}" title="Настройки и расходы" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V4.4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+    <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <div onClick="{{ t.pick }}" tabIndex="0" style="{{ t.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ t.label }}</div>
+      </sc-for>
+    </div>
+    <div style="font-size: 12px; color: #9A9C9F;">{{ tabNote }}</div>
+    <div style="flex: 1;"></div>
+    <sc-if value="{{ isStyle }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div onClick="{{ cycleVersion }}" tabIndex="0" title="Версия канона стиля" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid {{ versionBorder }}; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+          <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 13px; font-weight: 500;">{{ versionLabel }}</div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </div>
+        <div onClick="{{ toggleHistory }}" tabIndex="0" style="{{ historyBtnStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">История</div>
+        <div onClick="{{ toggleDiff }}" tabIndex="0" style="{{ diffBtnStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ diffBtnLabel }}</div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1A1206; border-bottom: 1px solid #EE9B00;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EE9B00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 16px;"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+        <div style="font-size: 13px; font-weight: 500; color: #EE9B00;">{{ readOnlyTitle }}</div>
+        <div style="font-size: 12px; color: #9A9C9F;">Форма открыта только для чтения. Чтобы править, создайте новую версию — выпуски на старой останутся как есть.</div>
+      </div>
+      <div onClick="{{ makeNewVersion }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #EE9B00; border-radius: 4px; font-size: 13px; font-weight: 500; color: #EE9B00; white-space: nowrap; cursor: pointer;" style-hover="background: #EE9B0014;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ newVersionLabel }}</div>
+      <div onClick="{{ backToCurrent }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">К текущей версии</div>
+    </div>
+  </sc-if>
+
+  <div style="flex: 1; min-height: 0; display: flex;">
+
+    <sc-if value="{{ isEmptyChannel }}" hint-placeholder-val="{{ false }}">
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px;">
+        <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: #16171A; border: 1px solid #26282C; color: #9A9C9F;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="m6 16 4-9 4 6 2-3 2 6Z"></path><circle cx="9" cy="5" r="2"></circle></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 460px;">
+          <div style="font-size: 15px; font-weight: 600;">У канала {{ channel }} ещё нет канона</div>
+          <div style="font-size: 12px; line-height: 17px; color: #9A9C9F; text-align: center; text-wrap: pretty;">Канон — это рендер, оптика, свет и палитра, которые подаются в каждый кадр. Без него выпуски будут выглядеть по-разному. Периоды и персонажи заводятся после стиля.</div>
+        </div>
+        <div onClick="{{ createStyle }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Создать стиль канала</div>
+        <div style="font-size: 11px; color: #9A9C9F;">Можно скопировать канон другого канала и поправить</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showStyle }}" hint-placeholder-val="{{ true }}">
+      <div class="sc" style="flex: 1; min-width: 0; overflow-y: auto; border-right: 1px solid #26282C;">
+        <sc-if value="{{ diffOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; height: 28px; margin-bottom: 8px;">
+              <div style="font-size: 13px; font-weight: 600;">Сравнение v002 и v003</div>
+              <div style="font-size: 12px; color: #EE9B00;">{{ diffCount }}</div>
+              <div style="flex: 1;"></div>
+              <div onClick="{{ toggleDiff }}" tabIndex="0" style="height: 22px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Закрыть сравнение</div>
+            </div>
+            <div style="display: flex; align-items: center; height: 24px; padding: 0 8px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+              <div style="width: 148px; flex: 0 0 148px;">Поле</div>
+              <div style="flex: 1; min-width: 0;">v002 · 7 выпусков</div>
+              <div style="flex: 1; min-width: 0;">v003 · текущая</div>
+            </div>
+            <sc-for list="{{ diffRows }}" as="d" hint-placeholder-count="9">
+              <div style="{{ d.rowStyle }}">
+                <div class="cl2" style="width: 148px; flex: 0 0 148px; padding-right: 12px; font-size: 12px; font-weight: 500; color: {{ d.labelColor }};">{{ d.label }}</div>
+                <div style="flex: 1; min-width: 0; padding-right: 12px; font-size: 12px; line-height: 17px; color: #9A9C9F; text-wrap: pretty;">{{ d.old }}</div>
+                <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 17px; color: {{ d.newColor }}; text-wrap: pretty;">{{ d.now }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+            <sc-for list="{{ styleFields }}" as="f" hint-placeholder-count="6">
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="display: flex; align-items: baseline; gap: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;">{{ f.title }}</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ f.note }}</div>
+                </div>
+                <sc-for list="{{ f.rows }}" as="r" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <div style="width: 116px; flex: 0 0 116px; padding-top: 5px; font-size: 12px; color: #9A9C9F;">{{ r.label }}</div>
+                    <div style="{{ r.valueStyle }}">{{ r.value }}</div>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ f.hasPalette }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; gap: 8px; padding-top: 2px;">
+                    <sc-for list="{{ palette }}" as="p" hint-placeholder-count="5">
+                      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+                        <div style="{{ p.swatchStyle }}"></div>
+                        <div class="cl1" style="font-size: 11px; font-weight: 500;">{{ p.role }}</div>
+                        <div style="font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ p.hex }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ f.hasNegative }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px;">
+                    <sc-for list="{{ negative }}" as="n" hint-placeholder-count="8">
+                      <div style="{{ n.style }}">
+                        <div style="font-size: 11px;">{{ n.name }}</div>
+                        <sc-if value="{{ n.removable }}" hint-placeholder-val="{{ true }}">
+                          <div onClick="{{ n.remove }}" tabIndex="0" title="Убрать" style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 3px; color: #9A9C9F; cursor: pointer;" style-hover="background: #1B1D20; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ editable }}" hint-placeholder-val="{{ true }}">
+                      <div style="height: 22px; display: flex; align-items: center; padding: 0 6px; border: 1px dashed #26282C; border-radius: 4px;">
+                        <input value="{{ negDraft }}" onChange="{{ setNegDraft }}" onKeyDown="{{ negKey }}" placeholder="Добавить запрет" style="width: 120px; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 11px;">
+                      </div>
+                    </sc-if>
+                  </div>
+                  <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">Уходит в negative каждого кадра канала, поверх запретов периода.</div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="width: 480px; flex: 0 0 480px; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Опорные кадры стиля</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ refNote }}</div>
+        </div>
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{ styleRefs }}" as="r" hint-placeholder-count="6">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="{{ r.frameStyle }}">
+                  <div style="position: absolute; left: 4px; top: 3px; font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ r.num }}</div>
+                </div>
+                <div class="cl2" style="font-size: 11px; line-height: 14px; color: #9A9C9F; text-wrap: pretty;">{{ r.caption }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+            <div style="flex: 1; min-width: 0; font-size: 11px; line-height: 15px; color: #9A9C9F;">Опорные кадры показывают, как канон читается в картинке. Пересобираются при смене рендера, оптики или света.</div>
+            <div onClick="{{ rebuildRefs }}" tabIndex="0" style="{{ rebuildStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Пересобрать (6, ~$0.80)</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ historyOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 0 0 auto; border-top: 1px solid #26282C;">
+            <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+              <div style="font-size: 13px; font-weight: 600;">История версий</div>
+              <div style="flex: 1;"></div>
+              <div onClick="{{ toggleHistory }}" tabIndex="0" style="font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Скрыть</div>
+            </div>
+            <sc-for list="{{ versions }}" as="v" hint-placeholder-count="3">
+              <div onClick="{{ v.pick }}" style="{{ v.rowStyle }}" style-hover="background: #16171A;">
+                <div style="{{ v.glyphStyle }}"></div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 500; width: 44px; flex: 0 0 44px;">{{ v.id }}</div>
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px; color: #9A9C9F;">{{ v.what }}</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: {{ v.useColor }};">{{ v.use }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPeriods }}" hint-placeholder-val="{{ false }}">
+      <div style="width: 320px; flex: 0 0 320px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Периоды</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ periodsNote }}</div>
+        </div>
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ periods }}" as="p" hint-placeholder-count="3">
+            <div onClick="{{ p.pick }}" tabIndex="0" style="{{ p.rowStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 600;">{{ p.name }}</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ p.years }}</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="{{ p.glyphStyle }}"></div>
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 11px; color: {{ p.stColor }};">{{ p.st }}</div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ p.episodes }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+          <div onClick="{{ newPeriod }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; justify-content: center; gap: 6px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            Новый период
+          </div>
+          <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">Предложит начать с близкого периода: «Англия, 1347» → «Франция, 1360-е», материалы и запреты переносятся.</div>
+        </div>
+      </div>
+
+      <div class="sc" style="flex: 1; min-width: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="display: flex; flex-direction: column;">
+            <div style="font-size: 15px; font-weight: 600;">{{ period.name }}</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ period.meta }}</div>
+          </div>
+          <div style="flex: 1;"></div>
+          <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Дублировать период</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+          <sc-for list="{{ periodFields }}" as="f" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">{{ f.title }}</div>
+                <div style="flex: 1;"></div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ f.count }}</div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                <sc-for list="{{ f.items }}" as="i" hint-placeholder-count="5">
+                  <div style="height: 22px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 11px;">{{ i.name }}</div>
+                </sc-for>
+                <div style="height: 22px; display: flex; align-items: center; padding: 0 6px; border: 1px dashed #26282C; border-radius: 4px;">
+                  <input value="" onChange="{{ noop }}" placeholder="Добавить" style="width: 78px; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 11px;">
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="{{ forbiddenCardStyle }}">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="{{ forbiddenGlyphStyle }}"></div>
+            <div style="font-size: 13px; font-weight: 600; color: {{ forbiddenTitleColor }};">Не должно появляться в кадре</div>
+            <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: {{ forbiddenTitleColor }};">{{ forbiddenCount }}</div>
+            <div style="flex: 1;"></div>
+            <div onClick="{{ suggestForbidden }}" tabIndex="0" style="{{ suggestStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ suggestLabel }}</div>
+          </div>
+
+          <sc-if value="{{ forbiddenEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #1A0B05; border: 1px solid #BB3E03; border-radius: 4px;">
+              <div style="width: 11px; height: 11px; flex: 0 0 11px; border-radius: 2px; border: 1.5px solid #BB3E03;"></div>
+              <div style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: #F08C5D;">Период нельзя использовать: заполните список. Без запретов кадры уйдут в генерацию с анахронизмами, а чеклист проверки будет пустым.</div>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+            <sc-for list="{{ forbidden }}" as="b" hint-placeholder-count="14">
+              <div style="height: 22px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; background: #16171A; border: 1px solid #3A3D42; border-radius: 4px;">
+                <div style="font-size: 11px;">{{ b.name }}</div>
+                <div onClick="{{ b.remove }}" tabIndex="0" title="Убрать" style="width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 3px; color: #9A9C9F; cursor: pointer;" style-hover="background: #1B1D20; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                </div>
+              </div>
+            </sc-for>
+            <div style="height: 22px; display: flex; align-items: center; padding: 0 6px; border: 1px dashed #3A3D42; border-radius: 4px;">
+              <input value="{{ forbiddenDraft }}" onChange="{{ setForbiddenDraft }}" onKeyDown="{{ forbiddenKey }}" placeholder="Добавить анахронизм" style="width: 148px; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 11px;">
+            </div>
+          </div>
+          <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">Попадает в negative каждого кадра периода и в чеклист проверки.</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isCharacters }}" hint-placeholder-val="{{ false }}">
+      <div style="width: 280px; flex: 0 0 280px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Персонажи канала</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ charsNote }}</div>
+        </div>
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ characters }}" as="c" hint-placeholder-count="3">
+            <div onClick="{{ c.pick }}" tabIndex="0" style="{{ c.rowStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+              <div style="{{ c.faceStyle }}">
+                <div style="font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ c.faceLabel }}</div>
+              </div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <div class="cl1" style="font-size: 13px; font-weight: 500;">{{ c.name }}</div>
+                <div class="cl1" style="font-size: 11px; color: #9A9C9F;">{{ c.meta }}</div>
+              </div>
+              <div style="{{ c.glyphStyle }}"></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="sc" style="flex: 1; min-width: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 600;">Неизменяемое</div>
+            <div style="font-size: 11px; color: #9A9C9F;">одинаково во всех обликах и эпохах</div>
+          </div>
+          <sc-for list="{{ immutable }}" as="i" hint-placeholder-count="4">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <div style="width: 116px; flex: 0 0 116px; padding-top: 5px; font-size: 12px; color: #9A9C9F;">{{ i.label }}</div>
+              <div style="flex: 1; min-width: 0; min-height: 28px; display: flex; align-items: center; padding: 4px 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; line-height: 17px; text-wrap: pretty;">{{ i.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 600;">Облики</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ looksNote }}</div>
+            <div style="flex: 1;"></div>
+            <div onClick="{{ newLook }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Новый облик</div>
+            <div onClick="{{ openCopy }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Скопировать облик в другой период</div>
+          </div>
+
+          <div class="sc" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;">
+            <sc-for list="{{ looks }}" as="l" hint-placeholder-count="5">
+              <div onClick="{{ l.open }}" tabIndex="0" style="{{ l.cardStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div style="{{ l.faceStyle }}">
+                  <div style="font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ l.faceLabel }}</div>
+                  <sc-if value="{{ l.blocked }}" hint-placeholder-val="{{ false }}">
+                    <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 6px; background: #1A0B05ee; border-top: 1px solid #BB3E03;">
+                      <div class="cl2" style="font-size: 10px; line-height: 13px; color: #F08C5D;">Кадры с этим обликом не генерируются</div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div class="cl2" style="font-size: 12px; line-height: 16px; font-weight: 500; color: {{ l.titleColor }};">{{ l.title }}</div>
+                <div style="flex: 1;"></div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div style="{{ l.glyphStyle }}"></div>
+                  <div class="cl1" style="flex: 1; min-width: 0; font-size: 11px; color: {{ l.stColor }};">{{ l.st }}</div>
+                </div>
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ l.cost }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>{{ statusLeft }}</div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>⌘1…⌘3 вкладки</div>
+  </div>
+
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 10; background: #000000; display: flex; flex-direction: column;">
+      <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+        <div onClick="{{ closeSheet }}" tabIndex="0" title="Назад к персонажу" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+        </div>
+        <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Лист опорных портретов</div>
+        <div style="font-size: 12px; color: #9A9C9F;">{{ sheetTitle }}</div>
+        <div style="flex: 1;"></div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="{{ sheetGlyphStyle }}"></div>
+          <div style="font-size: 12px; color: {{ sheetStColor }};">{{ sheetSt }}</div>
+        </div>
+      </div>
+
+      <sc-if value="{{ sheetStale }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #1A1206; border-bottom: 1px solid #EE9B00;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EE9B00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 16px;"><path d="M12 3 2.5 20h19Z"></path><path d="M12 9v5"></path><path d="M12 17h.01"></path></svg>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div style="font-size: 13px; font-weight: 500; color: #EE9B00;">{{ staleTitle }}</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ staleBody }}</div>
+          </div>
+          <div onClick="{{ staleFix }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #EE9B00; border-radius: 4px; font-size: 13px; font-weight: 500; color: #EE9B00; white-space: nowrap; cursor: pointer;" style-hover="background: #EE9B0014;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ staleFixLabel }}</div>
+          <div onClick="{{ cycleStale }}" tabIndex="0" title="Показать другой случай устаревания" style="height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ cycleStaleLabel }}</div>
+        </div>
+      </sc-if>
+
+      <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+          <sc-for list="{{ slots }}" as="s" hint-placeholder-count="6">
+            <div style="{{ s.wrapStyle }}">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">{{ s.title }}</div>
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 11px; color: #9A9C9F;">{{ s.hint }}</div>
+                <div style="{{ s.glyphStyle }}"></div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <sc-for list="{{ s.candidates }}" as="c" hint-placeholder-count="2">
+                  <div onClick="{{ c.pick }}" title="{{ c.tip }}" style="{{ c.style }}">
+                    <div style="position: absolute; left: 4px; top: 3px; font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">{{ c.label }}</div>
+                    <sc-if value="{{ c.chosen }}" hint-placeholder-val="{{ false }}">
+                      <div style="position: absolute; right: 4px; top: 4px; width: 16px; height: 16px; border-radius: 3px; background: #94D2BD; display: flex; align-items: center; justify-content: center;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div onClick="{{ s.regen }}" tabIndex="0" style="{{ s.regenStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Перегенерировать ракурс</div>
+                <div onClick="{{ s.reject }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; white-space: nowrap; cursor: pointer;" style-hover="background: #BB3E031F; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Отбраковать</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #26282C; background: #0C0D0F;">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-size: 12px; color: #9A9C9F;">{{ sheetProgress }}</div>
+          <div style="font-size: 11px; line-height: 15px; color: #9A9C9F; text-wrap: pretty;">Опорные портреты подаются в каждый кадр с этим персонажем — от них зависит, останется ли он собой.</div>
+        </div>
+        <div onClick="{{ buildSheet }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Собрать лист (6 ракурсов × 2 кандидата, ~$1.61)</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ copyOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; z-index: 12; background: #000000CC; display: flex; align-items: center; justify-content: center;">
+      <div style="width: 640px; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #3A3D42; border-radius: 6px; box-shadow: 0 16px 48px #00000080;">
+        <div style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C;">
+          <div style="font-size: 13px; font-weight: 600;">Скопировать облик в другой период</div>
+          <div style="font-size: 12px; color: #9A9C9F;">тот же человек в другой эпохе</div>
+        </div>
+        <div style="padding: 16px 12px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 12px; color: #9A9C9F;">Облик-источник</div>
+              <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px;">You · пороховая обезьяна · Карибы 1716</div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 12px; color: #9A9C9F;">Период-назначение</div>
+              <div onClick="{{ cycleTarget }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px;">{{ copyTarget }}</div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #16171A; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 9px; height: 9px; border-radius: 50%; background: #0A9396;"></div>
+                <div style="font-size: 12px; font-weight: 600;">Переносится</div>
+              </div>
+              <sc-for list="{{ copyKeep }}" as="k" hint-placeholder-count="3">
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                  <div style="font-size: 12px; width: 92px; flex: 0 0 92px; color: #9A9C9F;">{{ k.label }}</div>
+                  <div class="cl2" style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px;">{{ k.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #16171A; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;"></div>
+                <div style="font-size: 12px; font-weight: 600;">Заполняется заново</div>
+              </div>
+              <sc-for list="{{ copyReset }}" as="r" hint-placeholder-count="3">
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                  <div style="font-size: 12px; width: 92px; flex: 0 0 92px; color: #9A9C9F;">{{ r.label }}</div>
+                  <div class="cl2" style="flex: 1; min-width: 0; font-size: 12px; line-height: 16px; color: #EE9B00;">{{ r.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="font-size: 11px; line-height: 15px; color: #9A9C9F;">Лист опорных портретов у нового облика придётся собрать: лицо то же, но одежда, износ и предметы другие.</div>
+        </div>
+        <div style="height: 48px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 12px; border-top: 1px solid #26282C;">
+          <div onClick="{{ closeCopy }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Отмена</div>
+          <div onClick="{{ doCopy }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Создать облик</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; z-index: 14; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Стиль&quot;,&quot;Периоды&quot;,&quot;Персонажи&quot;],&quot;default&quot;:&quot;Стиль&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Экран&quot;},&quot;emptyChannel&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Состояния&quot;}}">
+const PALETTE = [
+  { role: 'Ключевой свет', hex: '#E8C88A' },
+  { role: 'Тень и глубина', hex: '#1E2A2E' },
+  { role: 'Дерево и снасти', hex: '#6B4F34' },
+  { role: 'Металл и вода', hex: '#7E8B8F' },
+  { role: 'Акцент ткани', hex: '#8E3B2E' }
+];
+
+// Значения, отличающиеся между версиями. Левая колонка дифа берётся отсюда же.
+const BY_VERSION = {
+  v003: {
+    render: 'Плёночная фотография 1970-х, отпечаток с негатива; никакой цифровой чистоты',
+    focal: '35 мм — общий и средний план; 85 мм — портрет ранга',
+    depth: 'f/2.8: герой резкий, второй план читаемый, фон распадается',
+    distortion: 'Лёгкая бочка на 35 мм, виньетка 12 %, без искажения лиц по краям',
+    contrast: 'Высокий, но с читаемой тенью: детали в тенях не проваливаются',
+    grain: 'Плёночное, 35 мм ISO 400, заметно в тенях, не шевелится между кадрами',
+    accent: '#8E3B2E',
+    negative: ['пластик', 'неоновый свет', 'современная одежда', 'молнии и кнопки', 'очки в металле', 'стекло в окнах кают', 'текст в кадре', 'подписи и водяные знаки', 'гладкая CGI-кожа', 'рыбий глаз', 'HDR-свечение', 'симметричные лица'],
+    composition: 'Герой не в центре; горизонт держится; передний план перекрывает кадр на треть'
+  },
+  v002: {
+    render: 'Плёночная фотография 1980-х, чистый отпечаток',
+    focal: '50 мм на всех планах',
+    depth: 'f/4: второй план почти такой же резкий, как герой',
+    distortion: 'Без дисторсии, виньетка 6 %',
+    contrast: 'Средний, ровная заливка',
+    grain: 'Плёночное, 35 мм ISO 200, едва заметно',
+    accent: '#A4553F',
+    negative: ['пластик', 'неоновый свет', 'современная одежда', 'молнии и кнопки', 'очки в металле', 'стекло в окнах кают', 'текст в кадре', 'подписи и водяные знаки', 'гладкая CGI-кожа', 'рыбий глаз'],
+    composition: 'Герой не в центре; горизонт держится; передний план перекрывает кадр на треть'
+  },
+  v001: {
+    render: 'Цифровая фотография, ровный свет',
+    focal: '50 мм на всех планах',
+    depth: 'f/5.6: всё в фокусе',
+    distortion: 'Без дисторсии и виньетки',
+    contrast: 'Низкий, заливка в тенях',
+    grain: 'Без зерна',
+    accent: '#B4664C',
+    negative: ['пластик', 'современная одежда', 'текст в кадре', 'подписи и водяные знаки'],
+    composition: 'Правил композиции нет'
+  }
+};
+
+const STYLE_FIELDS = [
+  { title: 'Рендер и материал', note: 'как выглядит сама картинка', hasPalette: false, hasNegative: false, rows: [
+    { label: 'Рендер', value: 'Плёночная фотография 1970-х, отпечаток с негатива; никакой цифровой чистоты' },
+    { label: 'Материал', value: 'Матовые поверхности, пыль в воздухе, влажное дерево, окисленный металл' },
+    { label: 'Обработка', value: 'Умеренный лифт в тенях, мягкий ролл-офф в светах, без клиппинга' }
+  ] },
+  { title: 'Оптика', note: 'как снято', hasPalette: false, hasNegative: false, rows: [
+    { label: 'Фокусное', value: '35 мм — общий и средний план; 85 мм — портрет ранга' },
+    { label: 'Глубина', value: 'f/2.8: герой резкий, второй план читаемый, фон распадается' },
+    { label: 'Дисторсия', value: 'Лёгкая бочка на 35 мм, виньетка 12 %, без искажения лиц по краям' }
+  ] },
+  { title: 'Свет', note: 'откуда и какой', hasPalette: false, hasNegative: false, rows: [
+    { label: 'Характер', value: 'Один практический источник: лантерна, свеча, пушечный порт' },
+    { label: 'Контраст', value: 'Высокий, но с читаемой тенью: детали в тенях не проваливаются' },
+    { label: 'Направление', value: 'Сбоку и сверху, 30–45°; контровой — только в финальных кадрах разделов' }
+  ] },
+  { title: 'Палитра', note: '5 образцов с ролями', hasPalette: true, hasNegative: false, rows: [
+    { label: 'Правило', value: 'Тёплый свет против холодной тени; насыщенный цвет — только на одном предмете в кадре' }
+  ] },
+  { title: 'Зерно и композиция', note: 'что делает кадр узнаваемым', hasPalette: false, hasNegative: false, rows: [
+    { label: 'Зерно', value: 'Плёночное, 35 мм ISO 400, заметно в тенях, не шевелится между кадрами' },
+    { label: 'Композиция', value: 'Герой не в центре; горизонт держится; передний план перекрывает кадр на треть' },
+    { label: 'Взгляд', value: 'Герой не смотрит в камеру, кроме кадров-обращений в Cold open' }
+  ] },
+  { title: 'Глобальный negative', note: 'поверх запретов периода', hasPalette: false, hasNegative: true, rows: [] }
+];
+
+const STYLE_REFS = [
+  { num: '01', caption: 'Общий план гун-дека: 35 мм, лантерна сбоку' },
+  { num: '02', caption: 'Портрет ранга: 85 мм, свеча снизу-сбоку' },
+  { num: '03', caption: 'Деталь: руки, канат, окисленный металл' },
+  { num: '04', caption: 'Толпа на палубе: контровой из пушечного порта' },
+  { num: '05', caption: 'Ночь: один источник, детали в тенях' },
+  { num: '06', caption: 'Финал раздела: контровой, силуэт' }
+];
+
+const VERSIONS = [
+  { id: 'v003', what: 'Оптика 35/85, контраст выше, зерно ISO 400', use: 'текущая', current: true },
+  { id: 'v002', what: 'Плёнка 1980-х, 50 мм, f/4, ровная заливка', use: '7 выпусков', current: false },
+  { id: 'v001', what: 'Первый канон: цифра, 50 мм, без зерна и правил композиции', use: '2 выпуска', current: false }
+];
+
+const PERIODS = [
+  { id: 'caribbean', name: 'Карибы, 1716', years: '1716–1726', region: 'Карибское море, Нассау', episodes: '3 выпуска', forbidden: 14 },
+  { id: 'england', name: 'Англия, 1347', years: '1347–1350', region: 'Восточная Англия', episodes: '2 выпуска', forbidden: 11 },
+  { id: 'venice', name: 'Венеция, 1560', years: '1560–1580', region: 'Венецианский Арсенал', episodes: 'нет выпусков', forbidden: 0 }
+];
+
+const PERIOD_DATA = {
+  caribbean: {
+    meta: '1716–1726 · Карибское море, Нассау · 3 выпуска · сдвиг палитры: солнце и соль',
+    fields: [
+      { title: 'Сдвиг палитры', items: ['выгоревший парус', 'смола и дёготь', 'бирюза отмелей', 'ржавое железо'] },
+      { title: 'Материалы', items: ['дуб', 'пенька', 'парусина', 'латунь', 'свинец', 'кожа'] },
+      { title: 'Источники света', items: ['лантерна', 'свеча в роге', 'пушечный порт', 'полдневное солнце'] },
+      { title: 'Архитектура', items: ['гун-дек', 'кубрик', 'кормовая каюта', 'портовые склады'] },
+      { title: 'Одежда', items: ['слопы', 'жилет без рукавов', 'платок на голове', 'босые ноги', 'широкий пояс'] },
+      { title: 'Предметы', items: ['картуз с порохом', 'кофель-нагель', 'судовой журнал', 'абордажная сабля', 'квадрант'] }
+    ],
+    forbidden: ['молнии', 'пуговицы фабричные', 'пластик', 'резина', 'сталь нержавеющая', 'штампованный металл', 'треуголка с галуном у матроса', 'татуировки-флэш XX века', 'бинокль', 'спички', 'ром в стеклянной бутылке', 'печатные этикетки', 'наручные часы', 'стриженые ногти и чистые руки']
+  },
+  england: {
+    meta: '1347–1350 · Восточная Англия · 2 выпуска · сдвиг палитры: глина и шерсть',
+    fields: [
+      { title: 'Сдвиг палитры', items: ['мокрая глина', 'некрашеная шерсть', 'торфяной дым', 'зелень поймы'] },
+      { title: 'Материалы', items: ['дуб', 'солома', 'глина', 'шерсть', 'лён', 'кованое железо'] },
+      { title: 'Источники света', items: ['открытый очаг', 'сальная свеча', 'дверной проём', 'пасмурное небо'] },
+      { title: 'Архитектура', items: ['длинный дом', 'амбар', 'церковь-приход', 'мельница'] },
+      { title: 'Одежда', items: ['котта', 'капюшон-шаперон', 'обмотки', 'деревянные башмаки'] },
+      { title: 'Предметы', items: ['серп', 'деревянная миска', 'кожаное ведро', 'жернов'] }
+    ],
+    forbidden: ['картофель', 'кукуруза', 'табак', 'подсолнух', 'пуговицы', 'прялка с колесом', 'стекло в окнах', 'кирпичная кладка', 'печатная книга', 'чистая белая ткань', 'кованая цепь заводская']
+  },
+  venice: {
+    meta: '1560–1580 · Венецианский Арсенал · нет выпусков · сдвиг палитры не задан',
+    fields: [
+      { title: 'Сдвиг палитры', items: ['мокрый камень', 'свинцовая вода'] },
+      { title: 'Материалы', items: ['дуб', 'конопля', 'смола'] },
+      { title: 'Источники света', items: ['световой фонарь цеха'] },
+      { title: 'Архитектура', items: ['корпус верфи', 'канал-док'] },
+      { title: 'Одежда', items: [] },
+      { title: 'Предметы', items: ['тесло'] }
+    ],
+    forbidden: []
+  }
+};
+
+const CHARACTERS = [
+  { id: 'you', name: 'You — рассказчик-участник', meta: 'Cursus · 5 обликов · 4 листа готовы', face: 'YOU', st: 'warn' },
+  { id: 'otto', name: 'Отто', meta: "Otto's Timeline · 3 облика · все листы готовы", face: 'OTT', st: 'ok' },
+  { id: 'captain', name: 'Капитан (второй план)', meta: 'Cursus · 1 облик · лист не собран', face: '—', st: 'fail' }
+];
+
+const IMMUTABLE = {
+  you: [
+    { label: 'Характер', value: 'Наблюдает раньше, чем говорит. Делает то, что велят, но замечает, кто кому подчиняется.' },
+    { label: 'Осанка', value: 'Плечи вперёд, голова чуть опущена, вес на передней ноге — готов бежать.' },
+    { label: 'Манера', value: 'Не смотрит в камеру. Руки почти всегда заняты предметом.' },
+    { label: 'Черты лица', value: 'Узкое лицо, широко расставленные глаза, щель между передними зубами, шрам над левой бровью.' }
+  ],
+  otto: [
+    { label: 'Характер', value: 'Любопытный и бесцеремонный: лезет в чужую работу, чтобы понять, как она устроена.' },
+    { label: 'Осанка', value: 'Прямая спина, открытые ладони, разворот к собеседнику.' },
+    { label: 'Манера', value: 'Смотрит в камеру: он ведущий. Жестикулирует одной рукой.' },
+    { label: 'Черты лица', value: 'Круглое лицо, густые брови, щетина, залом на переносице.' }
+  ],
+  captain: [
+    { label: 'Характер', value: 'Говорит мало, ждёт, пока команда решит сама.' },
+    { label: 'Осанка', value: 'Стоит развернувшись вполоборота, руки за спиной.' },
+    { label: 'Манера', value: 'Не повышает голос, держит дистанцию от команды.' },
+    { label: 'Черты лица', value: 'Сухое лицо, глубокие носогубные, седина в висках.' }
+  ]
+};
+
+const LOOKS = {
+  you: [
+    { title: 'You · пороховая обезьяна · 11 лет · Карибы 1716', ready: 6, cost: 'собран, $1.61', face: '11' },
+    { title: 'You · матрос-новичок · 19 лет · Карибы 1716', ready: 6, cost: 'собран, $1.61', face: '19' },
+    { title: 'You · опытный матрос · 23 года · Карибы 1716', ready: 6, cost: 'собран, $1.61', face: '23' },
+    { title: 'You · боцман · 34 года · Карибы 1716', ready: 3, cost: 'осталось 3 ракурса, ~$0.80', face: '34' },
+    { title: 'You · квартирмейстер · 41 год · Карибы 1716', ready: 0, cost: 'сборка ~$1.61', face: '—' }
+  ],
+  otto: [
+    { title: 'Отто · крестьянин · Англия 1347', ready: 6, cost: 'собран, $1.61', face: 'A' },
+    { title: 'Отто · трубочист · Лондон 1850', ready: 6, cost: 'собран, $1.61', face: 'B' },
+    { title: 'Отто · торговец · Теночтитлан 1500', ready: 6, cost: 'собран, $1.61', face: 'C' }
+  ],
+  captain: [
+    { title: 'Капитан · Карибы 1716', ready: 0, cost: 'сборка ~$1.61', face: '—' }
+  ]
+};
+
+const SLOTS = [
+  { k: 'face', title: 'Фас', hint: 'лицо прямо, нейтральный свет' },
+  { k: 'three', title: 'Три четверти', hint: 'поворот 45°, ключевой свет сбоку' },
+  { k: 'profile', title: 'Профиль', hint: 'силуэт линии носа и лба' },
+  { k: 'full', title: 'В полный рост', hint: 'одежда целиком, обувь, пропорции' },
+  { k: 'action', title: 'В действии', hint: 'рабочая поза ранга' },
+  { k: 'detail', title: 'Деталь', hint: 'руки и предметы' }
+];
+
+class Component extends DCLogic {
+  state = {
+    tab: null, channel: 'Cursus', version: 'v003', historyOpen: false, diffOpen: false,
+    period: 'caribbean', character: 'you', sheet: null, staleKind: 'face',
+    copyOpen: false, copyTarget: 'Англия, 1347', chosen: {}, negDraft: '', forbiddenDraft: '',
+    negRemoved: {}, forbiddenRemoved: {}, forbiddenAdded: {},
+    toast: '', toastBar: '#94D2BD'
+  };
+
+  renderVals() {
+    const tab = this.state.tab ?? this.props.tab ?? 'Стиль';
+    const emptyChannel = this.props.emptyChannel ?? false;
+    const version = this.state.version;
+    const readOnly = version !== 'v003';
+    const cur = VERSIONS.find(v => v.id === version) || VERSIONS[0];
+    const toast = (text, bar) => () => this.setState({ toast: text, toastBar: bar || '#0A9396' });
+
+    const tabs = ['Стиль', 'Периоды', 'Персонажи'].map(t => ({
+      label: t,
+      pick: () => this.setState({ tab: t }),
+      style: 'display: flex; align-items: center; padding: 0 12px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (tab === t ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    // --- Стиль ---
+    const V = BY_VERSION[version] || BY_VERSION.v003;
+    const BY_LABEL = {
+      'Рендер': V.render, 'Фокусное': V.focal, 'Глубина': V.depth,
+      'Дисторсия': V.distortion, 'Контраст': V.contrast,
+      'Зерно': V.grain, 'Композиция': V.composition
+    };
+    const negative = V.negative.filter(n => !this.state.negRemoved[n]).map(n => ({
+      name: n, removable: !readOnly,
+      remove: () => this.setState(s => ({ negRemoved: Object.assign({}, s.negRemoved, { [n]: true }) })),
+      style: 'height: 22px; display: flex; align-items: center; gap: 4px; padding: 0 ' + (readOnly ? '8px' : '4px 0 8px') + '; background: #16171A; border: 1px solid #26282C; border-radius: 4px;'
+    }));
+
+    const styleFields = STYLE_FIELDS.map(f => ({
+      title: f.title, note: f.note, hasPalette: f.hasPalette, hasNegative: f.hasNegative,
+      rows: f.rows.map(r => ({
+        label: r.label, value: BY_LABEL[r.label] ?? r.value,
+        valueStyle: 'flex: 1; min-width: 0; min-height: 28px; display: flex; align-items: center; padding: 4px 8px; border-radius: 4px; font-size: 12px; line-height: 17px; text-wrap: pretty; '
+          + (readOnly
+            ? 'background: #08090A; border: 1px solid #202225; color: #9A9C9F;'
+            : 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE;')
+      }))
+    }));
+
+    const palette = PALETTE.map(p => {
+      const hex = p.role === 'Акцент ткани' ? V.accent : p.hex;
+      return {
+        role: p.role, hex,
+        swatchStyle: 'height: 32px; border-radius: 4px; background: ' + hex + '; border: 1px solid #26282C;'
+      };
+    });
+
+    const styleRefs = STYLE_REFS.map(r => ({
+      num: r.num, caption: r.caption,
+      frameStyle: 'position: relative; aspect-ratio: 16 / 9; border-radius: 2px; background: #1B1D20; border: 1px solid #26282C;'
+    }));
+
+    const A = BY_VERSION.v002, B = BY_VERSION.v003;
+    const negSummary = (from, to) => {
+      const added = to.filter(x => from.indexOf(x) < 0);
+      return { old: from.length + ' позиций', now: to.length + ' позиций' + (added.length ? ': добавлены «' + added.join('», «') + '»' : '') };
+    };
+    const negDiff = negSummary(A.negative, B.negative);
+    const DIFF = [
+      { label: 'Рендер', old: A.render, now: B.render },
+      { label: 'Фокусное', old: A.focal, now: B.focal },
+      { label: 'Глубина', old: A.depth, now: B.depth },
+      { label: 'Дисторсия', old: A.distortion, now: B.distortion },
+      { label: 'Контраст света', old: A.contrast, now: B.contrast },
+      { label: 'Палитра: акцент ткани', old: A.accent, now: B.accent },
+      { label: 'Зерно', old: A.grain, now: B.grain },
+      { label: 'Композиция', old: A.composition, now: B.composition },
+      { label: 'Глобальный negative', old: negDiff.old, now: negDiff.now }
+    ].map(d => Object.assign({}, d, { changed: d.old !== d.now }));
+
+    const diffChanged = DIFF.filter(d => d.changed).length;
+
+    const diffRows = DIFF.map(d => ({
+      label: d.label, old: d.old, now: d.now,
+      labelColor: d.changed ? '#EE9B00' : '#9A9C9F',
+      newColor: d.changed ? '#F2F1EE' : '#9A9C9F',
+      rowStyle: 'display: flex; align-items: flex-start; padding: 8px; border-bottom: 1px solid #1E2023; '
+        + (d.changed ? 'background: #1A120680; box-shadow: inset 2px 0 0 #EE9B00;' : '')
+    }));
+
+    const versions = VERSIONS.map(v => ({
+      id: v.id, what: v.what, use: v.use,
+      useColor: v.current ? '#94D2BD' : '#9A9C9F',
+      pick: () => this.setState({ version: v.id, historyOpen: false, diffOpen: false }),
+      glyphStyle: (v.id === version
+        ? 'width: 8px; height: 8px; border-radius: 50%; background: #94D2BD;'
+        : 'width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #3A3D42;') + ' flex: 0 0 auto;',
+      rowStyle: 'display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-bottom: 1px solid #1E2023; cursor: pointer; '
+        + (v.id === version ? 'background: #16171A;' : '')
+    }));
+
+    // --- Периоды ---
+    const periods = PERIODS.map(p => {
+      const on = this.state.period === p.id;
+      const bad = p.forbidden === 0;
+      return {
+        name: p.name, years: p.years, episodes: p.episodes,
+        st: bad ? 'нельзя использовать: нет запретов' : p.forbidden + ' запретов · ' + p.region,
+        stColor: bad ? '#F08C5D' : '#9A9C9F',
+        glyphStyle: (bad
+          ? 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;'
+          : 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;') + ' flex: 0 0 auto;',
+        pick: () => this.setState({ period: p.id }),
+        rowStyle: 'display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 4px; cursor: pointer; '
+          + (on ? 'background: #16171A; box-shadow: inset 2px 0 0 #94D2BD;' : '')
+      };
+    });
+
+    const pd = PERIOD_DATA[this.state.period];
+    const pMeta = PERIODS.find(p => p.id === this.state.period);
+    const forbiddenList = pd.forbidden
+      .filter(f => !this.state.forbiddenRemoved[f])
+      .concat(Object.keys(this.state.forbiddenAdded).filter(k => this.state.forbiddenAdded[k]));
+    const forbiddenEmpty = forbiddenList.length === 0;
+
+    const periodFields = pd.fields.map(f => ({
+      title: f.title,
+      count: f.items.length ? f.items.length + ' позиций' : 'пусто',
+      items: f.items.map(name => ({ name }))
+    }));
+
+    // --- Персонажи ---
+    const chGlyph = {
+      ok: 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;',
+      warn: 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;',
+      fail: 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;'
+    };
+    const characters = CHARACTERS.map(c => {
+      const on = this.state.character === c.id;
+      return {
+        name: c.name, meta: c.meta, faceLabel: c.face,
+        glyphStyle: chGlyph[c.st] + ' flex: 0 0 auto;',
+        faceStyle: 'width: 36px; height: 36px; flex: 0 0 36px; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: #1B1D20; border: 1px solid #26282C;',
+        pick: () => this.setState({ character: c.id }),
+        rowStyle: 'display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 4px; cursor: pointer; '
+          + (on ? 'background: #16171A; box-shadow: inset 2px 0 0 #94D2BD;' : '')
+      };
+    });
+
+    const looksData = LOOKS[this.state.character];
+    const looks = looksData.map((l, idx) => {
+      const full = l.ready === 6, none = l.ready === 0;
+      return {
+        title: l.title, cost: l.cost, faceLabel: l.face, blocked: none,
+        titleColor: none ? '#9A9C9F' : '#F2F1EE',
+        st: full ? 'лист портретов готов 6/6' : none ? 'лист не собран' : 'собран наполовину ' + l.ready + '/6',
+        stColor: full ? '#9A9C9F' : none ? '#F08C5D' : '#EE9B00',
+        glyphStyle: (full
+          ? 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;'
+          : none
+            ? 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;'
+            : 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;') + ' flex: 0 0 auto;',
+        faceStyle: 'position: relative; width: 100%; aspect-ratio: 3 / 4; border-radius: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1B1D20; border: 1px solid '
+          + (none ? '#BB3E03' : '#26282C') + ';',
+        open: () => this.setState({ sheet: idx }),
+        cardStyle: 'width: 168px; flex: 0 0 168px; display: flex; flex-direction: column; gap: 6px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; cursor: pointer; '
+          + (none ? 'opacity: 0.72;' : '')
+      };
+    });
+
+    const sheetIdx = this.state.sheet;
+    const sheetLook = sheetIdx === null ? null : looksData[sheetIdx];
+    const staleKind = this.state.staleKind;
+    const staleApplies = sheetLook && sheetLook.ready > 0;
+
+    const slots = SLOTS.map((s, si) => {
+      const ready = sheetLook ? si < sheetLook.ready : false;
+      const needsRebuild = staleApplies && (staleKind === 'face' || ['full', 'action', 'detail'].indexOf(s.k) >= 0);
+      const chosenIdx = this.state.chosen[s.k] ?? 1;
+      return {
+        title: s.title, hint: s.hint,
+        glyphStyle: (ready
+          ? (needsRebuild
+            ? 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;'
+            : 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;')
+          : 'width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #5C5E62;') + ' flex: 0 0 auto;',
+        wrapStyle: 'display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #0C0D0F; border: 1px solid '
+          + (ready && needsRebuild ? '#EE9B00' : '#26282C') + '; border-radius: 6px;',
+        candidates: [1, 2].map(ci => ({
+          label: ready ? 'кандидат ' + ci : 'пусто',
+          tip: ready ? s.title + ', кандидат ' + ci + (ci === chosenIdx ? ' — выбран' : '') : s.title + ': ракурс не собран',
+          chosen: ready && ci === chosenIdx,
+          pick: () => this.setState(st => ({ chosen: Object.assign({}, st.chosen, { [s.k]: ci }) })),
+          style: 'position: relative; flex: 1; min-width: 0; aspect-ratio: 3 / 4; border-radius: 2px; cursor: pointer; background: '
+            + (ready ? '#1B1D20' : '#050506') + '; border: 1px '
+            + (ready ? (ci === chosenIdx ? 'solid #94D2BD' : 'solid #26282C') : 'dashed #26282C') + ';'
+        })),
+        regen: () => this.setState({ toast: 'Ракурс «' + s.title.toLowerCase() + '» перегенерирован, списано $0.27', toastBar: '#0A9396' }),
+        reject: () => this.setState({ toast: 'Кандидат отбракован: ' + s.title.toLowerCase(), toastBar: '#BB3E03' }),
+        regenStyle: 'height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; background: #16171A; border: 1px solid '
+          + (ready && needsRebuild ? '#EE9B00' : '#26282C') + '; color: ' + (ready && needsRebuild ? '#EE9B00' : '#F2F1EE') + ';'
+      };
+    });
+
+    const readyCount = sheetLook ? sheetLook.ready : 0;
+
+    return {
+      channel: this.state.channel,
+      channelInitial: this.state.channel === 'Cursus' ? 'C' : 'O',
+      avatarStyle: 'width: 18px; height: 18px; border-radius: 2px; background: ' + (this.state.channel === 'Cursus' ? '#E9D8A6' : '#94D2BD') + '; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;',
+      cycleChannel: () => this.setState(s => ({ channel: s.channel === 'Cursus' ? "Otto's Timeline" : 'Cursus' })),
+      headNote: 'уровень канала, не выпуска',
+
+      tabs, tabNote: tab === 'Стиль' ? 'рендер, оптика, свет, палитра — подаётся в каждый кадр'
+        : tab === 'Периоды' ? 'что бывает в кадре эпохи и чего быть не может'
+        : 'один человек, разные облики и эпохи',
+      isStyle: tab === 'Стиль', isPeriods: tab === 'Периоды' && !emptyChannel,
+      isCharacters: tab === 'Персонажи' && !emptyChannel,
+      isEmptyChannel: emptyChannel,
+      showStyle: tab === 'Стиль' && !emptyChannel,
+
+      versionLabel: cur.id + ' · ' + (cur.current ? 'текущая' : cur.use),
+      versionBorder: readOnly ? '#EE9B00' : '#26282C',
+      cycleVersion: () => {
+        const i = VERSIONS.findIndex(v => v.id === version);
+        this.setState({ version: VERSIONS[(i + 1) % VERSIONS.length].id, diffOpen: false });
+      },
+      historyOpen: this.state.historyOpen,
+      historyBtnStyle: 'height: 28px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; '
+        + (this.state.historyOpen ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;'),
+      toggleHistory: () => this.setState(s => ({ historyOpen: !s.historyOpen })),
+      diffOpen: this.state.diffOpen, formOpen: !this.state.diffOpen,
+      diffBtnLabel: this.state.diffOpen ? 'Закрыть сравнение' : 'Сравнить с v002',
+      diffBtnStyle: 'height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; '
+        + (this.state.diffOpen ? 'border-color: #3A3D42;' : ''),
+      toggleDiff: () => this.setState(s => ({ diffOpen: !s.diffOpen })),
+      diffCount: diffChanged + ' полей из ' + DIFF.length + ' изменены',
+      diffRows,
+
+      readOnly: readOnly && tab === 'Стиль' && !emptyChannel,
+      readOnlyTitle: 'Версия ' + cur.id + ' используется в ' + cur.use + '. Редактирование создаст v004',
+      newVersionLabel: 'Создать v004 из ' + cur.id,
+      makeNewVersion: () => this.setState({ version: 'v003', toast: 'Создана v004 из ' + cur.id + ', выпуски на ' + cur.id + ' не затронуты', toastBar: '#0A9396' }),
+      backToCurrent: () => this.setState({ version: 'v003', diffOpen: false }),
+      editable: !readOnly,
+
+      styleFields, palette, negative, styleRefs, versions,
+      negDraft: this.state.negDraft,
+      setNegDraft: e => this.setState({ negDraft: e.target.value }),
+      negKey: e => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+          this.setState({ negDraft: '', toast: 'Добавлено в глобальный negative: ' + e.target.value.trim(), toastBar: '#0A9396' });
+        }
+      },
+      refNote: '6 кадров, версия ' + cur.id,
+      rebuildRefs: () => this.setState({ toast: 'Опорные кадры пересобраны, списано $0.80', toastBar: '#0A9396' }),
+      rebuildStyle: 'height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; '
+        + (readOnly ? 'background: #16171A; border: 1px solid #16171A; color: #6C6E72;' : 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE;'),
+
+      createStyle: toast('Создан стиль канала ' + this.state.channel + ': v001'),
+
+      periodsNote: PERIODS.length + ' периода',
+      periods,
+      period: { name: pMeta.name, meta: pd.meta },
+      periodFields,
+      newPeriod: toast('Новый период: предложен шаблон «Карибы, 1716»', '#94D2BD'),
+
+      forbidden: forbiddenList.map(name => ({
+        name,
+        remove: () => this.setState(s => ({ forbiddenRemoved: Object.assign({}, s.forbiddenRemoved, { [name]: true }) }))
+      })),
+      forbiddenEmpty,
+      forbiddenCount: forbiddenEmpty ? 'список пуст' : forbiddenList.length + ' позиций',
+      forbiddenTitleColor: forbiddenEmpty ? '#F08C5D' : '#EE9B00',
+      forbiddenGlyphStyle: (forbiddenEmpty
+        ? 'width: 11px; height: 11px; border-radius: 2px; border: 1.5px solid #BB3E03;'
+        : 'width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid #EE9B00;') + ' flex: 0 0 auto;',
+      forbiddenCardStyle: 'display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 6px; background: '
+        + (forbiddenEmpty ? '#1A0B05' : '#1A1206') + '; border: 1px solid ' + (forbiddenEmpty ? '#BB3E03' : '#EE9B00') + ';',
+      forbiddenDraft: this.state.forbiddenDraft,
+      setForbiddenDraft: e => this.setState({ forbiddenDraft: e.target.value }),
+      forbiddenKey: e => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+          const v = e.target.value.trim();
+          this.setState(s => ({ forbiddenAdded: Object.assign({}, s.forbiddenAdded, { [v]: true }), forbiddenDraft: '' }));
+        }
+      },
+      suggestLabel: forbiddenEmpty ? 'Предложить список (~$0.02)' : 'Дополнить через Claude (~$0.02)',
+      suggestStyle: 'height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; background: #16171A; border: 1px solid '
+        + (forbiddenEmpty ? '#BB3E03' : '#EE9B00') + '; color: ' + (forbiddenEmpty ? '#F08C5D' : '#EE9B00') + ';',
+      suggestForbidden: toast('Предложено 12 анахронизмов, списано $0.02'),
+
+      charsNote: CHARACTERS.length + ' персонажа',
+      characters,
+      immutable: IMMUTABLE[this.state.character],
+      looks, looksNote: looksData.length + ' обликов · ' + looksData.filter(l => l.ready === 6).length + ' листов готово',
+      newLook: toast('Новый облик: выберите период', '#94D2BD'),
+
+      openCopy: () => this.setState({ copyOpen: true }),
+      closeCopy: () => this.setState({ copyOpen: false }),
+      copyOpen: this.state.copyOpen,
+      copyTarget: this.state.copyTarget,
+      cycleTarget: () => this.setState(s => ({ copyTarget: s.copyTarget === 'Англия, 1347' ? 'Венеция, 1560' : 'Англия, 1347' })),
+      copyKeep: [
+        { label: 'Лицо', value: 'Узкое лицо, широко расставленные глаза, шрам над левой бровью' },
+        { label: 'Телосложение', value: 'Худой, узкие плечи, рост ниже среднего' },
+        { label: 'Характер', value: 'Наблюдает раньше, чем говорит' }
+      ],
+      copyReset: [
+        { label: 'Одежда', value: 'Слопы и платок → котта и шаперон' },
+        { label: 'Износ', value: 'Соль и смола → глина и торфяной дым' },
+        { label: 'Предметы', value: 'Картуз с порохом → серп и кожаное ведро' }
+      ],
+      doCopy: () => this.setState({ copyOpen: false, toast: 'Облик создан: ' + this.state.copyTarget + ' · лист портретов нужно собрать', toastBar: '#EE9B00' }),
+
+      sheetOpen: sheetIdx !== null,
+      sheetTitle: sheetLook ? sheetLook.title : '',
+      sheetSt: readyCount === 6 ? 'готов 6/6' : readyCount === 0 ? 'не собран' : 'собран наполовину ' + readyCount + '/6',
+      sheetStColor: readyCount === 6 ? '#9A9C9F' : readyCount === 0 ? '#F08C5D' : '#EE9B00',
+      sheetGlyphStyle: (readyCount === 6
+        ? 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;'
+        : readyCount === 0
+          ? 'width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid #BB3E03;'
+          : 'width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #EE9B00;') + ' flex: 0 0 auto;',
+      closeSheet: () => this.setState({ sheet: null }),
+      slots,
+      sheetProgress: readyCount === 0
+        ? 'Ни одного ракурса: кадры с этим обликом не генерируются'
+        : 'Готово ' + readyCount + ' из 6 ракурсов, выбрано по одному кандидату в каждом',
+      buildSheet: () => this.setState({ toast: 'Лист собран: 6 ракурсов, списано $1.61', toastBar: '#0A9396' }),
+
+      sheetStale: staleApplies,
+      staleTitle: staleKind === 'face' ? 'Лист устарел, пересоберите' : 'Достаточно пересобрать: в полный рост, в действии, деталь',
+      staleBody: staleKind === 'face'
+        ? 'В неизменяемом изменились черты лица — все шесть ракурсов показывают другого человека.'
+        : 'Менялась только одежда: лицо, три четверти и профиль остаются годными.',
+      staleFixLabel: staleKind === 'face' ? 'Пересобрать лист (6, ~$1.61)' : 'Пересобрать 3 ракурса (~$0.80)',
+      staleFix: () => this.setState({ toast: staleKind === 'face' ? 'Лист пересобран, списано $1.61' : 'Пересобрано 3 ракурса, списано $0.80', toastBar: '#0A9396' }),
+      cycleStaleLabel: staleKind === 'face' ? 'Случай: менялась одежда' : 'Случай: менялось лицо',
+      cycleStale: () => this.setState(s => ({ staleKind: s.staleKind === 'face' ? 'clothes' : 'face' })),
+
+      statusLeft: emptyChannel
+        ? 'Канон канала не создан: генерация кадров недоступна'
+        : tab === 'Стиль' ? 'Стиль ' + cur.id + (readOnly ? ' · только чтение, используется в ' + cur.use : ' · текущая версия')
+        : tab === 'Периоды' ? pMeta.name + ' · ' + (forbiddenEmpty ? 'запреты не заполнены' : forbiddenList.length + ' запретов')
+        : 'Персонажи: ' + looksData.filter(l => l.ready < 6).length + ' обликов без полного листа',
+      statusMid: 'Канон уровня канала: правка задевает все выпуски на этой версии',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

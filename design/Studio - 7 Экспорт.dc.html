@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div onClick="{{ noop }}" title="Переключить канал" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <div style="width: 18px; height: 18px; border-radius: 2px; background: #E9D8A6; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">C</div>
+      <div style="font-size: 13px; font-weight: 500;">Cursus</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 8px; min-width: 0;">
+      <div onClick="{{ noop }}" title="Переименовать выпуск" style="font-size: 13px; font-weight: 500; cursor: text; padding: 2px 4px; border-radius: 4px; white-space: nowrap;" style-hover="background: #16171A;">Every Rank on a Pirate Ship (Powder Monkey to Captain)</div>
+      <div style="font-size: 12px; color: #9A9C9F; white-space: nowrap;">экспорт</div>
+    </div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+    <div onClick="{{ noop }}" title="Горячие клавиши" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">?</div>
+    <div onClick="{{ noop }}" title="Настройки и расходы" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V4.4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex;">
+
+    <div style="width: 56px; flex: 0 0 56px; background: #0C0D0F; border-right: 1px solid #26282C; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px;">
+      <sc-for list="{{ stages }}" as="s" hint-placeholder-count="6">
+        <div onClick="{{ s.go }}" title="{{ s.tip }}" tabIndex="0" style="{{ s.wrapStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+          <div style="color: {{ s.icoColor }}; display: flex;">
+            <sc-if value="{{ s.isIdea }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M8 14a5 5 0 1 1 8 0c-.7.9-1.2 1.8-1.4 4H9.4C9.2 15.8 8.7 14.9 8 14Z"></path></svg></sc-if>
+            <sc-if value="{{ s.isScript }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"></path><path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path></svg></sc-if>
+            <sc-if value="{{ s.isGen }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 4 1.8 4.2L18 10l-4.2 1.8L12 16l-1.8-4.2L6 10l4.2-1.8Z"></path><path d="M18 15v4"></path><path d="M16 17h4"></path></svg></sc-if>
+            <sc-if value="{{ s.isEdit }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M8 5v14"></path><path d="M16 5v14"></path><path d="M3 12h18"></path></svg></sc-if>
+            <sc-if value="{{ s.isExport }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 8 5-5 5 5"></path><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"></path></svg></sc-if>
+            <sc-if value="{{ s.isPub }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="m11 10 4 2-4 2Z"></path></svg></sc-if>
+          </div>
+          <div style="{{ s.glyphStyle }}"></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+      <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+        <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Экспорт</div>
+        <div style="font-size: 12px; color: #9A9C9F;">{{ headNote }}</div>
+        <div style="flex: 1;"></div>
+        <div style="display: flex; align-items: stretch; gap: 12px; height: 28px;">
+          <sc-for list="{{ headStats }}" as="h" hint-placeholder-count="3">
+            <div style="{{ h.wrapStyle }}">
+              <div style="font-size: 11px; line-height: 12px; color: #9A9C9F;">{{ h.label }}</div>
+              <div style="font-size: 13px; line-height: 16px; font-weight: 500; color: {{ h.color }};">{{ h.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; display: flex;">
+
+        <div style="width: 320px; flex: 0 0 320px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+          <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+            <div style="font-size: 13px; font-weight: 600;">Пресеты</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ presetNote }}</div>
+          </div>
+
+          <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px;">
+            <sc-for list="{{ presetGroups }}" as="g" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; height: 24px; padding: 0 4px; font-size: 12px; font-weight: 600;">{{ g.title }}</div>
+                <sc-for list="{{ g.items }}" as="p" hint-placeholder-count="3">
+                  <div onClick="{{ p.toggle }}" tabIndex="0" style="{{ p.rowStyle }}" style-hover="background: #16171A;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+                    <div style="{{ p.boxStyle }}">
+                      <sc-if value="{{ p.on }}" hint-placeholder-val="{{ false }}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                      </sc-if>
+                    </div>
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                      <div class="cl1" style="font-size: 12px; font-weight: 500; color: {{ p.nameColor }};">{{ p.name }}</div>
+                      <div class="cl1" style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ p.meta }}</div>
+                    </div>
+                    <div style="{{ p.stateStyle }}">{{ p.state }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="padding: 12px; border-top: 1px solid #26282C; display: flex; flex-direction: column; gap: 6px;">
+            <div onClick="{{ addToQueue }}" tabIndex="0" style="{{ addStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">{{ addLabel }}</div>
+            <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ addNote }}</div>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+          <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+            <div style="font-size: 13px; font-weight: 600;">{{ activeName }}</div>
+            <div style="font-size: 12px; color: #9A9C9F;">{{ activeMeta }}</div>
+            <div style="flex: 1;"></div>
+            <div onClick="{{ resetParams }}" tabIndex="0" style="height: 22px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Вернуть значения пресета</div>
+          </div>
+
+          <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Разрешение и частота</div>
+                  <div style="display: flex; gap: 8px;">
+                    <div onClick="{{ cycleRes }}" tabIndex="0" style="flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                      <div style="flex: 1; font-size: 13px;">{{ res }}</div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                    </div>
+                    <div onClick="{{ cycleFps }}" tabIndex="0" style="width: 96px; flex: 0 0 96px; height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                      <div style="flex: 1; font-size: 13px;">{{ fps }}</div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="flex: 1; font-size: 12px; font-weight: 500; color: #9A9C9F;">Качество (CRF)</div>
+                    <div style="display: flex; align-items: center; gap: 4px; width: 64px; flex: 0 0 64px; height: 24px; padding: 0 6px; background: #16171A; border: 1px solid #26282C; border-radius: 4px;">
+                      <input value="{{ crfText }}" onChange="{{ setCrf }}" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; text-align: right;">
+                    </div>
+                  </div>
+                  <div onClick="{{ setCrfFromClick }}" style="position: relative; height: 20px; display: flex; align-items: center; cursor: pointer;">
+                    <div style="width: 100%; height: 2px; background: #26282C; border-radius: 1px;"></div>
+                    <div style="{{ crfFillStyle }}"></div>
+                    <div style="{{ crfKnobStyle }}"></div>
+                    <div title="Значение пресета: 18" style="{{ crfTickStyle }}"></div>
+                  </div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; color: #9A9C9F;">
+                    <span>14 — почти без потерь</span>
+                    <span>28 — мелкие артефакты</span>
+                  </div>
+                  <div style="font-size: 11px; line-height: 14px; color: {{ crfNoteColor }};">{{ crfNote }}</div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Кодировщик</div>
+                  <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+                    <sc-for list="{{ encoders }}" as="e" hint-placeholder-count="2">
+                      <div onClick="{{ e.pick }}" tabIndex="0" title="{{ e.tip }}" style="{{ e.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ e.label }}</div>
+                    </sc-for>
+                  </div>
+                  <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ encNote }}</div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Субтитры</div>
+                  <sc-for list="{{ subOptions }}" as="s" hint-placeholder-count="3">
+                    <div onClick="{{ s.pick }}" tabIndex="0" style="{{ s.rowStyle }}" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                      <div style="{{ s.radioStyle }}">
+                        <div style="{{ s.dotStyle }}"></div>
+                      </div>
+                      <div style="flex: 1; min-width: 0; font-size: 12px;">{{ s.label }}</div>
+                      <div style="font-size: 11px; color: #9A9C9F;">{{ s.hint }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="flex: 1; font-size: 12px; font-weight: 500; color: #9A9C9F;">Нормализация громкости</div>
+                    <div onClick="{{ toggleNorm }}" tabIndex="0" style="{{ normToggleStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                      <div style="{{ normKnobStyle }}"></div>
+                    </div>
+                  </div>
+                  <div style="display: flex; gap: 4px;">
+                    <sc-for list="{{ lufs }}" as="l" hint-placeholder-count="3">
+                      <div onClick="{{ l.pick }}" tabIndex="0" style="{{ l.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ l.label }}</div>
+                    </sc-for>
+                  </div>
+                  <div style="font-size: 11px; line-height: 14px; color: {{ normNoteColor }};">{{ normNote }}</div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Папка</div>
+                  <div style="display: flex; gap: 8px;">
+                    <div style="flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px;">
+                      <input value="{{ folder }}" onChange="{{ setFolder }}" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: 'Courier Prime', monospace; font-size: 12px;">
+                    </div>
+                    <div onClick="{{ pickFolder }}" tabIndex="0" style="flex: 0 0 auto; height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Выбрать</div>
+                  </div>
+                  <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ folderNote }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: stretch; gap: 16px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <sc-for list="{{ estimate }}" as="e" hint-placeholder-count="4">
+                <div style="{{ e.wrapStyle }}">
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ e.label }}</div>
+                  <div style="display: flex; align-items: baseline; gap: 4px;">
+                    <div style="font-size: 15px; font-weight: 600; color: {{ e.color }};">{{ e.value }}</div>
+                    <div style="font-size: 11px; color: #9A9C9F;">{{ e.unit }}</div>
+                  </div>
+                  <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ e.hint }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="{{ queueStyle }}">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid #26282C; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Очередь рендера</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ queueNote }}</div>
+          <div style="flex: 1;"></div>
+          <div onClick="{{ toggleLog }}" tabIndex="0" style="{{ logBtnStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ logBtnLabel }}</div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; display: flex;">
+
+          <div class="sc" style="flex: 1; min-width: 0; overflow-y: auto;">
+            <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="2">
+              <div style="{{ j.wrapStyle }}">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div style="{{ j.glyphStyle }}"></div>
+                  <div class="cl1" style="font-size: 13px; font-weight: 500;">{{ j.name }}</div>
+                  <div style="font-size: 12px; color: #9A9C9F;">{{ j.meta }}</div>
+                  <div style="flex: 1;"></div>
+                  <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; color: {{ j.pctColor }};">{{ j.pct }}</div>
+                  <div style="font-size: 12px; color: #9A9C9F;">{{ j.eta }}</div>
+                  <sc-if value="{{ j.cancellable }}" hint-placeholder-val="{{ true }}">
+                    <div onClick="{{ j.cancel }}" tabIndex="0" title="Отменить задачу" style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #BB3E031F; color: #F08C5D;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <sc-for list="{{ j.steps }}" as="st" hint-placeholder-count="5">
+                    <div title="{{ st.tip }}" style="{{ st.wrapStyle }}">
+                      <div style="{{ st.barStyle }}"></div>
+                      <div class="cl1" style="font-size: 10px; line-height: 13px; color: {{ st.color }};">{{ st.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display: flex; align-items: baseline; gap: 12px; font-size: 11px; color: #9A9C9F;">
+                  <div style="color: {{ j.currentColor }};">{{ j.current }}</div>
+                  <div style="flex: 1;"></div>
+                  <div>{{ j.out }}</div>
+                </div>
+
+                <sc-if value="{{ j.finished }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; gap: 12px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                    <div style="position: relative; width: 96px; height: 54px; flex: 0 0 96px; border-radius: 2px; background: #050506; border: 1px solid #26282C; display: flex; align-items: center; justify-content: center;">
+                      <div style="width: 22px; height: 22px; border-radius: 50%; background: #94D2BD; display: flex; align-items: center; justify-content: center;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4l13 8-13 8Z"></path></svg>
+                      </div>
+                      <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #ffffff1a;">
+                        <div style="width: 26%; height: 2px; background: #94D2BD;"></div>
+                      </div>
+                    </div>
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                      <div style="font-size: 12px; font-weight: 500;">Превью первых 5 секунд</div>
+                      <div style="font-size: 11px; color: #9A9C9F;">{{ j.readyNote }}</div>
+                    </div>
+                    <div onClick="{{ openFolder }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Открыть папку</div>
+                    <div onClick="{{ goPublish }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 10px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">Перейти к публикации</div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ logOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="width: 420px; flex: 0 0 420px; border-left: 1px solid #26282C; display: flex; flex-direction: column; background: #050506;">
+              <div style="height: 22px; flex: 0 0 22px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-bottom: 1px solid #26282C;">
+                <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">ffmpeg · YouTube 1080p</div>
+                <div style="flex: 1;"></div>
+                <div onClick="{{ copyLog }}" tabIndex="0" style="font-size: 11px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Скопировать</div>
+              </div>
+              <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px;">
+                <sc-for list="{{ log }}" as="l" hint-placeholder-count="12">
+                  <div style="display: flex; gap: 8px; font-family: 'Courier Prime', monospace; font-size: 11px; line-height: 16px;">
+                    <div style="color: #8B8D91; flex: 0 0 auto;">{{ l.t }}</div>
+                    <div style="color: {{ l.color }};">{{ l.text }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <div style="width: 8px; height: 8px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #14312C 2px 4px); animation: hatch 1.2s linear infinite;"></div>
+      {{ statusLeft }}
+    </div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>⌘E собрать очередь</div>
+    <div>L лог</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;firstJobFinished&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Очередь&quot;}}">
+const FLOW = {
+  isIdea: 'Studio - 2 Идеи.dc.html',
+  isScript: 'Studio - 3 Сценарий и план.dc.html',
+  isGen: 'Studio - 4 Генерация.dc.html',
+  isEdit: 'Studio - 5 Монтаж.dc.html',
+  isExport: 'Studio - 7 Экспорт.dc.html',
+  isPub: 'Studio - 8 Публикация.dc.html'
+};
+const goTo = href => { window.location.href = encodeURI(href); };
+
+const STAGES = [
+  { tip: 'Идея — готово', state: 'done', flag: 'isIdea' },
+  { tip: 'Сценарий — готово', state: 'done', flag: 'isScript' },
+  { tip: 'Генерация — готово', state: 'done', flag: 'isGen' },
+  { tip: 'Монтаж — готово', state: 'done', flag: 'isEdit' },
+  { tip: 'Экспорт — в работе', state: 'active', flag: 'isExport' },
+  { tip: 'Публикация — не начата', state: 'todo', flag: 'isPub' }
+];
+
+const PRESETS = [
+  { g: 'Видео', id: 'yt1080', name: 'YouTube 1080p', meta: 'H.264, 30 fps, −14 LUFS', size: 1.9, mins: 14, state: 'рендер' },
+  { g: 'Видео', id: 'yt1440', name: 'YouTube 1440p', meta: 'H.264, 30 fps, −14 LUFS', size: 3.4, mins: 26, state: '' },
+  { g: 'Видео', id: 'draft', name: 'Черновик 720p', meta: 'H.264, быстрый проход', size: 0.6, mins: 5, state: '' },
+  { g: 'Видео', id: 'shorts', name: 'Shorts 9:16', meta: 'отрезок 00:11:04 – 00:11:52', size: 0.2, mins: 3, state: 'отрезок' },
+  { g: 'Звук и текст', id: 'stems', name: 'Стемы WAV', meta: 'голос, SFX, музыка отдельно', size: 2.1, mins: 4, state: '' },
+  { g: 'Звук и текст', id: 'subs', name: 'Субтитры', meta: 'SRT и VTT, английские', size: 0.001, mins: 1, state: '' },
+  { g: 'Проекты и ассеты', id: 'premiere', name: 'Проект для Premiere', meta: 'FCP7 XML + клипы', size: 8.4, mins: 9, state: 'в очереди' },
+  { g: 'Проекты и ассеты', id: 'resolve', name: 'Проект для DaVinci Resolve', meta: 'OTIO + клипы', size: 8.4, mins: 9, state: '' },
+  { g: 'Проекты и ассеты', id: 'zip', name: 'Архив ассетов', meta: 'ZIP: кадры, голос, SFX, план', size: 5.2, mins: 6, state: '' }
+];
+
+const LOG = [
+  { t: '12:38:02', text: 'ffmpeg -y -framerate 30 -i shots/%04d.png -i voice.wav', c: 'dim' },
+  { t: '12:38:02', text: 'stream 0: 1920x1080 yuv420p, 104 shots, 35 640 frames', c: 'dim' },
+  { t: '12:38:03', text: 'libx264 preset slow crf 18 profile high level 4.1', c: 'dim' },
+  { t: '12:38:03', text: 'audio: voice −14.0 LUFS, sfx −9 дБ, music duck −9 дБ', c: 'dim' },
+  { t: '12:39:11', text: 'subtitles: burn-in disabled, sidecar srt queued', c: 'dim' },
+  { t: '12:41:26', text: 'warning: shot s063 duration 0.4 s shorter than voice', c: 'warn' },
+  { t: '12:41:26', text: '  → padded with last frame, 12 frames', c: 'warn' },
+  { t: '12:44:08', text: 'frame=22412 fps=61 q=23.0 size=1 214 МБ time=00:12:27', c: 'ok' },
+  { t: '12:44:09', text: 'speed=2.04x bitrate=13 021 kb/s', c: 'dim' },
+  { t: '12:44:10', text: 'step 3 of 5: audio mix', c: 'ok' },
+  { t: '12:44:10', text: 'loudnorm: measured −16.4 LUFS, offset +2.4 дБ', c: 'dim' },
+  { t: '12:44:11', text: 'frame=22836 fps=61 q=23.0 size=1 238 МБ time=00:12:41', c: 'ok' }
+];
+
+class Component extends DCLogic {
+  state = {
+    picked: { yt1080: true, premiere: true },
+    active: 'yt1080',
+    res: '1920 × 1080', fps: '30 fps', crf: 18, enc: 'NVENC', subs: 'Файлом рядом',
+    norm: true, lufs: '−14 LUFS (YouTube)',
+    folder: '~/Studio/cursus/pirate-ship/export',
+    logOpen: true, cancelled: {}, toast: '', toastBar: '#94D2BD'
+  };
+
+  renderVals() {
+    const finished = this.props.firstJobFinished ?? false;
+    const picked = this.state.picked;
+    const pickedList = PRESETS.filter(p => picked[p.id]);
+    const active = PRESETS.find(p => p.id === this.state.active) || PRESETS[0];
+
+    const groups = ['Видео', 'Звук и текст', 'Проекты и ассеты'];
+    const presetGroups = groups.map(g => ({
+      title: g,
+      items: PRESETS.filter(p => p.g === g).map(p => {
+        const on = !!picked[p.id];
+        const isActive = p.id === this.state.active;
+        return {
+          name: p.name, meta: p.meta, on,
+          nameColor: on ? '#F2F1EE' : '#9A9C9F',
+          state: p.id === 'yt1080' && !finished ? 'рендер' : p.id === 'yt1080' ? 'готово' : p.state,
+          stateStyle: 'font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 11px; white-space: nowrap; color: '
+            + (p.id === 'yt1080' ? (finished ? '#F2F1EE' : '#94D2BD') : p.state === 'в очереди' ? '#8B8D91' : '#9A9C9F') + ';',
+          toggle: () => this.setState(s => ({
+            picked: Object.assign({}, s.picked, { [p.id]: !s.picked[p.id] }),
+            active: p.id
+          })),
+          rowStyle: 'display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px; border-radius: 4px; cursor: pointer; '
+            + (isActive ? 'background: #16171A; box-shadow: inset 2px 0 0 #94D2BD;' : ''),
+          boxStyle: 'width: 14px; height: 14px; flex: 0 0 14px; border-radius: 3px; display: flex; align-items: center; justify-content: center; '
+            + (on ? 'background: #94D2BD; border: 1px solid #94D2BD;' : 'border: 1px solid #3A3D42;')
+        };
+      })
+    }));
+
+    const totalSize = pickedList.reduce((a, p) => a + p.size, 0);
+    const totalMins = pickedList.reduce((a, p) => a + p.mins, 0);
+
+    const crf = this.state.crf;
+    const crfPct = Math.max(0, Math.min(1, (crf - 14) / 14));
+    const sizeFactor = Math.pow(1.09, 18 - crf);
+    const size = (active.size * sizeFactor).toFixed(1);
+    const mins = Math.max(2, Math.round(active.mins * (this.state.enc === 'NVENC' ? 1 : 2.4)));
+
+    const encoders = [
+      { k: 'CPU', label: 'CPU (libx264)', tip: 'Медленнее, чуть лучше качество при том же CRF' },
+      { k: 'NVENC', label: 'NVENC', tip: 'Аппаратный, в 2–3 раза быстрее' }
+    ].map(e => ({
+      label: e.label, tip: e.tip,
+      pick: () => this.setState({ enc: e.k }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.enc === e.k ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const subOptions = [
+      { k: 'Файлом рядом', label: 'Файлом рядом', hint: 'SRT и VTT' },
+      { k: 'Вшить в картинку', label: 'Вшить в картинку', hint: 'без выключения' },
+      { k: 'Не выводить', label: 'Не выводить', hint: '' }
+    ].map(s => {
+      const on = this.state.subs === s.k;
+      return {
+        label: s.label, hint: s.hint,
+        pick: () => this.setState({ subs: s.k }),
+        rowStyle: 'display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 4px; cursor: pointer; background: #16171A; border: 1px solid '
+          + (on ? '#94D2BD' : '#26282C') + ';',
+        radioStyle: 'width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1.5px solid '
+          + (on ? '#94D2BD' : '#5C5E62') + ';',
+        dotStyle: on ? 'width: 7px; height: 7px; border-radius: 50%; background: #94D2BD;' : 'display: none;'
+      };
+    });
+
+    const lufs = ['−14 LUFS (YouTube)', '−16 LUFS', 'Не менять'].map(l => {
+      const on = this.state.lufs === l;
+      return {
+        label: l,
+        pick: () => this.setState({ lufs: l, norm: l !== 'Не менять' }),
+        style: 'flex: 1; min-width: 0; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; cursor: pointer; '
+          + (on && this.state.norm ? 'background: #94D2BD; color: #000000;' : 'background: #16171A; border: 1px solid #26282C; color: ' + (this.state.norm ? '#F2F1EE' : '#6C6E72') + ';')
+      };
+    });
+
+    const step = (label, pct, state) => ({
+      label, tip: label + ': ' + (state === 'done' ? 'готово' : state === 'run' ? pct + ' %' : 'в очереди'),
+      color: state === 'done' ? '#F2F1EE' : state === 'run' ? '#94D2BD' : '#8B8D91',
+      wrapStyle: 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;',
+      barStyle: 'height: 3px; border-radius: 1px; background: '
+        + (state === 'done' ? '#F2F1EE' : state === 'run'
+          ? 'linear-gradient(90deg, #94D2BD ' + pct + '%, #26282C ' + pct + '%)'
+          : '#1E2023') + ';'
+    });
+
+    const job1Steps = finished
+      ? [step('Кадры', 100, 'done'), step('Склейка', 100, 'done'), step('Звук', 100, 'done'), step('Субтитры', 100, 'done'), step('Финал', 100, 'done')]
+      : [step('Кадры', 100, 'done'), step('Склейка', 100, 'done'), step('Звук', 42, 'run'), step('Субтитры', 0, 'todo'), step('Финал', 0, 'todo')];
+
+    const jobs = [
+      {
+        name: 'YouTube 1080p', meta: 'H.264, 1920 × 1080, 30 fps',
+        pct: finished ? 'готово' : '63 %',
+        pctColor: finished ? '#F2F1EE' : '#94D2BD',
+        eta: finished ? '5 мин 12 с' : 'осталось ~5 мин',
+        current: finished ? 'Мастер собран, громкость −14.0 LUFS' : 'Кадр 22 836 из 35 640 · s063 дополнен последним кадром',
+        currentColor: finished ? '#9A9C9F' : '#EE9B00',
+        out: finished ? 'pirate-ship-1080p.mp4 · 1.24 ГБ' : 'pirate-ship-1080p.mp4 · 1.24 ГБ из ~1.9 ГБ',
+        steps: job1Steps,
+        glyphStyle: (finished
+          ? 'width: 9px; height: 9px; border-radius: 50%; background: #0A9396;'
+          : 'width: 9px; height: 9px; border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #14312C 2px 4px); animation: hatch 1.2s linear infinite;') + ' flex: 0 0 auto;',
+        cancellable: !finished,
+        finished,
+        readyNote: '00:19:48 · 1.24 ГБ · −14.0 LUFS · субтитры файлом рядом',
+        cancel: () => this.setState({ toast: 'Задача отменена: YouTube 1080p', toastBar: '#BB3E03' }),
+        wrapStyle: 'display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-bottom: 1px solid #1E2023; background: #0C0D0F;'
+      },
+      {
+        name: 'Проект для Premiere', meta: 'FCP7 XML + клипы',
+        pct: 'в очереди', pctColor: '#8B8D91',
+        eta: finished ? 'запуск сейчас' : 'старт после первой задачи',
+        current: 'Будут собраны 104 клипа, голос, SFX и музыка отдельными дорожками',
+        currentColor: '#9A9C9F',
+        out: 'pirate-ship.xml + assets · ~8.4 ГБ',
+        steps: [step('Кадры', 0, 'todo'), step('Склейка', 0, 'todo'), step('Звук', 0, 'todo'), step('Субтитры', 0, 'todo'), step('Финал', 0, 'todo')],
+        glyphStyle: 'width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #5C5E62; flex: 0 0 auto;',
+        cancellable: true, finished: false, readyNote: '',
+        cancel: () => this.setState({ toast: 'Задача отменена: проект для Premiere', toastBar: '#BB3E03' }),
+        wrapStyle: 'display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: #0C0D0F;'
+      }
+    ];
+
+    const log = LOG.map(l => ({
+      t: l.t, text: l.text,
+      color: l.c === 'warn' ? '#EE9B00' : l.c === 'ok' ? '#F2F1EE' : '#9A9C9F'
+    }));
+
+    return {
+      stages: STAGES.map(s => ({
+        tip: s.tip,
+        go: () => goTo(FLOW[s.flag]),
+        isIdea: s.flag === 'isIdea', isScript: s.flag === 'isScript', isGen: s.flag === 'isGen',
+        isEdit: s.flag === 'isEdit', isExport: s.flag === 'isExport', isPub: s.flag === 'isPub',
+        icoColor: s.state === 'active' ? '#000000' : s.state === 'done' ? '#F2F1EE' : '#6C6E72',
+        wrapStyle: 'position: relative; width: 40px; height: 40px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; '
+          + (s.state === 'active' ? 'background: #94D2BD;' : ''),
+        glyphStyle: s.state === 'done'
+          ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: #F2F1EE;'
+          : s.state === 'todo'
+            ? 'position: absolute; right: 5px; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; border: 1px solid #6C6E72;'
+            : 'display: none;'
+      })),
+
+      headNote: '00:19:48 · 104 кадра · мастер 1920 × 1080',
+      headStats: [
+        { label: 'Выбрано пресетов', value: String(pickedList.length), color: '#F2F1EE' },
+        { label: 'Общий размер', value: '~' + totalSize.toFixed(1) + ' ГБ', color: '#F2F1EE' },
+        { label: 'Общее время', value: '~' + totalMins + ' мин', color: '#F2F1EE' }
+      ].map((h, i) => ({
+        label: h.label, value: h.value, color: h.color,
+        wrapStyle: 'display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-left: ' + (i ? '12px' : '0') + '; '
+          + (i ? 'border-left: 1px solid #26282C;' : '')
+      })),
+
+      presetNote: pickedList.length + ' из 9',
+      presetGroups,
+      addLabel: pickedList.length ? 'Собрать очередь из ' + pickedList.length + ' пресетов' : 'Собрать очередь',
+      addStyle: 'height: 28px; display: flex; align-items: center; justify-content: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; text-align: center; '
+        + (!pickedList.length ? 'background: #16171A; border: 1px solid #16171A; color: #6C6E72; cursor: default;'
+          : finished ? 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE; cursor: pointer;'
+          : 'background: #94D2BD; color: #000000; cursor: pointer;'),
+      addNote: pickedList.length
+        ? 'Задачи идут одна за другой, ~' + totalMins + ' мин на всё. Рендер локальный, деньги не тратятся.'
+        : 'Отметьте пресеты флажками — можно несколько сразу.',
+      addToQueue: () => pickedList.length && this.setState({ toast: 'В очередь добавлено ' + pickedList.length + ' задач', toastBar: '#0A9396' }),
+
+      activeName: active.name,
+      activeMeta: active.meta,
+      resetParams: () => this.setState({ crf: 18, enc: 'NVENC', res: '1920 × 1080', fps: '30 fps', subs: 'Файлом рядом', norm: true, lufs: '−14 LUFS (YouTube)', toast: 'Значения пресета возвращены', toastBar: '#94D2BD' }),
+
+      res: this.state.res, fps: this.state.fps,
+      cycleRes: () => this.setState(s => ({ res: s.res === '1920 × 1080' ? '2560 × 1440' : s.res === '2560 × 1440' ? '1280 × 720' : '1920 × 1080' })),
+      cycleFps: () => this.setState(s => ({ fps: s.fps === '30 fps' ? '24 fps' : s.fps === '24 fps' ? '60 fps' : '30 fps' })),
+
+      crfText: String(crf),
+      setCrf: e => this.setState({ crf: Math.max(14, Math.min(28, parseInt(e.target.value, 10) || 18)) }),
+      setCrfFromClick: e => {
+        const r = e.currentTarget.getBoundingClientRect();
+        this.setState({ crf: Math.round(14 + ((e.clientX - r.left) / r.width) * 14) });
+      },
+      crfFillStyle: 'position: absolute; left: 0; height: 2px; width: ' + (crfPct * 100) + '%; background: #94D2BD;',
+      crfKnobStyle: 'position: absolute; left: ' + (crfPct * 100) + '%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 2px; background: #94D2BD;',
+      crfTickStyle: 'position: absolute; left: ' + ((18 - 14) / 14 * 100) + '%; top: 2px; bottom: 2px; width: 1px; background: #0A9396;',
+      crfNote: crf < 18
+        ? 'Тоньше пресета: файл крупнее, YouTube всё равно пережмёт.'
+        : crf > 20 ? 'Заметно грубее пресета: на плавных наездах появится шум.' : 'Значение пресета для YouTube.',
+      crfNoteColor: crf > 20 ? '#EE9B00' : '#9A9C9F',
+
+      encoders,
+      encNote: this.state.enc === 'NVENC'
+        ? 'Аппаратный кодировщик: ~' + mins + ' мин вместо ~' + Math.round(mins * 2.4) + ' на CPU.'
+        : 'CPU: дольше, но стабильнее на длинных наездах.',
+
+      subOptions,
+      norm: this.state.norm,
+      toggleNorm: () => this.setState(s => ({ norm: !s.norm })),
+      normToggleStyle: 'position: relative; width: 32px; height: 18px; flex: 0 0 32px; border-radius: 9px; cursor: pointer; background: '
+        + (this.state.norm ? '#94D2BD' : '#26282C') + ';',
+      normKnobStyle: 'position: absolute; top: 3px; left: ' + (this.state.norm ? '17px' : '3px') + '; width: 12px; height: 12px; border-radius: 50%; background: '
+        + (this.state.norm ? '#000000' : '#9A9C9F') + ';',
+      lufs,
+      normNote: this.state.norm
+        ? 'Голос приводится к ' + this.state.lufs.replace(' (YouTube)', '') + ', музыка проседает на 9 дБ под голос.'
+        : 'Нормализация выключена: YouTube приглушит дорожку сам.',
+      normNoteColor: this.state.norm ? '#9A9C9F' : '#EE9B00',
+
+      folder: this.state.folder,
+      setFolder: e => this.setState({ folder: e.target.value }),
+      pickFolder: () => this.setState({ toast: 'Папка выбрана', toastBar: '#94D2BD' }),
+      folderNote: 'Свободно 214 ГБ. Файлы пресетов складываются в подпапки по дате.',
+
+      estimate: [
+        { label: 'Размер файла', value: '~' + size, unit: 'ГБ', hint: 'при CRF ' + crf + ' и ' + this.state.res },
+        { label: 'Время рендера', value: '~' + mins, unit: 'мин', hint: this.state.enc === 'NVENC' ? 'аппаратно, 61 fps' : 'на CPU, 25 fps' },
+        { label: 'Битрейт', value: '13 021', unit: 'кб/с', hint: 'средний по мастеру' },
+        { label: 'Громкость', value: this.state.norm ? '−14.0' : '−16.4', unit: 'LUFS', hint: this.state.norm ? 'после нормализации' : 'как в монтаже' }
+      ].map((e, i) => ({
+        label: e.label, value: e.value, unit: e.unit, hint: e.hint,
+        color: '#F2F1EE',
+        wrapStyle: 'flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding-left: ' + (i ? '16px' : '0') + '; '
+          + (i ? 'border-left: 1px solid #202225;' : '')
+      })),
+
+      queueStyle: 'height: ' + (finished ? 268 : 216) + 'px; flex: 0 0 ' + (finished ? 268 : 216) + 'px; display: flex; flex-direction: column; background: #000000;',
+      queueNote: finished ? '1 задача готова, 1 в очереди' : '2 задачи: 1 рендерится, 1 ждёт',
+      logOpen: this.state.logOpen,
+      logBtnLabel: this.state.logOpen ? 'Скрыть лог' : 'Показать лог',
+      logBtnStyle: 'height: 22px; display: flex; align-items: center; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.logOpen ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;'),
+      toggleLog: () => this.setState(s => ({ logOpen: !s.logOpen })),
+      copyLog: () => this.setState({ toast: 'Лог скопирован', toastBar: '#94D2BD' }),
+      jobs, log,
+      openFolder: () => this.setState({ toast: 'Папка открыта', toastBar: '#94D2BD' }),
+      goPublish: () => { this.setState({ toast: 'Открыта публикация', toastBar: '#0A9396' }); setTimeout(() => goTo(FLOW.isPub), 400); },
+
+      statusLeft: finished ? 'YouTube 1080p готов, Premiere XML запускается' : 'YouTube 1080p 63 %, звук 42 % · осталось ~5 мин',
+      statusMid: 's063 дополнен последним кадром: голос длиннее на 0.4 с',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

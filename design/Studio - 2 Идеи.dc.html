@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  @keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+  .sc { scrollbar-width: thin; scrollbar-color: #26282C transparent; }
+  .sc::-webkit-scrollbar { width: 9px; height: 9px; }
+  .sc::-webkit-scrollbar-thumb { background: #26282C; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  .sc::-webkit-scrollbar-track { background: transparent; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; overflow: hidden; position: relative; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div onClick="{{ cycleChannel }}" title="Переключить канал" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <div style="width: 18px; height: 18px; border-radius: 2px; background: {{ chanAvatarBg }}; color: #000000; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">{{ chanInitial }}</div>
+      <div style="font-size: 13px; font-weight: 500;">{{ channel }}</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="font-size: 13px; color: #9A9C9F;">Выпуск не открыт</div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9A9C9F;">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0A9396;"></div>
+      Сохранено 12:41
+    </div>
+    <div title="Расход месяца: $61.40 из $150" style="display: flex; flex-direction: column; gap: 4px; padding-left: 12px; border-left: 1px solid #26282C;">
+      <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+        <span style="font-weight: 500;">$61.40</span>
+        <span style="color: #9A9C9F;">из $150</span>
+      </div>
+      <div style="width: 132px; height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+        <div style="width: 41%; height: 2px; background: #94D2BD;"></div>
+      </div>
+    </div>
+    <div onClick="{{ noop }}" title="Горячие клавиши" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">?</div>
+    <div onClick="{{ noop }}" title="Настройки и расходы" tabIndex="0" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: #9A9C9F; cursor: pointer;" style-hover="background: #16171A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V4.4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Идеи</div>
+    <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+        <div onClick="{{ t.pick }}" tabIndex="0" style="{{ t.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ t.label }}</div>
+      </sc-for>
+    </div>
+    <div style="flex: 1;"></div>
+    <div style="font-size: 12px; color: #9A9C9F;">{{ headerNote }}</div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex;">
+
+    <sc-if value="{{ isTrends }}" hint-placeholder-val="{{ true }}">
+      <div style="width: 300px; flex: 0 0 300px; border-right: 1px solid #26282C; display: flex; flex-direction: column;">
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 16px;">
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Семена ниши</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <sc-for list="{{ seeds }}" as="sd" hint-placeholder-count="4">
+                <div onClick="{{ sd.toggle }}" tabIndex="0" title="{{ sd.tip }}" style="{{ sd.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                  <span>{{ sd.label }}</span>
+                  <span style="color: {{ sd.countColor }};">{{ sd.count }}</span>
+                </div>
+              </sc-for>
+              <div onClick="{{ noop }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border: 1px dashed #26282C; border-radius: 4px; font-size: 12px; color: #9A9C9F; cursor: pointer;" style-hover="border-color: #3A3D42; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                Семя
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Язык</div>
+              <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div style="flex: 1; font-size: 13px;">en</div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Регион</div>
+              <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+                <div style="flex: 1; font-size: 13px;">US</div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Период</div>
+            <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+              <sc-for list="{{ periods }}" as="p" hint-placeholder-count="3">
+                <div onClick="{{ p.pick }}" tabIndex="0" style="{{ p.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ p.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Длина</div>
+            <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
+              <sc-for list="{{ lengths }}" as="l" hint-placeholder-count="2">
+                <div onClick="{{ l.pick }}" tabIndex="0" style="{{ l.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ l.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #26282C;">
+            <div onClick="{{ refresh }}" tabIndex="0" style="{{ refreshStyle }}" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">
+              <sc-if value="{{ scanning }}" hint-placeholder-val="{{ false }}">
+                <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: repeating-linear-gradient(45deg, #000000 0 3px, #94D2BD 3px 6px); animation: hatch 1.2s linear infinite;"></div>
+              </sc-if>
+              {{ refreshLabel }}
+            </div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; color: #9A9C9F;">
+              <span>Квота дня</span>
+              <span>{{ quotaLabel }}</span>
+            </div>
+            <div style="height: 2px; background: #26282C; border-radius: 1px; overflow: hidden;">
+              <div style="{{ quotaFillStyle }}"></div>
+            </div>
+            <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ lastScan }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Выбросы</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ rowsNote }}</div>
+          <div style="flex: 1;"></div>
+          <div style="font-size: 11px; color: #9A9C9F;">Выброс — просмотры к подписчикам</div>
+        </div>
+
+        <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; padding: 0 12px; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+          <div onClick="{{ toggleAll }}" tabIndex="0" style="{{ allBoxStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+            <sc-if value="{{ someSelected }}" hint-placeholder-val="{{ false }}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+            </sc-if>
+          </div>
+          <div style="width: 104px; flex: 0 0 104px;"></div>
+          <div style="flex: 1; min-width: 0; padding-right: 12px;">Ролик и канал</div>
+          <sc-for list="{{ headers }}" as="h" hint-placeholder-count="6">
+            <div onClick="{{ h.sort }}" tabIndex="0" title="{{ h.tip }}" style="{{ h.style }}" style-hover="color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">
+              <span>{{ h.label }}</span>
+              <div style="{{ h.markStyle }}"></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto;">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+            <div onClick="{{ r.toggle }}" tabIndex="0" style="{{ r.style }}" style-hover="background: #1B1D20;" style-focus="outline: 2px solid #94D2BD; outline-offset: -2px;">
+              <div style="{{ r.boxStyle }}">
+                <sc-if value="{{ r.picked }}" hint-placeholder-val="{{ false }}">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                </sc-if>
+              </div>
+              <div style="width: 96px; height: 54px; flex: 0 0 96px; margin-right: 8px; border-radius: 2px; background: #1B1D20; border: 1px solid #26282C; display: flex; align-items: flex-end; justify-content: space-between; padding: 3px 4px;">
+                <div style="font-family: 'Courier Prime', monospace; font-size: 10px; line-height: 10px; color: #9A9C9F;">{{ r.len }}</div>
+                <div style="font-family: 'Courier Prime', monospace; font-size: 10px; line-height: 10px; color: #9A9C9F;">{{ r.num }}</div>
+              </div>
+              <div style="flex: 1; min-width: 0; padding-right: 12px; display: flex; flex-direction: column; gap: 2px;">
+                <div class="cl2" style="font-size: 13px; line-height: 16px; font-weight: 500;">{{ r.title }}</div>
+                <div style="font-size: 11px; color: #9A9C9F;">{{ r.channel }}</div>
+              </div>
+              <div style="{{ r.numStyle }}">{{ r.subs }}</div>
+              <div style="{{ r.numStyle }}">{{ r.views }}</div>
+              <div style="{{ r.spikeStyle }}">
+                <div style="{{ r.spikeBarStyle }}"></div>
+                <span>{{ r.spike }}</span>
+              </div>
+              <div style="{{ r.numStyle }}">{{ r.vpd }}</div>
+              <div style="{{ r.numStyle }}">{{ r.age }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-top: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 12px; color: {{ selCountColor }};">{{ selCount }}</div>
+          <div style="flex: 1;"></div>
+          <div onClick="{{ clusterFromSelection }}" tabIndex="0" style="{{ clusterBtnStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Собрать идею из выбранных</div>
+          <div onClick="{{ noop }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: #9A9C9F; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Открыть на YouTube</div>
+        </div>
+      </div>
+
+      <div style="width: 340px; flex: 0 0 340px; border-left: 1px solid #26282C; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Идеи из кластеров</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ ideasNote }}</div>
+        </div>
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <sc-for list="{{ ideas }}" as="i" hint-placeholder-count="4">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+              <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <div class="cl3" style="flex: 1; min-width: 0; font-size: 13px; line-height: 16px; font-weight: 500;">{{ i.title }}</div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px;">
+                  <div style="font-size: 15px; font-weight: 600; color: {{ i.scoreColor }};">{{ i.score }}</div>
+                  <div style="width: 40px; height: 2px; background: #202225; border-radius: 1px; overflow: hidden;">
+                    <div style="{{ i.scoreBarStyle }}"></div>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size: 12px; line-height: 16px; color: #9A9C9F;">{{ i.angle }}</div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="font-size: 11px; color: #9A9C9F;">Доказательства</div>
+                <div style="display: flex; gap: 4px;">
+                  <sc-for list="{{ i.proof }}" as="pf" hint-placeholder-count="3">
+                    <div title="{{ pf.tip }}" style="width: 48px; height: 27px; border-radius: 2px; background: #1B1D20; border: 1px solid #26282C; display: flex; align-items: flex-end; justify-content: flex-end; padding: 2px;">
+                      <div style="font-family: 'Courier Prime', monospace; font-size: 9px; line-height: 9px; color: #9A9C9F;">{{ pf.spike }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 6px; border-top: 1px solid #202225;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div style="{{ i.satGlyphStyle }}"></div>
+                  <div style="font-size: 11px; line-height: 14px; color: {{ i.satColor }};">{{ i.satLabel }}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div onClick="{{ i.backlog }}" tabIndex="0" style="{{ i.backlogStyle }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ i.backlogLabel }}</div>
+                  <div onClick="{{ i.start }}" tabIndex="0" style="height: 24px; display: flex; align-items: center; padding: 0 10px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Начать выпуск</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRef }}" hint-placeholder-val="{{ false }}">
+      <div style="width: 420px; flex: 0 0 420px; border-right: 1px solid #26282C; display: flex; flex-direction: column; padding: 12px; gap: 12px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Ссылка на ролик</div>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1; min-width: 0; height: 28px; display: flex; align-items: center; padding: 0 8px; background: #16171A; border: 1px solid {{ urlBorder }}; border-radius: 4px;">
+              <input value="{{ url }}" onChange="{{ setUrl }}" onFocus="{{ urlFocusOn }}" onBlur="{{ urlFocusOff }}" placeholder="youtube.com/watch?v=…" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 13px;">
+            </div>
+            <div onClick="{{ analyze }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Разобрать</div>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Или текст и субтитры</div>
+            <div style="flex: 1;"></div>
+            <div style="font-size: 11px; color: #9A9C9F;">{{ pasteNote }}</div>
+          </div>
+          <textarea value="{{ paste }}" onChange="{{ setPaste }}" class="sc" spellCheck="{{ false }}" style="flex: 1; min-height: 0; resize: none; padding: 8px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; color: #F2F1EE; font-family: 'Courier Prime', monospace; font-size: 13px; line-height: 20px; outline: none;"></textarea>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+          <div style="display: flex; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EE9B00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 16px; margin-top: 1px;"><path d="M12 3 2.5 20h19Z"></path><path d="M12 9v5"></path><path d="M12 17h.01"></path></svg>
+            <div style="font-size: 12px; line-height: 16px; color: #F2F1EE;">Текст референса не переносится в сценарий. Перед утверждением проверяется сходство.</div>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 6px; font-size: 12px;">
+            <span style="color: #9A9C9F;">Сходство</span>
+            <span style="font-weight: 600; color: {{ simColor }};">{{ simLabel }}</span>
+            <span style="color: #9A9C9F;">{{ simNote }}</span>
+          </div>
+          <div style="position: relative; height: 4px; background: #202225; border-radius: 2px;">
+            <div style="{{ simFillStyle }}"></div>
+            <div title="Порог 10 %" style="position: absolute; left: 10%; top: -3px; width: 1px; height: 10px; background: #EE9B00;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+        <div style="height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid #26282C; background: #08090A;">
+          <div style="font-size: 13px; font-weight: 600;">Карта структуры</div>
+          <div style="font-size: 12px; color: #9A9C9F;">{{ refTitle }}</div>
+        </div>
+
+        <div class="sc" style="flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; height: 44px; border: 1px solid #26282C; border-radius: 2px; overflow: hidden;">
+              <sc-for list="{{ segments }}" as="g" hint-placeholder-count="9">
+                <div title="{{ g.tip }}" style="{{ g.style }}" style-hover="filter: brightness(1.12);">
+                  <div class="cl1" style="font-size: 11px; font-weight: 500; color: #000000;">{{ g.label }}</div>
+                  <div style="font-family: 'Courier Prime', monospace; font-size: 10px; line-height: 12px; color: #000000aa;">{{ g.tc }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-family: 'Courier Prime', monospace; font-size: 10px; color: #9A9C9F;">
+              <span>00:00:00</span>
+              <span>00:05:40</span>
+              <span>00:11:20</span>
+              <span>00:17:00</span>
+              <span>00:22:41</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+            <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+                <div style="font-size: 11px; color: #9A9C9F;">{{ m.label }}</div>
+                <div style="display: flex; align-items: baseline; gap: 4px;">
+                  <div style="font-size: 15px; font-weight: 600;">{{ m.value }}</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ m.unit }}</div>
+                </div>
+                <div style="font-size: 11px; line-height: 14px; color: {{ m.hintColor }};">{{ m.hint }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; gap: 16px; align-items: flex-start;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Приёмы подачи списком</div>
+              <sc-for list="{{ devices }}" as="d" hint-placeholder-count="4">
+                <div style="display: flex; align-items: baseline; gap: 8px; height: 28px; padding: 0 8px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 4px;">
+                  <div style="font-family: 'Courier Prime', monospace; font-size: 11px; color: #9A9C9F; width: 20px; flex: 0 0 20px;">{{ d.num }}</div>
+                  <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px;">{{ d.label }}</div>
+                  <div style="font-size: 11px; color: #9A9C9F;">{{ d.count }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="width: 300px; flex: 0 0 300px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 12px; font-weight: 500; color: #9A9C9F;">Что сделать с этой структурой</div>
+              <div onClick="{{ newTopic }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Новая тема по этой структуре</div>
+              <div onClick="{{ ownVersion }}" tabIndex="0" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="border-color: #3A3D42;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">Своя версия этой темы</div>
+              <div style="font-size: 11px; line-height: 14px; color: #9A9C9F;">Переносятся только длительности сегментов и темп. Формулировки пишутся с нуля.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>{{ statusLeft }}</div>
+    <div style="width: 1px; height: 12px; background: #26282C;"></div>
+    <div>{{ statusMid }}</div>
+    <div style="flex: 1;"></div>
+    <div>⌘K команды</div>
+    <div>⏎ открыть идею</div>
+  </div>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; right: 12px; bottom: 36px; min-width: 260px; display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; background: #16171A; border: 1px solid #26282C; border-left: 2px solid {{ toastBar }}; border-radius: 6px; box-shadow: 0 8px 24px #00000066; font-size: 13px;">
+      <div style="flex: 1;">{{ toast }}</div>
+      <div onClick="{{ hideToast }}" tabIndex="0" style="padding: 2px 6px; border-radius: 4px; color: #9A9C9F; font-weight: 500; cursor: pointer;" style-hover="background: #ffffff0A; color: #F2F1EE;">Скрыть</div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Тренды&quot;,&quot;Референс&quot;],&quot;default&quot;:&quot;Тренды&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Экран&quot;},&quot;evidence&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Идеи&quot;}}">
+const VIDEOS = [
+  { id: 'v1', title: 'Life of a Medieval Monk, Dawn to Dusk', channel: 'Candlewick History', subs: 88000, views: 1900000, spike: 21.6, vpd: 96000, age: 20, len: '17:42' },
+  { id: 'v2', title: '24 Hours in a Benedictine Abbey, 1180', channel: 'Hollow Hours', subs: 31000, views: 740000, spike: 23.9, vpd: 38000, age: 19, len: '11:08' },
+  { id: 'v3', title: 'Ancient Jobs That No Longer Exist', channel: 'Before Clocks', subs: 64000, views: 1400000, spike: 21.9, vpd: 52000, age: 27, len: '14:20' },
+  { id: 'v4', title: 'A Day as a Cathedral Stonemason, 1240', channel: 'Hollow Hours', subs: 31000, views: 505000, spike: 16.3, vpd: 17000, age: 30, len: '09:54' },
+  { id: 'v5', title: 'Every Rank in a Samurai Army', channel: 'Bushido Ledger', subs: 147000, views: 2200000, spike: 15.0, vpd: 27000, age: 81, len: '21:35' },
+  { id: 'v6', title: 'Every Rank on a Roman Warship', channel: 'Gradus', subs: 214000, views: 2600000, spike: 12.4, vpd: 41000, age: 63, len: '22:41' },
+  { id: 'v7', title: 'Medieval Peasant Diet: What They Really Ate', channel: 'Candlewick History', subs: 88000, views: 960000, spike: 10.9, vpd: 12000, age: 78, len: '12:46' },
+  { id: 'v8', title: 'Every Job on a Pirate Ship Explained', channel: 'Salt & Tar', subs: 402000, views: 3100000, spike: 7.7, vpd: 22000, age: 141, len: '19:02' },
+  { id: 'v9', title: 'Every Rank in the Ottoman Army', channel: 'Gradus', subs: 214000, views: 1200000, spike: 5.6, vpd: 9100, age: 132, len: '24:18' },
+  { id: 'v10', title: 'The Powder Monkey: Youngest Sailor at Sea', channel: 'Salt & Tar', subs: 402000, views: 880000, spike: 2.2, vpd: 6000, age: 147, len: '08:31' }
+];
+
+const IDEAS = [
+  { id: 'i1', title: 'Every Rank in a Medieval Monastery (Oblate to Abbot)', score: 81,
+    angle: 'Монастырь как вертикаль власти: мальчик-облат, послушник, брат, приор, аббат. Каждая ступень — своя доля хлеба, свой час подъёма и своё право голоса в капитуле.',
+    sat: 'low', satN: 2, proof: ['×23.9', '×21.6', '×16.3'], inBacklog: false },
+  { id: 'i2', title: 'Every Rank in a Cathedral Build (Mortar Boy to Master Mason)', score: 74,
+    angle: 'Стройка длиной в сто лет: кто мешает раствор, кто режет камень, кто держит чертёж. Разница в оплате за день — три порядка.',
+    sat: 'mid', satN: 6, proof: ['×16.3', '×21.9', '×10.9'], inBacklog: false },
+  { id: 'i3', title: 'Every Rank in the Venetian Arsenal', score: 77,
+    angle: 'Государственная верфь как конвейер: галера в день, двенадцать тысяч рабочих, отдельная каста мастеров-корабелов с пожизненным контрактом.',
+    sat: 'low', satN: 3, proof: ['×12.4', '×15.0', '×7.7'], inBacklog: true },
+  { id: 'i4', title: 'I Survived a Day as a Monastery Oblate (1180)', score: 68,
+    angle: 'Тот же кластер для Отто: сутки по расписанию монастырских часов, восемь служб, разговоры только знаками.',
+    sat: 'mid', satN: 5, proof: ['×23.9', '×21.6', '×21.9'], inBacklog: false }
+];
+
+const SEGMENTS = [
+  { label: 'Хук', kind: 'hook', w: 22, tc: '00:22' },
+  { label: 'Обещание', kind: 'promise', w: 43, tc: '00:43' },
+  { label: 'Ранг 1', kind: 'beat', w: 168, tc: '02:48' },
+  { label: 'Крючок', kind: 'hold', w: 26, tc: '00:26' },
+  { label: 'Ранг 2', kind: 'beat', w: 196, tc: '03:16' },
+  { label: 'Ранг 3', kind: 'beat', w: 214, tc: '03:34' },
+  { label: 'Крючок', kind: 'hold', w: 31, tc: '00:31' },
+  { label: 'Ранг 4', kind: 'beat', w: 232, tc: '03:52' },
+  { label: 'Ранг 5', kind: 'beat', w: 258, tc: '04:18' },
+  { label: 'Финал', kind: 'end', w: 171, tc: '02:51' }
+];
+
+const SEG_COLOR = { hook: '#CA6702', promise: '#EE9B00', beat: '#7FA8B0', hold: '#94D2BD', end: '#0A9396' };
+
+const DEVICES = [
+  { label: 'Ранг называется голосом и повторяется в конце блока', count: '10 раз' },
+  { label: 'Возврат к одному герою между рангами', count: '6 раз' },
+  { label: 'Цена ошибки: что бывает, если не справился', count: '5 раз' },
+  { label: 'Сравнение жалованья в конце каждого ранга', count: '9 раз' }
+];
+
+const fmt = n => n >= 1000000 ? (n / 1000000).toFixed(n >= 10000000 ? 0 : 1).replace('.', ',') + ' млн'
+  : n >= 1000 ? Math.round(n / 1000) + ' тыс' : String(n);
+
+class Component extends DCLogic {
+  state = {
+    channel: 'Cursus', sortKey: 'spike', sortDir: -1,
+    picked: { v1: true, v2: true, v4: true },
+    seeds: { 'every rank': true, 'medieval life': true, pirates: true, 'ancient jobs': true, monasteries: false },
+    period: '30 дней', length: 'Длинные', scanning: false,
+    url: 'youtube.com/watch?v=gradus-roman-warship', paste: '', urlFocus: false,
+    toast: '', toastBar: '#94D2BD', backlog: { i3: true }
+  };
+
+  componentWillUnmount() { clearTimeout(this._t); }
+
+  renderVals() {
+    const tab = this.state.tab ?? this.props.tab ?? 'Тренды';
+    const showProof = this.props.evidence ?? true;
+    const sk = this.state.sortKey, sd = this.state.sortDir;
+
+    const sorted = VIDEOS.slice().sort((a, b) => {
+      const av = a[sk], bv = b[sk];
+      if (typeof av === 'string') return av.localeCompare(bv) * sd;
+      return (av - bv) * sd;
+    });
+
+    const pickedIds = Object.keys(this.state.picked).filter(k => this.state.picked[k]);
+    const rowNum = {};
+    VIDEOS.forEach((v, i) => { rowNum[v.id] = String(i + 1).padStart(3, '0'); });
+
+    const numStyle = 'width: 84px; flex: 0 0 84px; padding-right: 12px; text-align: right; font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 13px;';
+
+    const rows = sorted.map(v => {
+      const on = !!this.state.picked[v.id];
+      const hot = v.spike >= 15;
+      return {
+        title: v.title, channel: v.channel, len: v.len, num: rowNum[v.id],
+        subs: fmt(v.subs), views: fmt(v.views), vpd: fmt(v.vpd) + '/д', age: v.age + ' дн',
+        spike: '×' + v.spike.toFixed(1).replace('.', ','),
+        picked: on,
+        toggle: () => this.setState(s => ({ picked: Object.assign({}, s.picked, { [v.id]: !s.picked[v.id] }) })),
+        style: 'display: flex; align-items: center; height: 62px; padding: 0 12px; border-bottom: 1px solid #1E2023; cursor: pointer; '
+          + (on ? 'background: #1B1D20; box-shadow: inset 2px 0 0 #94D2BD;' : ''),
+        boxStyle: 'width: 14px; height: 14px; flex: 0 0 14px; margin-right: 8px; border-radius: 3px; display: flex; align-items: center; justify-content: center; '
+          + (on ? 'background: #94D2BD; border: 1px solid #94D2BD;' : 'border: 1px solid #3A3D42;'),
+        numStyle,
+        spikeStyle: 'width: 84px; flex: 0 0 84px; padding-right: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 13px; font-weight: 500; color: '
+          + (hot ? '#94D2BD' : '#F2F1EE') + ';',
+        spikeBarStyle: 'width: ' + Math.min(28, Math.round(v.spike * 1.2)) + 'px; height: 6px; border-radius: 1px; background: ' + (hot ? '#94D2BD' : '#3A3D42') + ';'
+      };
+    });
+
+    const headers = [
+      { key: 'subs', label: 'Подписчики', tip: 'Сортировать по подписчикам' },
+      { key: 'views', label: 'Просмотры', tip: 'Сортировать по просмотрам' },
+      { key: 'spike', label: 'Выброс', tip: 'Просмотры к подписчикам' },
+      { key: 'vpd', label: 'В день', tip: 'Просмотров в день' },
+      { key: 'age', label: 'Возраст', tip: 'Сколько дней с публикации' }
+    ].map(h => ({
+      label: h.label, tip: h.tip,
+      sort: () => this.setState(s => ({ sortKey: h.key, sortDir: s.sortKey === h.key ? -s.sortDir : -1 })),
+      style: 'width: 84px; flex: 0 0 84px; padding-right: 12px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; cursor: pointer; '
+        + (sk === h.key ? 'color: #F2F1EE; font-weight: 600;' : ''),
+      markStyle: sk === h.key
+        ? 'width: 0; height: 0; border-left: 3px solid transparent; border-right: 3px solid transparent; '
+          + (sd === -1 ? 'border-top: 4px solid #94D2BD;' : 'border-bottom: 4px solid #94D2BD;')
+        : 'display: none;'
+    }));
+
+    const satMap = {
+      low: { label: 'Насыщенность низкая', color: '#0A9396' },
+      mid: { label: 'Насыщенность средняя', color: '#EE9B00' },
+      high: { label: 'Насыщенность высокая', color: '#BB3E03' }
+    };
+
+    const ideas = IDEAS.map(i => {
+      const s = satMap[i.sat];
+      const inB = this.state.backlog[i.id];
+      return {
+        title: i.title, angle: i.angle, score: i.score,
+        scoreColor: i.score >= 75 ? '#94D2BD' : '#F2F1EE',
+        scoreBarStyle: 'height: 2px; width: ' + i.score + '%; background: ' + (i.score >= 75 ? '#94D2BD' : '#9A9C9F') + ';',
+        proof: showProof ? i.proof.map(p => ({ spike: p, tip: 'Ролик из кластера, выброс ' + p })) : [],
+        satLabel: s.label + ', ' + i.satN + ' похожих за 12 месяцев',
+        satColor: s.color,
+        satGlyphStyle: i.sat === 'low'
+          ? 'width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; border: 1.5px solid ' + s.color + ';'
+          : i.sat === 'mid'
+            ? 'width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: linear-gradient(90deg, ' + s.color + ' 50%, transparent 50%); border: 1.5px solid ' + s.color + ';'
+            : 'width: 10px; height: 10px; flex: 0 0 10px; border-radius: 50%; background: ' + s.color + ';',
+        backlogLabel: inB ? 'В бэклоге' : 'В бэклог',
+        backlogStyle: 'height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; '
+          + (inB ? 'color: #6C6E72; border: 1px solid #202225;' : 'color: #9A9C9F; border: 1px solid transparent;'),
+        backlog: () => this.setState(s2 => ({
+          backlog: Object.assign({}, s2.backlog, { [i.id]: true }),
+          toast: s2.backlog[i.id] ? 'Идея уже в бэклоге' : 'Добавлено в бэклог: ' + i.title,
+          toastBar: '#94D2BD'
+        })),
+        start: () => { this.setState({ toast: 'Выпуск начат: ' + i.title, toastBar: '#0A9396' }); setTimeout(() => { window.location.href = encodeURI('Studio - 3 Сценарий и план.dc.html'); }, 400); }
+      };
+    });
+
+    const total = SEGMENTS.reduce((a, s) => a + s.w, 0);
+    const segments = SEGMENTS.map(s => ({
+      label: s.label, tc: s.tc,
+      tip: s.label + ', длительность ' + s.tc,
+      style: 'flex: ' + s.w + ' 1 0; min-width: 0; padding: 4px 6px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #00000080; background: ' + SEG_COLOR[s.kind] + ';'
+    }));
+
+    const metrics = [
+      { label: 'Темп', value: '148', unit: 'слов/мин', hint: 'У Cursus 132, разница заметна на слух', hintColor: '#9A9C9F' },
+      { label: 'Плотность фактов', value: '3,4', unit: 'на минуту', hint: 'Держится ровно до 18-й минуты', hintColor: '#9A9C9F' },
+      { label: 'Средняя длина кадра', value: '00:00:11', unit: '', hint: 'Короче нашей нормы на 3 секунды', hintColor: '#EE9B00' },
+      { label: 'Сегментов', value: String(SEGMENTS.length), unit: 'из них 5 рангов', hint: 'Два крючка удержания: 03:31 и 10:47', hintColor: '#9A9C9F' }
+    ];
+
+    const devices = DEVICES.map((d, idx) => ({ label: d.label, count: d.count, num: String(idx + 1).padStart(2, '0') }));
+
+    const seeds = Object.keys(this.state.seeds).map(k => {
+      const on = this.state.seeds[k];
+      const counts = { 'every rank': '41', 'medieval life': '38', pirates: '22', 'ancient jobs': '17', monasteries: '9' };
+      return {
+        label: k, count: counts[k], tip: on ? 'Выключить семя' : 'Включить семя',
+        countColor: on ? '#14312C' : '#9A9C9F',
+        toggle: () => this.setState(s => ({ seeds: Object.assign({}, s.seeds, { [k]: !s.seeds[k] }) })),
+        style: 'height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 500; cursor: pointer; '
+          + (on ? 'background: #94D2BD; color: #000000;' : 'background: #16171A; border: 1px solid #26282C; color: #9A9C9F;')
+      };
+    });
+
+    const seedsOn = Object.keys(this.state.seeds).filter(k => this.state.seeds[k]).length;
+    const queries = seedsOn * 9 + 2;
+    const price = (queries * 0.00316).toFixed(2);
+
+    const periods = ['7 дней', '30 дней', '90 дней'].map(p => ({
+      label: p.replace(' дней', ''),
+      pick: () => this.setState({ period: p }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.period === p ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const lengths = ['Длинные', 'Shorts'].map(l => ({
+      label: l,
+      pick: () => this.setState({ length: l }),
+      style: 'flex: 1; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (this.state.length === l ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    const tabs = ['Тренды', 'Референс'].map(t => ({
+      label: t,
+      pick: () => this.setState({ tab: t }),
+      style: 'display: flex; align-items: center; padding: 0 12px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+        + (tab === t ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
+    }));
+
+    return {
+      isTrends: tab === 'Тренды', isRef: tab === 'Референс', tabs,
+      channel: this.state.channel,
+      chanInitial: this.state.channel === 'Cursus' ? 'C' : 'O',
+      chanAvatarBg: this.state.channel === 'Cursus' ? '#E9D8A6' : '#0A9396',
+      cycleChannel: () => this.setState(s => ({ channel: s.channel === 'Cursus' ? "Otto's Timeline" : 'Cursus' })),
+      headerNote: tab === 'Тренды' ? 'Бэклог: 7 идей, 2 с готовым каноном' : 'Референс разобран 11 сентября, 11:54',
+
+      seeds, periods, lengths,
+      refreshLabel: this.state.scanning
+        ? 'Обновляю радар, 12 из ' + queries + ' запросов'
+        : 'Обновить радар (' + queries + ' запросов квоты, ~$' + price + ')',
+      refreshStyle: 'position: relative; overflow: hidden; min-height: 28px; display: flex; align-items: center; justify-content: center; padding: 5px 12px; line-height: 16px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; text-align: center;',
+      scanning: this.state.scanning,
+      refresh: () => {
+        this.setState({ scanning: true });
+        clearTimeout(this._t);
+        this._t = setTimeout(() => this.setState({ scanning: false, toast: 'Радар обновлён: 10 выбросов, 4 идеи', toastBar: '#0A9396' }), 2200);
+      },
+      quotaLabel: '1 240 из 10 000',
+      quotaFillStyle: 'height: 2px; width: 12%; background: #94D2BD;',
+      lastScan: 'Обновлено сегодня в 12:02, период ' + this.state.period + ', ' + this.state.length.toLowerCase(),
+
+      rows, headers,
+      rowsNote: rows.length + ' роликов, семян ' + seedsOn,
+      someSelected: pickedIds.length > 0,
+      allBoxStyle: 'width: 14px; height: 14px; flex: 0 0 14px; margin-right: 8px; border-radius: 3px; display: flex; align-items: center; justify-content: center; cursor: pointer; '
+        + (pickedIds.length ? 'background: #94D2BD; border: 1px solid #94D2BD;' : 'border: 1px solid #3A3D42;'),
+      toggleAll: () => this.setState(s => {
+        const any = Object.keys(s.picked).some(k => s.picked[k]);
+        const next = {};
+        if (!any) VIDEOS.forEach(v => { next[v.id] = true; });
+        return { picked: next };
+      }),
+      selCount: pickedIds.length ? 'Выбрано ' + pickedIds.length + ' из ' + VIDEOS.length : 'Строки не выбраны, ⇧-клик выбирает диапазон',
+      selCountColor: pickedIds.length ? '#F2F1EE' : '#9A9C9F',
+      clusterBtnStyle: 'height: 28px; display: flex; align-items: center; padding: 0 12px; border-radius: 4px; font-size: 13px; font-weight: 500; '
+        + (pickedIds.length
+          ? 'background: #16171A; border: 1px solid #26282C; color: #F2F1EE; cursor: pointer;'
+          : 'background: #16171A; border: 1px solid #16171A; color: #6C6E72; cursor: default;'),
+      clusterFromSelection: () => {
+        if (!pickedIds.length) return;
+        this.setState({ toast: 'Идея собрана из ' + pickedIds.length + ' роликов: монастырская вертикаль', toastBar: '#94D2BD' });
+      },
+
+      ideas, ideasNote: ideas.length + ' из 6 кластеров',
+
+      url: this.state.url,
+      setUrl: e => this.setState({ url: e.target.value }),
+      urlFocusOn: () => this.setState({ urlFocus: true }),
+      urlFocusOff: () => this.setState({ urlFocus: false }),
+      urlBorder: this.state.urlFocus ? '#94D2BD' : '#26282C',
+      paste: this.state.paste,
+      setPaste: e => this.setState({ paste: e.target.value }),
+      pasteNote: this.state.paste ? this.state.paste.trim().split(/\s+/).length + ' слов' : 'пусто, разбор идёт по ссылке',
+      analyze: () => this.setState({ toast: 'Референс разобран: 10 сегментов, темп 148 слов/мин', toastBar: '#0A9396' }),
+      refTitle: 'Every Rank on a Roman Warship · Gradus · 22:41',
+      segments, metrics, devices,
+      simLabel: '3 %', simNote: 'норма, порог 10 %', simColor: '#0A9396',
+      simFillStyle: 'position: absolute; left: 0; top: 0; height: 4px; width: 3%; min-width: 3px; border-radius: 2px; background: #0A9396;',
+      newTopic: () => this.setState({ toast: 'Создан выпуск по структуре референса', toastBar: '#0A9396' }),
+      ownVersion: () => this.setState({ toast: 'Создан выпуск: своя версия темы', toastBar: '#0A9396' }),
+
+      statusLeft: tab === 'Тренды' ? 'Радар: период ' + this.state.period + ', ' + seedsOn + ' семян, квота 1 240 из 10 000' : 'Референс: 22:41, 10 сегментов, сходство 3 %',
+      statusMid: tab === 'Тренды' ? 'Идей в бэклоге 7, слот 21 сентября свободен' : 'Текст референса в сценарий не переносится',
+
+      toast: this.state.toast, toastBar: this.state.toastBar,
+      hideToast: () => this.setState({ toast: '' }),
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

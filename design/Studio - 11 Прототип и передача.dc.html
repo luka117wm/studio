@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=1536">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #000000; }
+  * { box-sizing: border-box; }
+  a { color: #94D2BD; text-decoration: none; }
+  a:hover { color: #B4E2D2; }
+  ::selection { background: #94D2BD; color: #000000; }
+  input::placeholder, textarea::placeholder { color: #9A9C9F; opacity: 1; }
+  .cl1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .cl2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+</style>
+</helmet>
+
+<div style="width: 1536px; min-height: 864px; display: flex; flex-direction: column; background: #000000; color: #F2F1EE; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;">
+
+  <div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-bottom: 1px solid #26282C;">
+    <div style="display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid #26282C; height: 28px;">
+      <a href="Studio - 1 Выпуски.dc.html" title="К выпускам" style="font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: #F2F1EE;" style-hover="color: #94D2BD;">Studio</a>
+    </div>
+    <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Прототип и передача в код</div>
+    <div style="font-size: 12px; color: #9A9C9F;">10 экранов, сквозной сценарий, файлы для Claude Code</div>
+    <div style="flex: 1;"></div>
+    <a href="Studio - 1 Выпуски.dc.html" style="height: 28px; display: flex; align-items: center; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;">Пройти сценарий с начала</a>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px;">
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <div style="font-size: 13px; font-weight: 600;">Сквозной сценарий</div>
+        <div style="font-size: 12px; color: #9A9C9F;">карточка открывает экран, подпись под ней — переход, который к нему ведёт</div>
+      </div>
+      <div style="display: flex; align-items: stretch; gap: 8px;">
+        <sc-for list="{{ flow }}" as="f" hint-placeholder-count="7">
+          <a href="{{ f.href }}" style="{{ f.cardStyle }}" style-hover="border-color: #3A3D42;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="{{ f.numStyle }}">{{ f.num }}</div>
+              <div class="cl1" style="flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: #F2F1EE;">{{ f.name }}</div>
+            </div>
+            <div style="font-size: 11px; line-height: 15px; color: #9A9C9F; text-wrap: pretty;">{{ f.what }}</div>
+            <div style="flex: 1;"></div>
+            <div style="display: flex; align-items: center; gap: 6px; padding-top: 6px; border-top: 1px solid #202225;">
+              <div style="{{ f.gateGlyphStyle }}"></div>
+              <div class="cl2" style="flex: 1; min-width: 0; font-size: 11px; line-height: 14px; color: {{ f.gateColor }};">{{ f.gate }}</div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: stretch;">
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 13px; font-weight: 600;">Все переходы прототипа</div>
+          <div style="font-size: 12px; color: #9A9C9F;">кликабельно в макетах</div>
+        </div>
+        <div style="display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+          <div style="height: 24px; display: flex; align-items: center; padding: 0 12px; background: #08090A; border-bottom: 1px solid #26282C; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; font-weight: 500; color: #9A9C9F;">
+            <div style="width: 168px; flex: 0 0 168px;">Откуда</div>
+            <div style="flex: 1; min-width: 0;">Действие</div>
+            <div style="width: 200px; flex: 0 0 200px;">Куда</div>
+          </div>
+          <sc-for list="{{ links }}" as="l" hint-placeholder-count="8">
+            <div style="display: flex; align-items: center; height: 32px; padding: 0 12px; border-bottom: 1px solid #1E2023;" style-hover="background: #16171A;">
+              <div class="cl1" style="width: 168px; flex: 0 0 168px; padding-right: 8px; font-size: 12px;">{{ l.from }}</div>
+              <div class="cl1" style="flex: 1; min-width: 0; padding-right: 8px; font-size: 12px; color: #9A9C9F;">{{ l.action }}</div>
+              <div style="width: 200px; flex: 0 0 200px;">
+                <a href="{{ l.href }}" style="font-size: 12px; font-weight: 500;">{{ l.to }}</a>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+          <div style="font-size: 13px; font-weight: 600;">Экраны вне линии сценария</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <sc-for list="{{ aside }}" as="a" hint-placeholder-count="4">
+            <a href="{{ a.href }}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;" style-hover="border-color: #3A3D42;">
+              <div class="cl1" style="font-size: 12px; font-weight: 600; color: #F2F1EE;">{{ a.name }}</div>
+              <div class="cl2" style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ a.what }}</div>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width: 480px; flex: 0 0 480px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 13px; font-weight: 600;">Передача в Claude Code</div>
+          <div style="font-size: 12px; color: #9A9C9F;">папка handoff</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <sc-for list="{{ files }}" as="f" hint-placeholder-count="5">
+            <a href="{{ f.href }}" style="display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 10px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;" style-hover="border-color: #3A3D42;">
+              <div style="{{ f.chipStyle }}"></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+                <div class="cl1" style="font-family: 'Courier Prime', monospace; font-size: 12px; color: #94D2BD;">{{ f.path }}</div>
+                <div class="cl2" style="font-size: 11px; line-height: 14px; color: #9A9C9F;">{{ f.what }}</div>
+              </div>
+            </a>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+          <div style="font-size: 13px; font-weight: 600;">Стек</div>
+          <sc-for list="{{ stack }}" as="s" hint-placeholder-count="6">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="width: 116px; flex: 0 0 116px; font-size: 12px; color: #9A9C9F;">{{ s.label }}</div>
+              <div style="flex: 1; min-width: 0; font-size: 12px; text-wrap: pretty;">{{ s.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;">
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <div style="font-size: 13px; font-weight: 600;">Оболочка и ширины</div>
+            <div style="flex: 1;"></div>
+            <div style="font-size: 11px; color: #9A9C9F;">база 1536 × 864</div>
+          </div>
+          <sc-for list="{{ sizes }}" as="z" hint-placeholder-count="8">
+            <div style="display: flex; align-items: baseline; gap: 8px; min-height: 20px;">
+              <div style="flex: 1; min-width: 0; font-size: 12px; color: #9A9C9F;">{{ z.label }}</div>
+              <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 500;">{{ z.value }}</div>
+              <div style="width: 148px; flex: 0 0 148px; text-align: right; font-size: 11px; color: #9A9C9F;">{{ z.note }}</div>
+            </div>
+          </sc-for>
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-top: 8px; border-top: 1px solid #202225;">
+            <sc-for list="{{ breakpoints }}" as="b" hint-placeholder-count="3">
+              <div style="display: flex; gap: 8px;">
+                <div style="width: 52px; flex: 0 0 52px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 12px; font-weight: 600; color: {{ b.color }};">{{ b.w }}</div>
+                <div style="flex: 1; min-width: 0; font-size: 11px; line-height: 15px; color: #9A9C9F; text-wrap: pretty;">{{ b.what }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <div style="font-size: 13px; font-weight: 600;">Компоненты</div>
+        <div style="font-size: 12px; color: #9A9C9F;">варианты и состояния — полный список в handoff/components.md</div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: stretch;">
+        <sc-for list="{{ compGroups }}" as="g" hint-placeholder-count="4">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px; overflow: hidden;">
+            <div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: #08090A; border-bottom: 1px solid #26282C;">
+              <div class="cl1" style="flex: 1; min-width: 0; font-size: 12px; font-weight: 600;">{{ g.title }}</div>
+              <div style="font-family: 'IBM Plex Sans Condensed', sans-serif; font-size: 11px; color: #9A9C9F;">{{ g.count }}</div>
+            </div>
+            <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="6">
+              <div style="display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-bottom: 1px solid #1E2023;">
+                <div class="cl1" style="font-family: 'Courier Prime', monospace; font-size: 12px;">{{ c.name }}</div>
+                <div style="font-size: 11px; line-height: 14px; color: #9A9C9F; text-wrap: pretty;">{{ c.variants }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="height: 24px; flex: 0 0 24px; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: #0C0D0F; border-top: 1px solid #26282C; font-size: 11px; color: #9A9C9F;">
+    <div>Прототип: рельс этапов и главные действия ведут по сценарию, «Studio» в верхней панели возвращает к выпускам</div>
+    <div style="flex: 1;"></div>
+    <div>Токены: handoff/tokens.css</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:864}}">
+const FLOW = [
+  { n: 1, name: 'Выпуски', file: 'Studio - 1 Выпуски.dc.html',
+    what: 'Календарь слотов раз в два дня и доска выпусков по стадиям.',
+    gate: 'Вход в приложение', gateKind: 'start' },
+  { n: 2, name: 'Идеи', file: 'Studio - 2 Идеи.dc.html',
+    what: 'Радар трендов, выбросы, кластеры тем, разбор референса.',
+    gate: '«Новый выпуск» → из бэклога идей', gateKind: 'step' },
+  { n: 3, name: 'Сценарий и план', file: 'Studio - 3 Сценарий и план.dc.html',
+    what: 'Shooting script, план кадров, JSON. Мост через чат и вставка ответа.',
+    gate: '«Начать выпуск» на карточке идеи', gateKind: 'step' },
+  { n: 4, name: 'Генерация', file: 'Studio - 4 Генерация.dc.html',
+    what: 'Очереди кадров и голоса, канон выпуска, версии кадра.',
+    gate: '«Утвердить план»', gateKind: 'pay' },
+  { n: 5, name: 'Монтаж', file: 'Studio - 5 Монтаж.dc.html',
+    what: 'Плеер, таймлайн по голосу, инспектор кадра: движение, длина, перерисовка.',
+    gate: 'Рельс этапов → Монтаж', gateKind: 'step' },
+  { n: 7, name: 'Экспорт', file: 'Studio - 7 Экспорт.dc.html',
+    what: 'Пресеты, параметры, очередь рендера с логом ffmpeg.',
+    gate: 'Рельс этапов → Экспорт', gateKind: 'step' },
+  { n: 8, name: 'Публикация', file: 'Studio - 8 Публикация.dc.html',
+    what: 'Метаданные, главы, обложка A/B/C, загрузка с докачкой.',
+    gate: '«Перейти к публикации»', gateKind: 'step' }
+];
+
+const LINKS = [
+  { from: 'Выпуски', action: '«Новый выпуск» → диалог → «Создать выпуск»', to: 'Сценарий и план', file: 'Studio - 3 Сценарий и план.dc.html' },
+  { from: 'Идеи', action: '«Начать выпуск» на карточке идеи', to: 'Сценарий и план', file: 'Studio - 3 Сценарий и план.dc.html' },
+  { from: 'Сценарий и план', action: '«Утвердить план» (после моста и вставки JSON)', to: 'Генерация', file: 'Studio - 4 Генерация.dc.html' },
+  { from: 'Генерация', action: 'Рельс этапов, этап «Монтаж»', to: 'Монтаж', file: 'Studio - 5 Монтаж.dc.html' },
+  { from: 'Монтаж', action: 'Инспектор: секции «Анимация» и «SFX»', to: 'Инспектор кадра', file: 'Studio - 6 Инспектор - анимация и SFX.dc.html' },
+  { from: 'Монтаж', action: 'Рельс этапов, этап «Экспорт»', to: 'Экспорт', file: 'Studio - 7 Экспорт.dc.html' },
+  { from: 'Экспорт', action: '«Перейти к публикации» в готовой задаче', to: 'Публикация', file: 'Studio - 8 Публикация.dc.html' },
+  { from: 'Любой экран', action: '«Studio» в верхней панели', to: 'Выпуски', file: 'Studio - 1 Выпуски.dc.html' },
+  { from: 'Любой экран', action: 'Рельс этапов, любой этап (недоступные — для просмотра)', to: 'Этап выпуска', file: 'Studio - 4 Генерация.dc.html' }
+];
+
+const ASIDE = [
+  { name: '6 · Инспектор: анимация и SFX', file: 'Studio - 6 Инспектор - анимация и SFX.dc.html', what: 'Три состояния правой колонки монтажа, включая мультивыделение 12 кадров.' },
+  { name: '9 · Настройки и расходы', file: 'Studio - 9 Настройки и расходы.dc.html', what: 'Провайдеры, маршрутизация моделей, бюджеты, расходы, каналы, хранилище, клавиши.' },
+  { name: '10 · Состояния', file: 'Studio - 10 Состояния.dc.html', what: 'Пустые, процесс, ошибки, конфликт плана и оверлей горячих клавиш.' },
+  { name: '11 · Этот экран', file: 'Studio - 11 Прототип и передача.dc.html', what: 'Карта переходов и указатель на файлы передачи.' }
+];
+
+const FILES = [
+  { path: 'handoff/tokens.css', what: 'CSS variables: поверхности, текст, акцент, дорожки, статусы, типографика, радиусы, плотность, размеры оболочки.', color: '#94D2BD' },
+  { path: 'handoff/components.md', what: 'Инвентарь компонентов: варианты, состояния, пропсы, прикладные блоки.', color: '#E9D8A6' },
+  { path: 'handoff/layout.md', what: 'Размеры панелей, минимальные ширины, поведение при 1536 / 1920 / 2560, скролл, клавиатура.', color: '#7FA8B0' },
+  { path: 'handoff/stack.md', what: 'Стек, мост токенов в Tailwind, структура репозитория, доменные инварианты, порядок реализации.', color: '#0A9396' },
+  { path: 'handoff/README.md', what: 'Контекст продукта, карта сценария, неизменяемые правила.', color: '#CA6702' }
+];
+
+const STACK = [
+  { label: 'Каркас', value: 'React 19 + TypeScript strict, Vite' },
+  { label: 'Стили', value: 'Tailwind CSS v4 поверх tokens.css через @theme, hex в классах не дублируется' },
+  { label: 'Иконки', value: 'lucide-react, 16px, strokeWidth 1.5' },
+  { label: 'Состояние', value: 'Zustand для выпуска и очередей, TanStack Query для провайдеров' },
+  { label: 'Списки', value: 'react-virtuoso: 104 кадра, 1 284 операции' },
+  { label: 'Медиа', value: 'локальный ffmpeg, video + canvas-оверлей, без видеобиблиотек' }
+];
+
+const SIZES = [
+  { label: 'Верхняя панель', value: '44', note: 'фиксированная' },
+  { label: 'Рельс этапов', value: '56', note: 'только при открытом выпуске' },
+  { label: 'Библиотека, канон', value: '280', note: 'тянется 240–360, ⌥1' },
+  { label: 'Рабочая зона', value: '1fr', note: 'минимум 640' },
+  { label: 'Инспектор', value: '320', note: 'тянется 280–420, ⌥3' },
+  { label: 'Таймлайн', value: '260', note: 'ручка 4px, 160–460' },
+  { label: 'Статус-строка', value: '24', note: 'фиксированная' },
+  { label: 'Строки списков', value: '28 / 32', note: 'отступы 4 / 8 / 12 / 16' }
+];
+
+const BREAKPOINTS = [
+  { w: '1536', color: '#94D2BD', what: 'База. Сетка кадров 5 в ряд, лист сценария 760 по центру, лог экспорта закрывает часть центра.' },
+  { w: '1920', color: '#F2F1EE', what: 'Растёт только центр: 6 кадров в ряд. Боковые панели не растут — длина строки в панелях не меняется.' },
+  { w: '2560', color: '#F2F1EE', what: 'Центр получает вторую колонку: раскадровка справа от листа, 8 кадров в ряд, таймлайн 320, лог экспорта третьей колонкой.' }
+];
+
+const COMP_GROUPS = [
+  { title: 'Оболочка', count: '5', items: [
+    { name: 'AppShell', variants: 'сетка 44 / 56 + контент / 24' },
+    { name: 'TopBar', variants: 'выпуск открыт · не открыт; канал, переименование, индикатор сохранения, полоса расхода' },
+    { name: 'StageRail', variants: 'todo · active · done · error; кликабельны все этапы' },
+    { name: 'StatusBar', variants: 'покой · процесс (глиф штриховки, этап, процент) · предупреждение' },
+    { name: 'PanelHeader', variants: '28px: заголовок 13/600, note 12, правый слот' }
+  ] },
+  { title: 'Контролы', count: '10', items: [
+    { name: 'Button', variants: 'primary · secondary · ghost · danger · statusOutline; hover, active, focus, disabled, loading; цена в подписи' },
+    { name: 'Input / Textarea / Number', variants: 'default · focus · error · disabled; промпт — Courier Prime, авторост' },
+    { name: 'Select', variants: 'закрыт · открыт; выбранное — галочка акцентом' },
+    { name: 'SegmentedControl', variants: '2–4 варианта, 24 / 28' },
+    { name: 'Slider + Number', variants: 'засечка дефолта, засечки разброса при мультивыделении' },
+    { name: 'Toggle · Checkbox · Radio', variants: 'on · off · indeterminate · focus' },
+    { name: 'Chip', variants: 'filter · tag с удалением · add пунктиром' }
+  ] },
+  { title: 'Обратная связь', count: '6', items: [
+    { name: 'StatusBadge / StatusGlyph', variants: 'queued круг · generating штриховка · ready точка · warning треугольник · failed квадрат' },
+    { name: 'Toast', variants: 'полоса статуса слева, «Отменить», стек до 3' },
+    { name: 'Dialog', variants: 'скрим, шапка 36, подвал 48' },
+    { name: 'HotkeysOverlay', variants: 'открытие и закрытие по «?», Esc' },
+    { name: 'EmptyState', variants: 'выпуски · идеи · план · кадры · озвучка (черновой тайминг)' },
+    { name: 'ProcessCard / ErrorCard / ConflictBar', variants: 'этапы и процент · warning и failed · цена исправления' }
+  ] },
+  { title: 'Прикладные', count: '14', items: [
+    { name: 'Timeline', variants: '5 дорожек, маркеры разделов, переходы, плейхед, черновой тайминг пунктиром' },
+    { name: 'ShotCard / ShotGrid', variants: '4 статуса, версии, выделение, отказ фильтра, действия по наведению' },
+    { name: 'ScriptSheet', variants: 'номера кадров на полях, раскадровка справа, панель по выделению' },
+    { name: 'PlanTable / JsonEditor', variants: 'правка в ячейке, групповая правка · валидация со ссылками на кадр' },
+    { name: 'ShotInspector', variants: 'движение, длина с замком, кадрирование, переход, свёрнутые секции' },
+    { name: 'AnimationSection / SfxSection', variants: 'idle · running · done; лимит выпуска; предложения из плана' },
+    { name: 'RenderQueue / UploadPanel', variants: 'этапы, лог, финал · чеклист, докачка, аудит API' },
+    { name: 'ThumbnailCanvas / SpendChart', variants: 'A/B/C, слои, безопасная зона · дни, итоги, операции' }
+  ] }
+];
+
+class Component extends DCLogic {
+  renderVals() {
+    const gateMap = {
+      start: { color: '#94D2BD', glyph: 'width: 8px; height: 8px; border-radius: 50%; background: #94D2BD;' },
+      step: { color: '#9A9C9F', glyph: 'width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #3A3D42;' },
+      pay: { color: '#E9D8A6', glyph: 'width: 8px; height: 8px; border-radius: 2px; background: #E9D8A6;' }
+    };
+
+    return {
+      flow: FLOW.map(f => {
+        const g = gateMap[f.gateKind];
+        return {
+          num: String(f.n), name: f.name, what: f.what, gate: f.gate,
+          href: encodeURI(f.file),
+          gateColor: g.color,
+          gateGlyphStyle: g.glyph + ' flex: 0 0 auto;',
+          numStyle: 'width: 20px; height: 20px; flex: 0 0 20px; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: #16171A; border: 1px solid #26282C; font-family: "IBM Plex Sans Condensed", sans-serif; font-size: 11px; font-weight: 600; color: #9A9C9F;',
+          cardStyle: 'flex: 1; min-width: 0; min-height: 132px; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #0C0D0F; border: 1px solid #26282C; border-radius: 6px;'
+        };
+      }),
+      links: LINKS.map(l => ({ from: l.from, action: l.action, to: l.to, href: encodeURI(l.file) })),
+      aside: ASIDE.map(a => ({ name: a.name, what: a.what, href: encodeURI(a.file) })),
+      files: FILES.map(f => ({
+        path: f.path, what: f.what, href: f.path,
+        chipStyle: 'width: 3px; height: 26px; flex: 0 0 3px; border-radius: 1px; background: ' + f.color + ';'
+      })),
+      stack: STACK, sizes: SIZES, breakpoints: BREAKPOINTS,
+      compGroups: COMP_GROUPS
+    };
+  }
+}
+</script>
+</body>
+</html>
