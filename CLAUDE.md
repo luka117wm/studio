@@ -9,8 +9,10 @@
 | Файл | Что это | Когда читать |
 |---|---|---|
 | `CLAUDE.md` | правила, принципы, стек, протокол работы | каждая сессия |
-| `docs/roadmap.md` | все блоки и микроэтапы со статусами; единственный список того, что делаем | выбор этапа; ☑ на финише |
-| `docs/tasks/<этап>.md` | задание микроэтапа: цель, что читать, что создать, приёмка | сессия этапа |
+| `docs/roadmap.md` | линейный список модулей: текущий детально, следующий контуром, дальше по строке | выбор этапа; ☑ на финише |
+| `docs/tasks/Mk.md` | устав модуля: что на выходе, чего нет, этапы, приёмка целиком, что следом | старт модуля; приёмка |
+| `docs/tasks/Mk.x.md` | задание этапа: цель, что читать, что создать, приёмка | сессия этапа |
+| `docs/drafts/` | черновики этапов, написанные до дизайна — материал для будущих модулей, не план | составление модуля |
 | `docs/LESSONS.md` | журнал граблей, ≤ 150 строк | каждая сессия |
 | `STATUS.md` | что сделано, хвосты, что дальше — контекст между сессиями | раздел «Дальше» на старте; обновить на финише |
 | `design/CLAUDE.md` | палитра, типографика, плотность, состояния | все M-этапы |
@@ -19,10 +21,10 @@
 | `design/handoff/stack.md` | UI-стек, мост токенов, порядок экранов | споры о стеке фронта |
 | `design/handoff/tokens.css` | единственный источник цветов и размеров; копия — `frontend/src/styles/tokens.css` | не читать — использовать утилиты из `theme.css` |
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
-| `docs/director_schema.md`, `docs/director.schema.json` | контракт director.json | появятся в B0.2 |
-| `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в B2A.1, B2A.3 |
-| `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в B3.1 |
-| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в B0.5 |
+| `docs/director_schema.md`, `docs/director.schema.json` | контракт director.json | появятся в M2 |
+| `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
+| `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
+| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в M2 |
 
 ## Стек
 - **Frontend:** React 19, Vite, TypeScript strict, Tailwind v4 (токены через `@theme`, конфиг-файла нет), Zustand, TanStack Query, react-virtuoso, lucide-react; линтер oxlint, тесты vitest + Testing Library, e2e Playwright. Источник правды по UI-стеку и мосту токенов — `design/handoff/stack.md`, при расхождении в библиотеках и токенах прав он. Архитектура — по этому файлу: фронт ходит только в свой бэкенд, провайдеров и очереди во фронте нет.
@@ -34,15 +36,15 @@
 ## Структура
 ```
 frontend/src/
-  app/            AppShell, TopBar, StageRail, StatusBar, роутинг, горячие клавиши
-  screens/        episodes, ideas, script, generate, edit, export, publish, settings, canon
-  components/     ui/ (Button, Input, Select, Toggle, StatusBadge, Toast, Dialog)
-                  domain/ (ShotCard, PlanTable, RenderQueue, …)  states/ (EmptyState, ProcessCard, ErrorCard, ConflictBar)
-  timeline/  preview/  inspector/
+  app/            AppShell, router, providers, keyboard (реестр сочетаний), KeyboardHelp
+  ui/             кит по components.md: по файлу на компонент, index.ts, cn.ts
+  screens/        episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon
+  mocks/          fixtures.ts — пиратский выпуск для оболочки (до M2)
+  timeline/  preview/
   engine/         motion.ts, renderFrame.ts, subtitles.ts
-  store/  api/    client.ts, sse.ts
+  store/  api/    uiStore.ts; client.ts, sse.ts (с M2)
   styles/         tokens.css (копия, не править), theme.css (мост @theme), base.css
-  types/          сгенерировано — не править
+  types/          сгенерировано — не править (до M2 — временные типы фикстур)
 backend/app/
   main.py  api/   роутеры
   models/         director.py, project.py, channel.py
@@ -146,11 +148,11 @@ data/             (gitignored)
 ./run.sh                                   # backend :8000 (WSL) + frontend :5173 с прокси /api
 pnpm -C frontend dev | build | lint | test # vitest — с M1.1
 pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/handoff — M1.1
-pnpm -C frontend typegen                   # Pydantic → JSON Schema → TS — появится в B0.6
-pnpm -C frontend e2e                       # Playwright, включая WYSIWYG — появится с первым экраном
-uv run pytest                              # бэкенд — появится в B0.2
-uv run pytest -m live                      # проверка ключей провайдеров (центы) — B0.5
-uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — B8
+pnpm -C frontend typegen                   # Pydantic → JSON Schema → TS — появится в M2
+pnpm -C frontend e2e                       # Playwright, скриншоты и WYSIWYG — появится в M1.6
+uv run pytest                              # бэкенд — появится в M2
+uv run pytest -m live                      # проверка ключей провайдеров (центы) — M2
+uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```
 
 ## Чего не делать
@@ -158,7 +160,7 @@ uv run python -m app.tools.render_fixture  # рендер тестового в�
 - ffmpeg zoompan для движения (см. принцип 3).
 - Прошитые в коде ID моделей, цены, Windows-пути.
 - Стилевые формулировки в `shot.image.prompt` и вообще любой стиль, пришедший из LLM (принцип 13).
-- Генерация кадра с персонажем без опорных портретов облика. Нет anchor sheet — сначала B2A.2, потом кадры.
+- Генерация кадра с персонажем без опорных портретов облика. Нет anchor sheet — сначала лист портретов, потом кадры.
 - Правка файлов канона прошлых версий. Только новая версия.
 - Интеграция с подпиской Claude из кода. Автоматизация — только API-ключ; ручной обмен — «мост через чат».
 - Подключать Sora 2 и gemini-2.5-flash-image: их API закрываются осенью 2026.
@@ -168,9 +170,10 @@ uv run python -m app.tools.render_fixture  # рендер тестового в�
 - Hex-цвета в классах и компонентах — только переменные из `tokens.css` через утилиты `theme.css` (проверяется тестом).
 
 ## Как работаем
-- **Два вида этапов, буква — по смыслу.** **B** — что система умеет: контракт, хранилище, очередь, провайдер, движок; проверяется тестами, экрана может не быть. **M** — что пользователь видит: оболочка, экран; строится на готовых B или на моках. Номера, порядок и статусы — только в `docs/roadmap.md`.
-- **Одна сессия = один микроэтап.** Старт: «Прочитай `CLAUDE.md`, `docs/LESSONS.md` и `docs/tasks/<этап>.md`», для M-этапов ещё `design/CLAUDE.md`. Больше ничего не читать, пока нет плана. Нужен файл вне списка «Читать» — сначала сказать.
-- **План до кода** («да» в шапке task-файла, все Opus-этапы): 6–10 пунктов и список файлов, ждать «ок». Рутина UI/CRUD — Sonnet, без плана.
-- **Финиш:** тесты зелёные → менялся контракт — обновить `docs/` → грабли — запись в `docs/LESSONS.md` → 5–10 строк в `STATUS.md` (сделано, решения, хвосты, дальше) → ☑ в `docs/roadmap.md` → коммит `Bx.y: <что сделано>` или `Mx.y: …`. Тегов нет.
+- **Линейно, модулями.** Модуль `Mk` = устав `docs/tasks/Mk.md` + этапы `Mk.x`. Детально расписан только текущий модуль; следующий составляется после закрытия текущего по его итогам в `STATUS.md` (черновики — `docs/drafts/`); остальные — одной строкой в `docs/roadmap.md`. Направление известно, состав — нет: не расписывать модули впрок.
+- **Одна сессия = один этап.** Старт: «Прочитай `CLAUDE.md`, `design/CLAUDE.md`, `docs/LESSONS.md` и `docs/tasks/Mk.x.md`» (`design/CLAUDE.md` — если этап касается UI). Больше ничего не читать, пока нет плана. Нужен файл вне списка «Читать» — сначала сказать.
+- **План до кода** («да» в шапке этапа, все Opus-этапы): 6–10 пунктов и список файлов, ждать «ок». Рутина UI/CRUD — Sonnet, без плана.
+- **Финиш этапа:** тесты зелёные → менялся контракт — обновить `docs/` → грабли — запись в `docs/LESSONS.md` → 5–10 строк в `STATUS.md` (сделано, решения, хвосты, дальше) → ☑ в `docs/roadmap.md` → коммит `Mk.x: <что сделано>`.
+- **Финиш модуля:** приёмка из устава → `git tag mk` → составить устав и этапы следующего модуля отдельной сессией, по `STATUS.md`.
 - Между этапами `/clear`, не `/compact`: контекст живёт в файлах, не в истории чата (L-006).
-- Задача конфликтует с этим файлом или неясна — спросить, не угадывать. Приоритет документов при расхождении: `CLAUDE.md` → task-файл → `design/handoff/stack.md` (UI-стек) → остальное. Замеченное расхождение — в «Хвосты» `STATUS.md`, а не молча обойти.
+- Задача конфликтует с этим файлом или неясна — спросить, не угадывать. Приоритет документов при расхождении: `CLAUDE.md` → устав модуля → этап → `design/handoff/stack.md` (UI-стек) → остальное. Замеченное расхождение — в «Хвосты» `STATUS.md`, а не молча обойти.
