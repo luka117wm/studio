@@ -1,0 +1,118 @@
+/* Studio — design tokens. Единственный источник цвета, типографики, плотности.
+   Подключать первым, до Tailwind preflight-переопределений.
+   Tailwind: значения читать через var(), не дублировать hex в классах. */
+
+:root {
+  /* ---- Поверхности: нейтральный OLED, без цветного оттенка ---- */
+  --bg-app: #000000;          /* фон окна, жёлоб таймлайна */
+  --bg-panel: #0C0D0F;        /* панели, списки, инспектор */
+  --bg-strip: #08090A;        /* шапки панелей, нижние бары */
+  --bg-raised: #16171A;       /* поля, селекты, попапы, hover кнопок */
+  --bg-hover: #1B1D20;        /* hover строк, рамка кадра */
+  --bg-track: #050506;        /* дорожки таймлайна, видеообласть */
+
+  /* ---- Линии ---- */
+  --line: #26282C;            /* разделители 1px, границы контролов */
+  --line-strong: #3A3D42;     /* граница всплывающего слоя, активная панель */
+  --rule-inner: #202225;      /* разделитель внутри карточки */
+  --row-border: #1E2023;      /* граница строки таблицы */
+
+  /* ---- Текст (контраст к --bg-panel) ---- */
+  --text-primary: #F2F1EE;    /* 17:1 */
+  --text-secondary: #9A9C9F;  /* 7.5:1 — минимум для любого читаемого текста */
+  --text-disabled: #6C6E72;   /* 3.6:1 — только недоступные контролы */
+
+  /* ---- Акцент: пара из палитры ---- */
+  --accent: #94D2BD;          /* главное действие, активный этап, плейхед, фокус */
+  --accent-hover: #B4E2D2;
+  --accent-pressed: #74BFA7;
+  --accent-ink: #000000;      /* текст на акценте, 11.7:1 */
+  --accent-deep: #0A9396;     /* рельсы, выделение строки, ready-точка; как текст не использовать */
+  --accent-hatch-dark: #14312C; /* тёмная полоса бегущей штриховки */
+
+  /* ---- Дорожки таймлайна (ink на клипе = --accent-ink) ---- */
+  --track-subtitles: #7FA8B0;
+  --track-shots: #E9D8A6;
+  --track-voice: #0A9396;
+  --track-sfx: #CA6702;
+  --track-music: #3A6E7E;
+
+  /* ---- Статусы: цвет + форма ---- */
+  --status-queued: #5C5E62;        /* фигура: полый круг */
+  --status-queued-text: #8B8D91;
+  --status-generating: #94D2BD;    /* фигура: бегущая штриховка 45° */
+  --status-ready: #0A9396;         /* фигура: сплошная точка */
+  --status-warning: #EE9B00;       /* фигура: треугольник; и текст */
+  --status-failed: #BB3E03;        /* фигура: квадрат с крестом */
+  --status-failed-text: #F08C5D;   /* текст ошибки */
+
+  /* Фоны карточек состояний */
+  --surface-warning: #1A1206;
+  --surface-failed: #1A0B05;
+
+  /* ---- Типографика ---- */
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-dense: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
+  --font-script: 'Courier Prime', ui-monospace, monospace;
+
+  --text-11: 11px;  --leading-11: 14px;  /* служебное, счётчики */
+  --text-12: 12px;  --leading-12: 16px;  /* метки полей, плотные таблицы */
+  --text-13: 13px;  --leading-13: 18px;  /* базовый текст панелей и кнопок */
+  --text-15: 15px;  --leading-15: 20px;  /* значение-акцент в карточке */
+  --text-18: 18px;  --leading-18: 24px;  /* заголовок экрана, крупнее не нужно */
+  --script-body: 13px; --script-leading: 20px; /* тело сценария */
+
+  --weight-regular: 400;
+  --weight-medium: 500;   /* кнопки, значения, метки */
+  --weight-semibold: 600; /* заголовки */
+
+  /* ---- Форма ---- */
+  --radius-control: 4px;
+  --radius-panel: 6px;
+  --radius-clip: 2px;
+  --shadow-overlay: 0 8px 24px #00000066;
+  --shadow-dialog: 0 16px 48px #00000080;
+  --scrim: #000000CC;
+  --focus-ring: 0 0 0 2px var(--accent);
+
+  /* ---- Плотность ---- */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --row-sm: 24px;   /* шапка таблицы */
+  --row-md: 28px;   /* строка списка, кнопка, поле */
+  --row-lg: 32px;   /* строка таблицы расходов, свёрнутая секция */
+  --control-sm: 24px;
+  --control-md: 28px;
+
+  /* ---- Оболочка ---- */
+  --shell-topbar: 44px;
+  --shell-stage-rail: 56px;
+  --shell-statusbar: 24px;
+  --shell-screen-header: 52px;
+  --shell-panel-header: 28px;
+  --shell-inspector: 320px;
+  --shell-library: 280px;
+  --shell-settings-nav: 224px;
+  --shell-timeline: 260px;
+  --shell-timeline-min: 160px;
+  --shell-timeline-max: 460px;
+  --shell-track-labels: 72px;
+
+  /* ---- Иконки ---- */
+  --icon-size: 16px;
+  --icon-stroke: 1.5;
+}
+
+/* Бегущая штриховка процесса: единственная разрешённая постоянная анимация */
+@keyframes hatch { from { background-position: 0 0; } to { background-position: 12px 0; } }
+
+.is-generating {
+  background: repeating-linear-gradient(45deg,
+    var(--accent) 0 3px, var(--accent-hatch-dark) 3px 6px);
+  animation: hatch 1.2s linear infinite;
+}
+
+/* Подсказка в поле несёт смысл — дефолтный placeholder браузера не годится */
+input::placeholder, textarea::placeholder { color: var(--text-secondary); opacity: 1; }
+
+/* Цифры выравниваются табличными глифами, а не моноширинным шрифтом */
+html { font-variant-numeric: tabular-nums; }

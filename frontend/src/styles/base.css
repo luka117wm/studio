@@ -1,0 +1,39 @@
+/* Базовый слой поверх preflight Tailwind. Только то, чего preflight не даёт;
+   все значения — из tokens.css. Табличные цифры и ::placeholder уже задаёт tokens.css. */
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--text-13);
+    line-height: var(--leading-13);
+    font-weight: var(--weight-regular);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Фокус только с клавиатуры: кольцо-токен; прозрачный outline остаётся для forced-colors */
+  :focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 0;
+    box-shadow: var(--focus-ring);
+  }
+
+  /* Тонкие скроллбары в тон панелей: жёлоб прозрачный, ползунок — line-strong */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: var(--space-2);
+    height: var(--space-2);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: var(--radius-control);
+  }
+}

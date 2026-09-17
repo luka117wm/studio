@@ -1,0 +1,131 @@
+/* Мост tokens.css → утилиты Tailwind v4.
+   Справа только var(--…) из tokens.css; hex здесь запрещён (проверяется тестом).
+   Имена — как в design/handoff/stack.md: bg-panel, text-ink, text-muted, border-line,
+   font-ui, rounded-control … Дефолтные палитра, шкала шрифтов, радиусы и тени
+   Tailwind отключены: значений вне токенов у утилит быть не должно.
+   `inline` — утилита подставляет ссылку на токен, а не на промежуточную переменную темы;
+   `reference` — тема ничего не эмитит в :root, значения живут только в tokens.css. */
+@theme inline reference {
+  /* ---- Цвета ---- */
+  --color-*: initial;
+
+  /* Поверхности: bg-app, bg-panel, bg-strip, bg-raised, bg-hover, bg-track */
+  --color-app: var(--bg-app);
+  --color-panel: var(--bg-panel);
+  --color-strip: var(--bg-strip);
+  --color-raised: var(--bg-raised);
+  --color-hover: var(--bg-hover);
+  --color-track: var(--bg-track);
+
+  /* Линии: border-line, border-line-strong, border-rule-inner, border-row-border */
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-rule-inner: var(--rule-inner);
+  --color-row-border: var(--row-border);
+
+  /* Текст: text-ink, text-muted, text-disabled */
+  --color-ink: var(--text-primary);
+  --color-muted: var(--text-secondary);
+  --color-disabled: var(--text-disabled);
+
+  /* Акцент: bg-accent, text-accent-ink, bg-accent-deep … */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-hatch-dark: var(--accent-hatch-dark);
+
+  /* Дорожки таймлайна: bg-track-subtitles … bg-track-music */
+  --color-track-subtitles: var(--track-subtitles);
+  --color-track-shots: var(--track-shots);
+  --color-track-voice: var(--track-voice);
+  --color-track-sfx: var(--track-sfx);
+  --color-track-music: var(--track-music);
+
+  /* Статусы: bg-queued / text-queued-text, bg-generating, bg-ready,
+     text-warning, bg-failed / text-failed-text, bg-surface-warning, bg-surface-failed */
+  --color-queued: var(--status-queued);
+  --color-queued-text: var(--status-queued-text);
+  --color-generating: var(--status-generating);
+  --color-ready: var(--status-ready);
+  --color-warning: var(--status-warning);
+  --color-failed: var(--status-failed);
+  --color-failed-text: var(--status-failed-text);
+  --color-surface-warning: var(--surface-warning);
+  --color-surface-failed: var(--surface-failed);
+  --color-scrim: var(--scrim);
+
+  /* ---- Шрифты: font-ui, font-dense, font-script ---- */
+  --font-sans: initial;
+  --font-serif: initial;
+  --font-mono: initial;
+  --font-ui: var(--font-ui);
+  --font-dense: var(--font-dense);
+  --font-script: var(--font-script);
+
+  /* Начертания: font-normal, font-medium, font-semibold */
+  --font-weight-normal: var(--weight-regular);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+
+  /* ---- Шкала 11 / 12 / 13 / 15 / 18 с межстрочными: text-11 … text-18, text-script ---- */
+  --text-*: initial;
+  --text-11: var(--text-11);
+  --text-11--line-height: var(--leading-11);
+  --text-12: var(--text-12);
+  --text-12--line-height: var(--leading-12);
+  --text-13: var(--text-13);
+  --text-13--line-height: var(--leading-13);
+  --text-15: var(--text-15);
+  --text-15--line-height: var(--leading-15);
+  --text-18: var(--text-18);
+  --text-18--line-height: var(--leading-18);
+  --text-script: var(--script-body);
+  --text-script--line-height: var(--script-leading);
+
+  /* ---- Форма: rounded-control, rounded-panel, rounded-clip; shadow-overlay, shadow-dialog, shadow-focus ---- */
+  --radius-*: initial;
+  --radius-control: var(--radius-control);
+  --radius-panel: var(--radius-panel);
+  --radius-clip: var(--radius-clip);
+
+  --shadow-*: initial;
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-dialog: var(--shadow-dialog);
+  --shadow-focus: var(--focus-ring);
+
+  /* ---- Плотность: шаг отступов 4px → p-1 / p-2 / p-3 / p-4 = 4 / 8 / 12 / 16 ---- */
+  --spacing: var(--space-1);
+
+  /* Строки и контролы: h-row-sm / h-row-md / h-row-lg, h-control-sm / h-control-md */
+  --spacing-row-sm: var(--row-sm);
+  --spacing-row-md: var(--row-md);
+  --spacing-row-lg: var(--row-lg);
+  --spacing-control-sm: var(--control-sm);
+  --spacing-control-md: var(--control-md);
+
+  /* Оболочка: h-shell-topbar, w-shell-inspector, min-h-shell-timeline-min … */
+  --spacing-shell-topbar: var(--shell-topbar);
+  --spacing-shell-stage-rail: var(--shell-stage-rail);
+  --spacing-shell-statusbar: var(--shell-statusbar);
+  --spacing-shell-screen-header: var(--shell-screen-header);
+  --spacing-shell-panel-header: var(--shell-panel-header);
+  --spacing-shell-inspector: var(--shell-inspector);
+  --spacing-shell-library: var(--shell-library);
+  --spacing-shell-settings-nav: var(--shell-settings-nav);
+  --spacing-shell-timeline: var(--shell-timeline);
+  --spacing-shell-timeline-min: var(--shell-timeline-min);
+  --spacing-shell-timeline-max: var(--shell-timeline-max);
+  --spacing-shell-track-labels: var(--shell-track-labels);
+
+  /* Иконки: size-icon (16px); stroke 1.5 — проп lucide, не CSS */
+  --spacing-icon: var(--icon-size);
+}
+
+/* Шрифты preflight (html, code/kbd/pre) — из токенов. Этот блок эмитится в :root,
+   иначе preflight ссылался бы на отключённые --font-sans / --font-mono. */
+@theme {
+  --default-font-family: var(--font-ui);
+  --default-mono-font-family: var(--font-script);
+}
