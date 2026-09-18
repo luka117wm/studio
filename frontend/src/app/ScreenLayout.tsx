@@ -7,6 +7,8 @@ import type { ReactNode } from 'react'
 import { useUiStore, type PanelId } from '../store/uiStore'
 import { IconButton, cn } from '../ui'
 import { PanelHeader } from './PanelHeader'
+import { formatKeys } from './keyboard'
+import { useHotkey } from './useHotkey'
 
 export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav'
 
@@ -89,7 +91,19 @@ function SideZone({ side, panel, widthClass }: { side: PanelId; panel: SidePanel
   const Icon = panel.icon
   const OpenIcon = side === 'left' ? PanelLeftOpen : PanelRightOpen
   const CloseIcon = side === 'left' ? PanelLeft : PanelRight
-  const hotkey = side === 'left' ? '⌥1' : '⌥3'
+  const keys = side === 'left' ? 'Alt+1' : 'Alt+3'
+  const hotkey = formatKeys(keys).join('')
+  // ⌥1 / ⌥3 (layout.md) — только пока на экране есть сворачиваемая панель
+  useHotkey({
+    id: `panel-${side}`,
+    keys,
+    scope: 'screen',
+    group: 'Панели',
+    description: `Свернуть или развернуть: ${panel.title.toLowerCase()}`,
+    hint: panel.title.toLowerCase(),
+    when: () => panel.collapsible === true,
+    handler: () => togglePanel(side),
+  })
 
   const strip = (
     <div className="flex flex-col items-center gap-1 py-2">

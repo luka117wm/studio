@@ -22,6 +22,7 @@ export function TopBar() {
   const episodeId = useUiStore((s) => s.episodeId)
   const setChannel = useUiStore((s) => s.setChannel)
   const closeEpisode = useUiStore((s) => s.closeEpisode)
+  const setHelpOpen = useUiStore((s) => s.setHelpOpen)
   const route = useRoute()
   const channel = channelById(channelId)
   const episode = episodeById(episodeId)
@@ -74,7 +75,7 @@ export function TopBar() {
         </span>
         <ProgressBar value={spentPercent} status="ready" ariaLabel="Расход месяца" className="w-33" />
       </div>
-      <IconButton icon={CircleQuestionMark} label="Горячие клавиши (?)" />
+      <IconButton icon={CircleQuestionMark} label="Горячие клавиши (?)" onClick={() => setHelpOpen(true)} />
       <IconButton icon={Settings} label="Настройки и расходы" onClick={() => navigate(paths.settings)} />
     </header>
   )

@@ -7,8 +7,9 @@ import { cn } from '../ui'
 import { episodeById } from '../mocks/fixtures'
 import type { StageId, StageState } from '../types/fixtures'
 import { Link } from './Link'
-import { useRoute } from './navigation'
+import { navigate, useRoute } from './navigation'
 import { paths } from './routes'
+import { useHotkeySet } from './useHotkey'
 
 const STAGES: { id: StageId; label: string; icon: LucideIcon }[] = [
   { id: 'idea', label: 'Идея', icon: Lightbulb },
@@ -30,6 +31,20 @@ export function StageRail() {
   const episodeId = useUiStore((s) => s.episodeId)
   const episode = episodeById(episodeId)
   const route = useRoute()
+  // ⌘1…⌘6 — переход по этапам открытого выпуска (layout.md); рельс смонтирован только при открытом выпуске
+  useHotkeySet(
+    STAGES.map(({ id, label }, i) => ({
+      id: `stage-${id}`,
+      keys: `Mod+${i + 1}`,
+      scope: 'global' as const,
+      group: 'Этапы',
+      description: label,
+      when: () => episode !== undefined,
+      handler: () => {
+        if (episode) navigate(paths.stage(episode.id, id))
+      },
+    })),
+  )
   if (!episode) return null
   const current = route?.route.stage ?? null
 

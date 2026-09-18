@@ -13,12 +13,15 @@ export interface UiState {
   /** true — панель свёрнута в полосу с иконкой */
   collapsed: Record<PanelId, boolean>
   toasts: ToastItem[]
+  /** Окно горячих клавиш («?» и кнопка в шапке) */
+  helpOpen: boolean
   setChannel: (channel: ChannelId) => void
   openEpisode: (id: string) => void
   closeEpisode: () => void
   togglePanel: (panel: PanelId) => void
   pushToast: (toast: ToastItem) => void
   dismissToast: (id: string) => void
+  setHelpOpen: (open: boolean) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -26,10 +29,12 @@ export const useUiStore = create<UiState>()((set) => ({
   episodeId: null,
   collapsed: { left: false, right: false },
   toasts: [],
+  helpOpen: false,
   setChannel: (channel) => set({ channel }),
   openEpisode: (id) => set({ episodeId: id }),
   closeEpisode: () => set({ episodeId: null }),
   togglePanel: (panel) => set((s) => ({ collapsed: { ...s.collapsed, [panel]: !s.collapsed[panel] } })),
   pushToast: (toast) => set((s) => ({ toasts: [...s.toasts.filter((t) => t.id !== toast.id), toast] })),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
 }))
