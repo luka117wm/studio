@@ -1,6 +1,6 @@
 # Studio — состояние проекта
 
-Обновлено: 2026-09-17. Файл для Claude Code: что уже сделано, где что лежит,
+Обновлено: 2026-09-18. Файл для Claude Code: что уже сделано, где что лежит,
 что делать дальше. Обновлять при каждом значимом шаге.
 
 ## Что это за проект
@@ -84,10 +84,35 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
 **Хвосты:** состав модулей после M2 — направление, не план (уточняется при составлении); хвосты M0
 (`tests/`, ruff/mypy, лишний `src/studio/`) — закрыть в M2; `README.md` пустой, `frontend/README.md` — шаблон Vite.
 
+### 5. M1.2 — UI-кит: примитивы (2026-09-18, коммит `743bf12`)
+
+- `frontend/src/ui/` — 28 компонентов, по файлу на каждый, реэкспорт из `index.ts`. По `components.md`: Button,
+  IconButton, Input, Textarea, NumberInput, Select, SegmentedControl, Slider, Toggle, Checkbox, Radio, Chip,
+  StatusGlyph, StatusBadge, Toast + ToastStack, Dialog, EmptyState. Плюс девять из списка задания, которых в
+  `components.md` нет — сделаны по решению пользователя, по аналогии с токенами и плотностью: Tooltip, Popover,
+  DropdownMenu, Tabs + TabPanel, ProgressBar, Skeleton, Divider, ScrollArea, KeyHint.
+- Рядом: `cn.ts` (clsx), `format.ts` (`formatPrice`, half-up до цента), `status.ts` (`Status`, подписи, цвета
+  подписей), `kit.css` (keyframes бегущей штриховки), `internal/` — Portal, useFocusTrap, useOutsidePointer,
+  useAnchorPosition + `layerStyle`, классы кнопок/полей, литералы штриховки.
+- Решения: UI-библиотек нет. Оверлеи — в портале, `position: fixed`, замер в layout-эффекте, переворот вверх при
+  нехватке места. Escape ловит сам слой (`onKeyDown`) — вложенные закрываются изнутри наружу; клик вне — слушатель
+  на документе. Select держит фокус на поле (`aria-activedescendant`). Пропсы явные, варианты — union-типы,
+  `className` только для раскладки, `style` — только внутренняя геометрия (координаты, проценты). Фокус-кольцо —
+  глобальное из `base.css`, в компонентах не дублируется.
+- Тесты: `src/ui/__tests__/` — 12 файлов, 92 теста (jsdom + Testing Library, `vitest.setup.ts` с cleanup, конфиг
+  в `vite.config.ts`). Ловушка фокуса Dialog, клавиатура Select/DropdownMenu/Tabs/SegmentedControl/Slider,
+  автоскрытие тостов, экспорт каждого компонента, отсутствие hex. Визуально сверено в Chrome через Playwright
+  (временная галерея в `App.tsx`, в репозиторий не вошла).
+- Хвосты: `className` не мёржит конфликтующие утилиты (tailwind-merge нет) — ширину задаёт вызывающий, базовые
+  `w-full` только у полей; у Toast нет кнопки закрытия (в спецификации нет — действие + автоскрытие); девять
+  компонентов вне `components.md` сверить с handoff, когда там появятся; `components.md` просит фокус `outline`
+  2px accent, `base.css` даёт `box-shadow: var(--focus-ring)` — оставлено как в M1.1; тест «каждый класс из
+  `src/ui` даёт CSS» (скрипт был разовый, см. L-009) — закрепить в M1.6; HotkeysOverlay — M1.4 на Dialog.
+
 ## Дальше
 
-Модуль **M1** (`docs/tasks/M1.md`), следующий этап — **M1.2 UI-кит: примитивы** (`docs/tasks/M1.2.md`, Sonnet,
-без плана). Стартовая фраза — в уставе модуля. После M1.6 — тег `m1`, затем отдельной сессией составить
+Модуль **M1** (`docs/tasks/M1.md`), следующий этап — **M1.3 Оболочка и навигация** (`docs/tasks/M1.3.md`, Opus,
+план до кода). Стартовая фраза — в уставе модуля. После M1.6 — тег `m1`, затем отдельной сессией составить
 `docs/tasks/M2.md` и этапы M2 из `docs/drafts/B0.*` по итогам M1.
 
 ## Как смотреть прототипы
