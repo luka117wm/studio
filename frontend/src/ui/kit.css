@@ -1,0 +1,7 @@
+/* Ключевые кадры кита. Бег штриховки — только индикация процесса (generating / loading),
+   плитка 8px совпадает с bg-size штриховки в internal/hatch.ts. */
+@keyframes ui-hatch {
+  to {
+    background-position: calc(var(--space-1) * 2) 0;
+  }
+}
