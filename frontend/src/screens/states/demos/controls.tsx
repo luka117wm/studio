@@ -28,6 +28,7 @@ export const controls: Demo[] = [
       <Row>
         <Button variant="primary" icon={Plus} price={1.61}>Сгенерировать 24 кадра</Button>
         <Button icon={Plus} price={0.07}>Перерисовать</Button>
+        <Button price={0.12} priceNote="38 запросов квоты">Обновить радар</Button>
       </Row>
     ),
   },
@@ -46,11 +47,12 @@ export const controls: Demo[] = [
   },
   {
     component: 'IconButton',
-    state: 'ghost, dangerHover, disabled',
+    state: 'ghost, dangerHover, pressed, disabled',
     node: (
       <Row>
         <IconButton icon={Settings} label="Настройки" />
         <IconButton icon={Trash2} label="Удалить" variant="dangerHover" />
+        <IconButton icon={Settings} label="Включено" pressed />
         <IconButton icon={Settings} label="Недоступно" disabled />
       </Row>
     ),
@@ -153,7 +155,7 @@ export const controls: Demo[] = [
   },
   {
     component: 'Tabs',
-    state: 'вкладки с панелями и disabled',
+    state: 'вкладки с панелями и disabled; без нижней границы — border={false}',
     node: (
       <Stateful initial={'shot' as 'shot' | 'vo' | 'sfx'}>
         {(v, set) => (
@@ -177,12 +179,13 @@ export const controls: Demo[] = [
   },
   {
     component: 'KeyHint',
-    state: 'сочетание и с подписью',
+    state: 'sm: сочетание и с подписью; md — оверлей клавиш',
     node: (
       <Row>
         <KeyHint keys={['Ctrl', '1']} />
         <KeyHint keys={['Alt', '3']} label="инспектор" />
         <KeyHint keys={['?']} label="горячие клавиши" />
+        <KeyHint keys={['Ctrl', 'Shift', 'Z']} size="md" />
       </Row>
     ),
   },

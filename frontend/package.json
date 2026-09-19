@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "test": "vitest",
+    "e2e": "playwright test",
     "tokens:sync": "node scripts/sync-tokens.mjs --write",
     "tokens:check": "node scripts/sync-tokens.mjs --check"
   },

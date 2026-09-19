@@ -16,12 +16,13 @@ const MENU = [
 export const layers: Demo[] = [
   {
     component: 'Dialog',
-    state: 'sm, md, lg — с шапкой и подвалом',
+    state: 'sm, md, lg, xl — с шапкой (note), подвалом',
     node: (
       <Row>
         <DialogDemo size="sm" title="Диалог sm" />
         <DialogDemo size="md" title="Диалог md" />
         <DialogDemo size="lg" title="Диалог lg" />
+        <DialogDemo size="xl" title="Диалог xl" />
       </Row>
     ),
   },

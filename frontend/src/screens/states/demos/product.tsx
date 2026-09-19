@@ -24,7 +24,7 @@ export const productStates: ProductState[] = [
         icon={Lightbulb}
         title="Радар ещё не собран"
         description="Семена ниши заданы: every rank, medieval life, pirates, ancient jobs. Запустите радар — найдутся выбросы и кластеры тем."
-        primary={{ label: 'Обновить радар (38 запросов квоты)', price: 0.12, onClick: () => {} }}
+        primary={{ label: 'Обновить радар', price: 0.12, priceNote: '38 запросов квоты', onClick: () => {} }}
         secondary={{ label: 'Разобрать референс', onClick: () => {} }}
         hint="Квота дня: 0 из 10 000"
       />

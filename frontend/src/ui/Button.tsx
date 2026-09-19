@@ -18,6 +18,8 @@ export interface ButtonProps {
   icon?: LucideIcon
   /** Цена платного действия в USD, рендерится в подпись: «Сгенерировать 24 кадра (~$1.61)» */
   price?: number
+  /** Пояснение перед ценой в тех же скобках: «Обновить радар (38 запросов квоты, ~$0.12)» */
+  priceNote?: string
   loading?: boolean
   /** Подпись на время loading: «Генерирую 14 из 24» */
   loadingLabel?: string
@@ -36,6 +38,7 @@ export function Button({
   size = 'md',
   icon: Icon,
   price,
+  priceNote,
   loading = false,
   loadingLabel,
   disabled = false,
@@ -62,7 +65,7 @@ export function Button({
       {Icon && <Icon className={ICON_CLASS} strokeWidth={ICON_STROKE} aria-hidden />}
       <span>
         {loading && loadingLabel !== undefined ? loadingLabel : children}
-        {price !== undefined && !loading && ` (${formatPrice(price)})`}
+        {price !== undefined && !loading && ` (${priceNote ? `${priceNote}, ` : ''}${formatPrice(price)})`}
       </span>
     </button>
   )

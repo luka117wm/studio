@@ -19,9 +19,11 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
-  test('цена попадает в подпись до цента', () => {
-    render(<Button price={1.605}>Сгенерировать 24 кадра</Button>)
+  test('цена попадает в подпись до цента, пояснение — в те же скобки', () => {
+    const { rerender } = render(<Button price={1.605}>Сгенерировать 24 кадра</Button>)
     expect((screen.getByRole('button')).textContent).toContain('Сгенерировать 24 кадра (~$1.61)')
+    rerender(<Button price={0.12} priceNote="38 запросов квоты">Обновить радар</Button>)
+    expect((screen.getByRole('button')).textContent).toBe('Обновить радар (38 запросов квоты, ~$0.12)')
   })
 
   test('loading: подпись состояния, aria-busy, клики не проходят', async () => {
@@ -63,6 +65,11 @@ describe('IconButton', () => {
     render(<IconButton icon={Plus} label="Добавить" />)
     const button = screen.getByRole('button', { name: 'Добавить' })
     expect(button.getAttribute('title')).toBe('Добавить')
+  })
+
+  test('pressed даёт aria-pressed', () => {
+    render(<IconButton icon={Plus} label="Пауза" pressed />)
+    expect(screen.getByRole('button', { name: 'Пауза' }).getAttribute('aria-pressed')).toBe('true')
   })
 
   test('вариант dangerHover рендерится', async () => {

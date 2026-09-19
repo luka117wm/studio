@@ -54,7 +54,6 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
           title="Выпусков пока нет"
           description="Доска по стадиям: идея, сценарий, генерация, монтаж, готов, опубликован. Создайте первый выпуск — из идеи или с чистого листа."
           primary={{ label: 'Новый выпуск', onClick: () => {} }}
-          hint="⌘N — новый выпуск"
         />
       </section>
     </ScreenLayout>

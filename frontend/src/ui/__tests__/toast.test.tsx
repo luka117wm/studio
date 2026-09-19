@@ -33,6 +33,13 @@ describe('ToastStack', () => {
 })
 
 describe('Toast', () => {
+  test('без действия — кнопка «Скрыть» закрывает', async () => {
+    const onDismiss = vi.fn()
+    render(<Toast item={{ id: 'y', message: 'Озвучено' }} onDismiss={onDismiss} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Скрыть' }))
+    expect(onDismiss).toHaveBeenCalledWith('y')
+  })
+
   test('действие внутри вызывает обработчик и закрывает', async () => {
     const onClick = vi.fn()
     const onDismiss = vi.fn()

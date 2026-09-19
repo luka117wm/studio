@@ -13,6 +13,15 @@ export function GenerateScreen({ params }: { params: RouteParams }) {
       {(episode) => (
         <ScreenLayout
           header={{ title: 'Генерация', note: `${episode.shots} кадров · ${episode.period?.label ?? 'период не выбран'}` }}
+          strip={{
+            title: 'Очереди генерации',
+            children: (
+              <>
+                <div className="flex flex-1 items-center border-r border-line px-4 text-12 text-muted">Кадры: очередь пуста</div>
+                <div className="flex flex-1 items-center px-4 text-12 text-muted">Голос: очередь пуста</div>
+              </>
+            ),
+          }}
           left={{
             kind: 'library',
             title: 'Канон',
@@ -35,9 +44,6 @@ export function GenerateScreen({ params }: { params: RouteParams }) {
             children: <EmptyState icon={Image} title="Кадр не выбран" description="Версии, промпт и причина отказа выбранного кадра." />,
           }}
         >
-          <section aria-label="Очереди генерации" className="flex h-18 shrink-0 items-center border-b border-line px-4 text-12 text-muted">
-            Очереди кадров и анимации пусты
-          </section>
           <div className="flex min-h-0 flex-1 items-center justify-center p-4">
             <EmptyState
               icon={Sparkles}

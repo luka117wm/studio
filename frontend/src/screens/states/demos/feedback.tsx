@@ -55,7 +55,7 @@ export const feedback: Demo[] = [
   },
   {
     component: 'Toast',
-    state: 'пять статусов, с действием',
+    state: 'пять статусов; с действием и со «Скрыть» без действия',
     node: (
       <Col>
         <Toast item={{ id: 't1', message: 'Перерисовано', status: 'ready', action: { label: 'Отменить', onClick: () => {} } }} onDismiss={() => {}} />

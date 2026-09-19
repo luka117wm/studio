@@ -62,9 +62,11 @@ describe('Skeleton / Divider / ScrollArea / KeyHint', () => {
     expect(screen.getByRole('region', { name: 'Список кадров' }).tabIndex).toBe(0)
   })
 
-  test('key hint рендерит kbd на клавишу и подпись', () => {
-    const { container } = render(<KeyHint keys={['⌘', 'K']} label="Поиск" />)
+  test('key hint рендерит kbd на клавишу и подпись; md — 20px', () => {
+    const { container, rerender } = render(<KeyHint keys={['⌘', 'K']} label="Поиск" />)
     expect(container.querySelectorAll('kbd')).toHaveLength(2)
     expect(container.textContent).toBe('⌘KПоиск')
+    rerender(<KeyHint keys={['Esc']} size="md" />)
+    expect(container.querySelector('kbd')?.className).toContain('h-5')
   })
 })

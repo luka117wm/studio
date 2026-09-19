@@ -23,7 +23,7 @@ export function StatesScreen(_props: { params: RouteParams }) {
       header={{
         title: 'Состояния',
         note: `${allDemos().length} демонстраций · ${productStates.length} продуктовых · оверлей клавиш по «?»`,
-        actions: <Tabs ariaLabel="Разделы каталога" value={section} onChange={setSection} tabs={TABS} className="border-b-0" />,
+        actions: <Tabs ariaLabel="Разделы каталога" value={section} onChange={setSection} tabs={TABS} border={false} />,
       }}
     >
       <ScrollArea className="flex-1 p-4">

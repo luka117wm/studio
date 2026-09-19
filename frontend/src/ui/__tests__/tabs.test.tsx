@@ -32,6 +32,11 @@ function Harness() {
 }
 
 describe('Tabs', () => {
+  test('border={false} убирает нижнюю границу', () => {
+    render(<Tabs ariaLabel="Без границы" value="a" onChange={() => {}} tabs={[{ id: 'a', label: 'A' }]} border={false} />)
+    expect(screen.getByRole('tablist', { name: 'Без границы' }).className).not.toContain('border-b')
+  })
+
   test('aria-selected, панели связаны, стрелки пропускают disabled', async () => {
     render(<Harness />)
     const shot = screen.getByRole('tab', { name: 'Кадр' })

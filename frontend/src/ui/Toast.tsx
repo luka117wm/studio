@@ -24,7 +24,7 @@ const BAR: Record<Status, string> = {
   failed: 'border-l-failed',
 }
 
-/** Карточка: raised, граница line, левая полоса 2px в цвете статуса. */
+/** Карточка: raised, граница line, левая полоса 2px в цвете статуса. Без действия — кнопка «Скрыть» (артборды 1, 5, 10). */
 export function Toast({ item, onDismiss }: ToastProps) {
   const status = item.status ?? 'ready'
   return (
@@ -37,7 +37,7 @@ export function Toast({ item, onDismiss }: ToastProps) {
       )}
     >
       <span className="min-w-0 flex-1">{item.message}</span>
-      {item.action && (
+      {item.action ? (
         <Button
           variant="ghost"
           size="sm"
@@ -47,6 +47,10 @@ export function Toast({ item, onDismiss }: ToastProps) {
           }}
         >
           {item.action.label}
+        </Button>
+      ) : (
+        <Button variant="ghost" size="sm" onClick={() => onDismiss(item.id)}>
+          Скрыть
         </Button>
       )}
     </div>

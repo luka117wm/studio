@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { useUiStore } from '../../../store/uiStore'
 import { Button, Checkbox, Dialog, Popover } from '../../../ui'
 
-export function DialogDemo({ size, title }: { size: 'sm' | 'md' | 'lg'; title: string }) {
+export function DialogDemo({ size, title }: { size: 'sm' | 'md' | 'lg' | 'xl'; title: string }) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -12,6 +12,7 @@ export function DialogDemo({ size, title }: { size: 'sm' | 'md' | 'lg'; title: s
         open={open}
         onClose={() => setOpen(false)}
         title="Утвердить план"
+        note={size}
         size={size}
         footer={
           <>

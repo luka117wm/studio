@@ -10,7 +10,8 @@ import { PanelHeader } from './PanelHeader'
 import { formatKeys } from './keyboard'
 import { useHotkey } from './useHotkey'
 
-export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav'
+export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav' | 'seeds'
+export type RightPanelKind = 'inspector' | 'clusters'
 
 export interface SidePanel {
   title: string
@@ -25,27 +26,36 @@ export interface SidePanel {
 export interface ScreenLayoutProps {
   /** Заголовок экрана 52px: title 18/600, note 12, действия справа */
   header?: { title: string; note?: string; actions?: ReactNode }
+  /** Полоса под заголовком на всю ширину, 72 (очереди генерации) */
+  strip?: { title: string; children: ReactNode }
   left?: SidePanel & { kind: LeftPanelKind }
-  right?: SidePanel
+  /** Правая колонка: inspector 320 (по умолчанию) · clusters 340 (идеи) */
+  right?: SidePanel & { kind?: RightPanelKind }
   /** Третья колонка только ≥2560 (лог экспорта 420); ниже лог открывается кнопкой поверх центра */
   wide?: { title: string; kind: 'log'; children: ReactNode }
-  /** Нижняя панель на всю ширину (таймлайн): 260 · 160 ниже 1280 · 320 на 2560 */
-  bottom?: { title: string; children: ReactNode }
+  /** Нижняя панель на всю ширину: timeline — 260 с ручкой 4 (160 ниже 1280, 320 на 2560) · queue — 216 с шапкой 28 */
+  bottom?: { title: string; kind: 'timeline' | 'queue'; children: ReactNode }
   children: ReactNode
 }
 
-/* Ширины: библиотека 280 (→240 <1440), метаданные 380, пресеты 320, навигация настроек 224 фикс. */
+/* Ширины: библиотека 280 (→240 <1440), метаданные 380, пресеты 320, навигация настроек 224 фикс.,
+   семена ниши (идеи) 300 — из артборда 2, в layout.md не описано. */
 const LEFT_WIDTH: Record<LeftPanelKind, string> = {
   library: 'w-shell-library max-[1439px]:w-60',
   metadata: 'w-95',
   presets: 'w-80',
   settingsNav: 'w-shell-settings-nav',
+  seeds: 'w-75',
 }
-const RIGHT_WIDTH = 'w-shell-inspector max-[1439px]:w-70'
+/* Правая колонка: инспектор 320 (→280 <1440); кластеры идей 340 — из артборда 2, в диапазоне 280–420 layout.md */
+const RIGHT_WIDTH: Record<RightPanelKind, string> = {
+  inspector: 'w-shell-inspector max-[1439px]:w-70',
+  clusters: 'w-85',
+}
 const WIDE_WIDTH = { log: 'w-105' } as const
 const STRIP = 'w-10'
 
-export function ScreenLayout({ header, left, right, wide, bottom, children }: ScreenLayoutProps) {
+export function ScreenLayout({ header, strip, left, right, wide, bottom, children }: ScreenLayoutProps) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {header && (
@@ -54,6 +64,11 @@ export function ScreenLayout({ header, left, right, wide, bottom, children }: Sc
           {header.note && <span className="text-12 text-muted">{header.note}</span>}
           {header.actions && <div className="ml-auto flex items-center gap-2">{header.actions}</div>}
         </header>
+      )}
+      {strip && (
+        <section data-zone="strip" aria-label={strip.title} className="flex h-18 shrink-0 border-b border-line">
+          {strip.children}
+        </section>
       )}
       <div className="flex min-h-0 flex-1">
         {left && <SideZone side="left" panel={left} widthClass={LEFT_WIDTH[left.kind]} />}
@@ -70,15 +85,25 @@ export function ScreenLayout({ header, left, right, wide, bottom, children }: Sc
             <div className="min-h-0 flex-1 overflow-y-auto">{wide.children}</div>
           </aside>
         )}
-        {right && <SideZone side="right" panel={right} widthClass={RIGHT_WIDTH} />}
+        {right && <SideZone side="right" panel={right} widthClass={RIGHT_WIDTH[right.kind ?? 'inspector']} />}
       </div>
-      {bottom && (
-        <footer
-          data-zone="bottom"
-          aria-label={bottom.title}
-          className="flex h-shell-timeline shrink-0 flex-col border-t border-line bg-app max-[1279px]:h-shell-timeline-min min-[2560px]:h-80"
-        >
-          {bottom.children}
+      {bottom?.kind === 'timeline' && (
+        <>
+          {/* Ручка изменения высоты таймлайна, 4px (артборд 5); перетаскивание — модуль монтажа */}
+          <div data-zone="handle" aria-hidden className="h-1 shrink-0 border-y border-line bg-panel" />
+          <footer
+            data-zone="bottom"
+            aria-label={bottom.title}
+            className="flex h-shell-timeline shrink-0 flex-col bg-app max-[1279px]:h-shell-timeline-min min-[2560px]:h-80"
+          >
+            {bottom.children}
+          </footer>
+        </>
+      )}
+      {bottom?.kind === 'queue' && (
+        <footer data-zone="bottom" aria-label={bottom.title} className="flex h-54 shrink-0 flex-col border-t border-line bg-panel">
+          <PanelHeader title={bottom.title} />
+          <div className="min-h-0 flex-1 overflow-y-auto">{bottom.children}</div>
         </footer>
       )}
     </div>

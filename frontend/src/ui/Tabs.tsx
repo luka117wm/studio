@@ -13,11 +13,13 @@ export interface TabsProps<T extends string> {
   value: T
   onChange: (id: T) => void
   ariaLabel: string
+  /** Нижняя граница списка; false — внутри заголовка экрана, где граница уже есть */
+  border?: boolean
   className?: string
 }
 
 /** Список вкладок; панели — TabPanel с тем же id. ←→ Home End переключают сразу. */
-export function Tabs<T extends string>({ tabs, value, onChange, ariaLabel, className }: TabsProps<T>) {
+export function Tabs<T extends string>({ tabs, value, onChange, ariaLabel, border = true, className }: TabsProps<T>) {
   const enabled = tabs.filter((t) => !t.disabled)
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -36,7 +38,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, ariaLabel, class
   }
 
   return (
-    <div role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown} className={cn('flex h-control-md items-stretch border-b border-line', className)}>
+    <div role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown} className={cn('flex h-control-md items-stretch', border && 'border-b border-line', className)}>
       {tabs.map((tab) => {
         const selected = tab.id === value
         return (

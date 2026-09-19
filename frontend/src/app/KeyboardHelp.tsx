@@ -3,6 +3,7 @@
 import { useUiStore } from '../store/uiStore'
 import { Dialog, KeyHint } from '../ui'
 import { formatKeys, isEnabled, type Hotkey } from './keyboard'
+import { useRoute } from './navigation'
 import { useHotkey, useModalScope, useRegisteredHotkeys } from './useHotkey'
 
 export function KeyboardHelp() {
@@ -33,23 +34,26 @@ export function KeyboardHelp() {
 
   const hotkeys = useRegisteredHotkeys()
   const groups = groupHotkeys(hotkeys.filter(isEnabled))
+  const route = useRoute()
 
   return (
     <Dialog
       open={open}
       onClose={() => setHelpOpen(false)}
       title="Горячие клавиши"
-      size="lg"
+      note={route ? route.route.title.toLowerCase() : undefined}
+      size="xl"
       footer={<span className="mr-auto text-11 text-muted">Esc или ? закрывает</span>}
     >
-      <div className="grid grid-cols-2 gap-3">
+      {/* Как в артбордах 5 и 10: колонка на группу, строки 28 raised, чипы клавиш 20px */}
+      <div className="grid grid-cols-3 gap-3">
         {groups.map(([group, items]) => (
           <section key={group} aria-label={group} className="flex min-w-0 flex-col gap-1">
             <h3 className="flex h-6 items-center text-12 font-semibold text-muted">{group}</h3>
             {items.map((h) => (
               <div key={h.id} className="flex min-h-7 items-center gap-2 rounded-control border border-line bg-raised px-2">
                 <span className="min-w-0 flex-1 text-12 text-ink">{h.description}</span>
-                <KeyHint keys={formatKeys(h.keys)} />
+                <KeyHint keys={formatKeys(h.keys)} size="md" />
               </div>
             ))}
           </section>

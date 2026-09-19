@@ -22,6 +22,11 @@ export function ExportScreen({ params }: { params: RouteParams }) {
             kind: 'log',
             children: <EmptyState icon={Terminal} title="Лог пуст" description="Строки ffmpeg появятся во время рендера." />,
           }}
+          bottom={{
+            title: 'Очередь рендера',
+            kind: 'queue',
+            children: <div className="flex h-full items-center px-4 text-12 text-muted">Задач нет: соберите очередь из пресетов</div>,
+          }}
         >
           <div className="flex min-h-0 flex-1 items-center justify-center p-4">
             <EmptyState

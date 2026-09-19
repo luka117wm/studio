@@ -98,7 +98,7 @@ export function ProcessCard({ title, pct, steps, current, currentWarning, eta, f
         <StatusGlyph status={paused ? 'warning' : 'generating'} />
         <span className="min-w-0 flex-1 truncate text-13 font-medium text-ink">{title}</span>
         <span className={cn('font-dense text-13', paused ? 'text-warning' : 'text-generating')}>{paused ? 'на паузе' : `${pct} %`}</span>
-        <IconButton icon={paused ? Play : Pause} label={paused ? 'Продолжить' : 'Пауза'} onClick={() => setPaused(!paused)} />
+        <IconButton icon={paused ? Play : Pause} label={paused ? 'Продолжить' : 'Пауза'} pressed={paused} onClick={() => setPaused(!paused)} />
         <IconButton icon={X} label="Отменить" variant="dangerHover" />
       </div>
       <div className="flex items-start gap-0.5">

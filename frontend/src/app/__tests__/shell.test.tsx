@@ -123,6 +123,6 @@ describe('оболочка', () => {
     expect(status.textContent).toContain('Генерация кадров: Medieval Monastery, 78 из 104')
     expect(status.textContent).toContain('горячие клавиши')
     act(() => useUiStore.getState().pushToast({ id: 't1', message: 'Перерисовано', status: 'ready' }))
-    expect(screen.getAllByRole('status').some((el) => el.textContent === 'Перерисовано')).toBe(true)
+    expect(screen.getAllByRole('status').some((el) => el.textContent?.startsWith('Перерисовано'))).toBe(true)
   })
 })

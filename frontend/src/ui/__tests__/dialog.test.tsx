@@ -49,6 +49,17 @@ describe('Dialog', () => {
     expect(dialog.contains(document.activeElement)).toBe(true)
   })
 
+  test('xl и note', () => {
+    render(
+      <Dialog open onClose={() => {}} title="Горячие клавиши" note="монтаж" size="xl">
+        <p>Текст</p>
+      </Dialog>,
+    )
+    const dialog = screen.getByRole('dialog', { name: 'Горячие клавиши' })
+    expect(dialog.className).toContain('w-250')
+    expect(dialog.textContent).toContain('монтаж')
+  })
+
   test('Escape закрывает, фокус возвращается на триггер', async () => {
     render(<Harness />)
     const trigger = screen.getByRole('button', { name: 'Открыть' })

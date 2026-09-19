@@ -30,6 +30,7 @@ export function EditLayout({
       right={{ ...inspector, collapsible: true }}
       bottom={{
         title: 'Таймлайн',
+        kind: 'timeline',
         children: (
           <div className="flex min-h-0 flex-1">
             <div className="flex w-shell-track-labels shrink-0 flex-col border-r border-line bg-panel text-11 text-muted">
