@@ -33,8 +33,9 @@ export const routes: Route[] = [
   { screen: 'export', pattern: '/episodes/:episodeId/export', title: 'Экспорт', stage: 'export' },
   { screen: 'publish', pattern: '/episodes/:episodeId/publish', title: 'Публикация', stage: 'publish' },
   { screen: 'settings', pattern: '/settings', title: 'Настройки и расходы', stage: null },
-  { screen: 'states', pattern: '/states', title: 'Состояния', stage: null },
   { screen: 'canon', pattern: '/canon', title: 'Канон', stage: null },
+  // Каталог состояний (экран 10) — только в dev-сборке; в production маршрута нет
+  ...(import.meta.env.DEV ? [{ screen: 'states', pattern: '/states', title: 'Состояния', stage: null } satisfies Route] : []),
 ]
 
 export interface RouteParams {
