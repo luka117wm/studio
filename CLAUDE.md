@@ -25,6 +25,7 @@
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
 | `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в M2 |
+| `docs/api_keys.md` | где взять и куда положить ключи провайдеров и OAuth YouTube | перед M2.6; при смене провайдера |
 
 ## Стек
 - **Frontend:** React 19, Vite, TypeScript strict, Tailwind v4 (токены через `@theme`, конфиг-файла нет), Zustand, TanStack Query, react-virtuoso, lucide-react; линтер oxlint, тесты vitest + Testing Library, e2e Playwright. Источник правды по UI-стеку и мосту токенов — `design/handoff/stack.md`, при расхождении в библиотеках и токенах прав он. Архитектура — по этому файлу: фронт ходит только в свой бэкенд, провайдеров и очереди во фронте нет.
