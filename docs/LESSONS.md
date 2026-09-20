@@ -18,6 +18,12 @@
 
 ---
 
+## L-013 · M2.1 · 2026-09-20 · импорты бэкенда
+**Симптом:** `run.sh` из M0 запускал `backend.app.main:app`, а тесты и `CLAUDE.md` (`python -m app.tools…`) считают `app` пакетом верхнего уровня. Абсолютные `from app.… import` под uvicorn падали бы с `ModuleNotFoundError`; относительные импорты скрыли бы проблему, но `python -m app.…` всё равно не работал бы.
+**Причина:** два корня импорта — репозиторий и `backend/` — для одного пакета.
+**Правило:** корень импорта — только `backend/`: `--app-dir backend` в `run.sh`, `pythonpath = ["backend"]` в pytest, `mypy_path = "backend"`. Импорты — только `from app.… import`, никогда `backend.app`. Модули запускаются как `python -m app.…` из `backend/` (или с `PYTHONPATH=backend`).
+**Закреплено:** `pyproject.toml`, `run.sh`; `uv run mypy backend` упадёт на импорте через `backend.app`.
+
 ## L-012 · M1.6 · 2026-09-19 · снимки
 **Симптом:** первые эталоны Playwright для трёх ширин перезаписывали друг друга — один файл на экран.
 **Причина:** `snapshotPathTemplate` без `{projectName}`: проекты-ширины пишут в одно имя.

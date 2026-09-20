@@ -1,6 +1,6 @@
 # Studio — состояние проекта
 
-Обновлено: 2026-09-19. Файл для Claude Code: что уже сделано, где что лежит,
+Обновлено: 2026-09-20. Файл для Claude Code: что уже сделано, где что лежит,
 что делать дальше. Обновлять при каждом значимом шаге.
 
 ## Что это за проект
@@ -215,12 +215,35 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   320–420»; артборд 3 — убрать ⌘1…⌘3 из статус-строки, клавиши вкладок решить в M4 (⌘⇧1…3 или без них);
   `components.md` — описать Tooltip, Popover, DropdownMenu, Tabs, ProgressBar, Skeleton, Divider, ScrollArea, KeyHint.
 
+### 10. M2.1 — Каркас бэкенда и хвосты M0 (2026-09-20, коммит `082f563`, ветка `m2-backend`)
+
+- `pyproject.toml`: убраны `[project.scripts]`, `uv_build`, `src/studio/`; `[tool.uv] package = false` — проект
+  приложение, не пакет. Конфиги ruff (100, E/F/I/UP/B), mypy strict (`mypy_path = backend`), pytest (`pythonpath =
+  backend`, `asyncio_mode = auto`, маркер `live`, `addopts = -m 'not live'` — живые вызовы только вручную).
+- **Решение:** `app` — пакет верхнего уровня, `backend/` на `sys.path` (`--app-dir backend` в `run.sh`, `pythonpath`
+  в pytest, `mypy_path`). Импорты — только `from app.… import`, никогда `backend.app` (L-013). Ради этого изменена
+  одна строка `run.sh` вопреки «не трогать» в задании — иначе абсолютные импорты не работают под uvicorn.
+- `app/settings.py`: `Settings` на pydantic-settings, `STUDIO_DATA_DIR` (по умолчанию `<repo>/data`, `expanduser().resolve()`),
+  `LOG_LEVEL`, `cors_origins`, ключи провайдеров как `SecretStr` (не утекают в repr/логи), `env_file = backend/.env`,
+  `env_ignore_empty` — пустая строка в `.env` = значение по умолчанию. `.env.example` приведён к `CLAUDE.md`
+  (`data/` в репозитории), убран мусорный `EOF`.
+- `app/main.py` — `create_app(settings)`, lifespan создаёт каталог данных; `app/api/` — агрегатор + `health.py`
+  (`HealthResponse`); `app/log.py` — `dictConfig`, логгеры uvicorn без своих хендлеров → единый формат
+  `время уровень модуль: сообщение` (проверено вживую).
+- Тесты: `conftest.py` (`Settings(_env_file=None, studio_data_dir=tmp_path)` — изоляция от реального `.env`;
+  `TestClient` как контекст → lifespan), `test_health.py`, `test_settings.py` (default, env с `~`, `.env`-файл, пустое
+  значение, создание каталога, секреты в repr). 7 зелёных; ruff, ruff format, mypy чисты.
+- Приёмка: `./run.sh` → health по curl напрямую и через прокси Vite, Ctrl+C гасит оба без сирот;
+  `STUDIO_DATA_DIR` во временном `backend/.env` переопределяет путь, каталог создаётся.
+- Хвосты: `starlette.testclient` предупреждает, что `httpx` в TestClient deprecated в пользу `httpx2` — решить,
+  когда httpx понадобится провайдерам (M2.6); `run.sh` при перенаправлении в файл теряет хвост логов из-за
+  буферизации `sed` (в терминале не проявляется) — не трогали.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`, устав и семь этапов составлены 2026-09-19), ветка `m2-backend`,
-первый этап — **M2.1 Каркас бэкенда и хвосты M0** (`docs/tasks/M2.1.md`, Sonnet, без плана). Стартовая фраза — в уставе.
-Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 — приёмка и тег `m2`, затем устав M3 отдельной
-сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.2 Контракт
+director.json** (`docs/tasks/M2.2.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
+приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 ## Как смотреть прототипы
 
