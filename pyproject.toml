@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0",
     "uvicorn[standard]>=0.53.0",
 ]
 
@@ -21,6 +22,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
+    "types-pyyaml>=6.0.12.20260906",
 ]
 
 # Проект — приложение, не пакет: uv не собирает и не ставит его в окружение.

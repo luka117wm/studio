@@ -1,0 +1,74 @@
+# Стоп-лист стилевых токенов для shot.image.prompt (CLAUDE.md, принцип 13).
+# LLM описывает, что происходит в кадре — действие, композицию, ракурс. Как это выглядит
+# (рендер, оптика, свет, живописная манера, имена художников) задаёт канон канала, и такие
+# слова в промпте кадра — ошибка валидации. Сравнение регистронезависимое, по целым словам
+# и фразам: «anime» не ловит «animated».
+version: 1
+tokens:
+  render:
+    - photorealistic
+    - photoreal
+    - hyperrealistic
+    - hyper realistic
+    - ultra realistic
+    - 8k
+    - 4k
+    - hdr
+    - ultra detailed
+    - highly detailed
+    - masterpiece
+    - best quality
+    - unreal engine
+    - octane render
+    - ray tracing
+    - ray traced
+  lighting:
+    - cinematic lighting
+    - cinematic light
+    - dramatic lighting
+    - volumetric lighting
+    - volumetric light
+    - rim lighting
+    - rim light
+    - studio lighting
+    - golden hour
+    - god rays
+  optics:
+    - 24mm
+    - 35mm
+    - 50mm
+    - 85mm
+    - anamorphic
+    - bokeh
+    - depth of field
+    - shallow depth of field
+    - lens flare
+    - film grain
+    - wide angle lens
+    - telephoto
+    - fisheye
+    - tilt shift
+  medium:
+    - anime
+    - manga
+    - cartoon
+    - oil painting
+    - watercolor
+    - watercolour
+    - digital painting
+    - matte painting
+    - concept art
+    - pencil sketch
+    - 3d render
+    - pixar
+    - illustration
+  artists:
+    - in the style of
+    - by artist
+    - artstation
+    - trending on artstation
+    - greg rutkowski
+    - artgerm
+    - alphonse mucha
+    - caravaggio
+    - rembrandt
