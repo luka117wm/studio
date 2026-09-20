@@ -239,10 +239,40 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   когда httpx понадобится провайдерам (M2.6); `run.sh` при перенаправлении в файл теряет хвост логов из-за
   буферизации `sed` (в терминале не проявляется) — не трогали.
 
+### 11. M2.2 — Контракт director.json (2026-09-20, коммит `aa08cfa`, ветка `m2-backend`)
+
+- `backend/app/models/director.py` — 18 Pydantic-моделей строго по скелету `CLAUDE.md` (+ `ThumbnailConcept` для
+  элементов `thumbnail.concepts`), все с `extra="forbid"`. Литералы: `channel`, `format`, `reference_mode`,
+  `shot_size`, `motion.type` (8), `motion.ease` (`linear | in_out_sine | in_out_cubic | in_cubic | out_cubic` —
+  списка в задании не было, уточнится в `motion_spec.md`), `transition.type`, `fact.status`. Диапазоны по заданию.
+  Паттерны ID и ссылок канона (`episode_id`, `shot.id` `s\d{3,}`, `section.id`, `style/vNNN`, `periods/<id>/vNNN`,
+  `characters/<id>/vNNN#<облик>`). `overlay` — только `null` (форма не определена, зарезервировано).
+- **Решения:** поле `schema` конфликтует с `BaseModel.schema()` → `schema_version` с алиасом `schema`
+  (`validate_by_name` + `validate_by_alias`; в JSON/JSON Schema — `schema`). Обязательны все блоки скелета, кроме
+  `canon_ref`/`voice` при `part > 1`; дефолты только подразумеваемые скелетом (`part`, `parts_total`, `language`,
+  `chapter=true`, `transition_in={cut,0}`, `animate`, списки). PyYAML добавлен сейчас (стоп-лист — `.yaml`),
+  не в M2.6, как планировалось.
+- `validators.py`: `check_director()` — доменные проверки (уникальность, ссылки на разделы/канон, `vo`,
+  `animate.prompt`, стоп-лист, `part ≤ parts_total`, обязательность `canon_ref`/`voice` в части 1) встроены в
+  `Director` через `model_validator` + `PydanticCustomError("director_domain", ctx.messages)` — обойти через
+  `model_validate` нельзя. `validate_director(data)` — точка входа: структурные ошибки pydantic переводятся в
+  русский с ID кадра по `loc` (`missing`, `extra_forbidden`, `literal_error`, диапазоны, типы, паттерны,
+  `none_required`), доменные разворачиваются из `ctx`; всё одним списком в `DirectorValidationError.errors`.
+  Структурные проверяются первыми, доменные — когда структура цела.
+- `config/prompt_stoplist.yaml` — 5 категорий (`render`, `lighting`, `optics`, `medium`, `artists`), ~70 токенов;
+  матчинг без регистра, по целым словам и фразам (`animated` ≠ `anime`, `18k` ≠ `8k`).
+- `app/tools/gen_schema.py` → `docs/director.schema.json` (`$schema` 2020-12, `$id = studio.director/1`);
+  запуск `PYTHONPATH=backend uv run python -m app.tools.gen_schema` (L-013); тест сверяет файл с генерацией.
+- `docs/director_schema.md` — таблицы всех полей, правило частей, таблица доменных проверок с сообщениями, два
+  примера кадра. Фикстуры: `director_pirate_10shots.json` (10 кадров, 2 раздела, реальные VO и промпты) и 5
+  битых компактных. `tests/test_director_schema.py` — 22 теста; всего 29 зелёных, ruff/mypy чисты.
+- Хвосты: `image.prompt` не проверяется на пустоту (в задании нет); `static` с `strength > 0` допустим —
+  решить в модуле движения; сообщения для редких типов ошибок pydantic — английский `msg` как fallback.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.2 Контракт
-director.json** (`docs/tasks/M2.2.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.3 Хранилище:
+пути, атомарная запись, SQLite, project.json** (`docs/tasks/M2.3.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
 приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 ## Как смотреть прототипы
