@@ -11,15 +11,19 @@ from app import __version__
 from app.api import api_router
 from app.log import configure_logging
 from app.settings import Settings
+from app.storage.db import migrate
+from app.storage.paths import StudioPaths
 
 log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings: Settings = app.state.settings
-    settings.studio_data_dir.mkdir(parents=True, exist_ok=True)
-    log.info("data dir: %s", settings.studio_data_dir)
+    paths: StudioPaths = app.state.paths
+    paths.root.mkdir(parents=True, exist_ok=True)
+    log.info("data dir: %s", paths.root)
+    applied = migrate(paths.db_path)
+    log.info("db: %s, migrations applied: %s", paths.db_path, applied or "none")
     yield
 
 
@@ -29,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Studio", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    app.state.paths = StudioPaths(settings.studio_data_dir)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

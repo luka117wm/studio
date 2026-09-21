@@ -1,6 +1,6 @@
 # Studio — состояние проекта
 
-Обновлено: 2026-09-20. Файл для Claude Code: что уже сделано, где что лежит,
+Обновлено: 2026-09-21. Файл для Claude Code: что уже сделано, где что лежит,
 что делать дальше. Обновлять при каждом значимом шаге.
 
 ## Что это за проект
@@ -269,10 +269,35 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
 - Хвосты: `image.prompt` не проверяется на пустоту (в задании нет); `static` с `strength > 0` допустим —
   решить в модуле движения; сообщения для редких типов ошибок pydantic — английский `msg` как fallback.
 
+### 12. M2.3 — Хранилище: пути, атомарная запись, SQLite, project.json (2026-09-21, ветка `m2-backend`)
+
+- `storage/paths.py` — `StudioPaths(root)`: все пути `data/` одной точкой по дереву `CLAUDE.md`, id проверяются
+  регуляркой до обращения к диску. `storage/atomic.py` — `write_json_atomic` (temp в той же папке → fsync →
+  rename → fsync каталога), `read_json`; тест на 500 записей со сбоями в сериализации/`replace`/`fsync`.
+- `storage/db.py` — `connect` (WAL, `foreign_keys=ON`, `busy_timeout` 5 с), `apply_migrations`/`migrate` по
+  `schema_version` (файлы `migrations/NNN_*.sql`, каждая в транзакции, повторный запуск — no-op), `get_db`;
+  `001_init.sql` — `channels`, `episodes`, `jobs`, `assets` (индекс кэша `(kind, input_hash)`), `cost_ledger`
+  (микродоллары). Миграции накатываются в `lifespan`.
+- **Решения:** соединение sqlite на запрос в потоке event loop — `get_db` и роутеры `async def`, без
+  `check_same_thread=False` (L-014). Коллекции `project.json` (`shots`, `assets`, `timings`) — объекты с ключом-id,
+  чтобы PATCH и импорт плана (M2.4) мёрджили одним правилом: словари рекурсивно, остальное заменой. Профиль канала
+  (`profile.json`) — источник правды, таблица `channels` — реестр для FK. Id выпуска глобален (пути API без канала).
+- `models/channel.py` (`ChannelProfile`: бюджеты месяц/выпуск/анимация в USD, квота голоса), `models/project.py`
+  (`Project`, `empty_project`, `merge_patch`), `docs/project_schema.md`. `tools/seed.py` — `cursus`/`otto` с числами
+  из фикстур оболочки (150/100 USD, 600 000 знаков); лимитов на выпуск/анимацию в макете нет — 15/5 и 8/3 USD.
+- API: `GET /api/channels[/{id}]`, `GET /api/episodes?channel=`, `POST /api/episodes` (дерево + `project.json` +
+  строка; 409 при повторе и при каталоге-сироте на диске), `GET /api/episodes/{id}`, `GET|PATCH /api/projects/{id}`
+  (422 на невалидный результат и на смену `schema`/`episode_id`/`channel`). Списки — в порядке создания (`rowid`).
+- Тесты: `test_storage.py` (14), `test_api_episodes.py` (11); всего 58 зелёных, ruff/mypy чисты. Проверено вживую
+  через uvicorn + curl.
+- Хвосты: `Episode.stage/status` — литералы из фикстур оболочки, уточнятся в M3; `jobs.payload/result` — форма в
+  M2.5 (новой миграцией, 001 не править); `now_iso()` с точностью до секунды — порядок списков по `rowid`, не по
+  времени.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.3 Хранилище:
-пути, атомарная запись, SQLite, project.json** (`docs/tasks/M2.3.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.4 Импорт версии плана:
+мёрдж по shot.id, stale, locked** (`docs/tasks/M2.4.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
 приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 ## Как смотреть прототипы
