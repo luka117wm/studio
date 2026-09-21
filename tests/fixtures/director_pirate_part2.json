@@ -1,0 +1,246 @@
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "cursus",
+    "episode_id": "c07-pirate-ship",
+    "working_title": "Every Rank on a Pirate Ship",
+    "format": "every_rank",
+    "language": "en",
+    "target_minutes": 20,
+    "part": 2,
+    "parts_total": 2
+  },
+  "brief": {
+    "idea": "Climb every rank on a Caribbean pirate ship of 1716, from powder monkey to captain, and learn what each one actually did all day.",
+    "angle": "Second person: you are the boy, then the sailor, then the officer. Every promotion costs something.",
+    "hook_promise": "By the end you will know why the captain was the least powerful man aboard in peacetime.",
+    "reference_mode": "none",
+    "sources": [
+      {
+        "title": "Marcus Rediker, Villains of All Nations",
+        "url": "https://www.versobooks.com/products/1620-villains-of-all-nations"
+      },
+      {
+        "title": "Charles Johnson, A General History of the Pyrates (1724)",
+        "url": "https://www.gutenberg.org/ebooks/40580"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "r2",
+      "title": "Gun drill",
+      "chapter": true,
+      "vo_direction": "quicker, clipped, the rhythm of orders"
+    }
+  ],
+  "shots": [
+    {
+      "id": "s007",
+      "section": "r2",
+      "vo": "Then one morning the drum beats to quarters, and for the first time the drill is not a drill.",
+      "image": {
+        "prompt": "the full length of the gun deck from the stern looking forward, every gun run out, crews frozen mid-motion, hatches open above",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.12,
+        "ease": "in_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [
+        {
+          "prompt": "a single drum beating fast, men shouting, feet on planks",
+          "offset": 0.0,
+          "duration": 5.0,
+          "gain_db": -16
+        }
+      ],
+      "overlay": null
+    },
+    {
+      "id": "s008",
+      "section": "r2",
+      "vo": "Sponge. Load. Ram. Prime. You do not fire the gun. You keep it fed, and you keep your head below the rail.",
+      "image": {
+        "prompt": "crouches beside a gun carriage passing a cartridge up to a bare-chested loader, the gun captain above them with the slow match raised",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11",
+          "gun-captain@caribbean-1716"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "tilt_up",
+        "strength": 0.09,
+        "ease": "in_out_sine"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s009",
+      "section": "r2",
+      "vo": "The gun goes off eighteen inches from your ear. You will not hear properly again until Sunday.",
+      "image": {
+        "prompt": "flinches away from the gun with both hands clamped over his ears, mouth open, smoke pouring past him toward the open port",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "static",
+        "strength": 0.0,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s010",
+      "section": "r2",
+      "vo": "And then you run again. Because the gun is empty, and the magazine is not, and that is the whole of your rank.",
+      "image": {
+        "prompt": "seen from behind, a small figure disappearing down a smoke-filled ladderway, the gun deck chaos above him going out of view",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "tilt_down",
+        "strength": 0.08,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s011",
+      "section": "r2",
+      "vo": "You are not a sailor yet. You are the thing that keeps the sailors' guns alive.",
+      "image": {
+        "prompt": "stands alone on the empty gun deck after the action, cartridge case at his feet, looking down the row of silent guns",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "pull_out",
+        "strength": 0.1,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "crossfade",
+        "duration": 0.5
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [
+        {
+          "prompt": "ringing silence, distant water dripping, a rope creaks once",
+          "offset": 0.0,
+          "duration": 5.0,
+          "gain_db": -22
+        }
+      ],
+      "overlay": null
+    }
+  ],
+  "music": [
+    {
+      "section": "r2",
+      "mood": "drum-driven, rising, no melody",
+      "gain_db": -22
+    }
+  ],
+  "thumbnail": {
+    "concepts": [
+      {
+        "prompt": "a small boy with a cartridge case looks up at a towering gun deck, viewed from below",
+        "text": "POWDER MONKEY TO CAPTAIN"
+      },
+      {
+        "prompt": "a ladder of ranks drawn as ship decks stacked on top of each other, the boy at the bottom",
+        "text": "EVERY RANK"
+      }
+    ]
+  },
+  "publish": {
+    "titles": [
+      "Every Rank on a Pirate Ship (1716)",
+      "You Are Eleven and Your Job Is Gunpowder",
+      "From Powder Monkey to Captain: Every Rank Explained"
+    ],
+    "description": "Climb every rank on a Caribbean pirate ship of 1716. What each rank did, what it paid, and what it cost.",
+    "tags": [
+      "pirates",
+      "1716",
+      "history",
+      "every rank",
+      "age of sail"
+    ],
+    "category_id": "27",
+    "synthetic_media": true,
+    "made_for_kids": false
+  },
+  "facts": [
+    {
+      "claim": "Felt curtains were used at magazine doors specifically to catch sparks.",
+      "status": "not_found",
+      "source_url": null
+    }
+  ]
+}

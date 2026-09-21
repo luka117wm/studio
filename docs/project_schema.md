@@ -16,6 +16,7 @@
 | `episode_id` | `^[a-z0-9][a-z0-9-]*$` | совпадает с именем каталога и `meta.episode_id` плана |
 | `channel` | `cursus \| otto` | канал |
 | `director_version` | `vNNN` \| `null` | текущая версия плана; `null` — план ещё не импортирован |
+| `director_versions` | `{vNNN: DirectorVersionInfo}` | индекс всех импортированных версий (файлы — `director/vNNN.json`) |
 | `shots` | `{shot_id: ShotState}` | состояние и ручные правки кадров |
 | `assets` | `{asset_id: Asset}` | ассеты с версиями |
 | `timings` | `{shot_id: Timing}` | фактические тайминги кадров (принцип 1) |
@@ -29,12 +30,24 @@
 
 | Поле | Тип | По умолчанию | Описание |
 |---|---|---|---|
-| `status` | `todo \| queued \| generating \| done \| failed \| stale` | `todo` | `stale` — промпт или версия канона изменились, картинка не удалена (принцип 8) |
-| `duration_locked` | bool | `false` | длина задана вручную, выравнивание голоса её не перезаписывает (принцип 1) |
-| `prompt_locked` | bool | `false` | промпт не обновляется при импорте новой версии плана |
-| `user_override` | объект \| `null` | `null` | ручные правки полей кадра поверх плана; импорт не затирает |
+| `status` | `todo \| queued \| generating \| done \| failed \| stale \| removed` | `todo` | `stale` — картинка перестала соответствовать плану или план конфликтует с блокировкой, картинка не удалена (принцип 8); `removed` — кадр убран из плана, ассеты на месте |
+| `duration_locked` | bool | `false` | длина задана вручную, выравнивание голоса её не перезаписывает (принцип 1); план изменил `vo` — кадр `stale` с причиной |
+| `prompt_locked` | bool | `false` | промпт не обновляется при импорте новой версии плана; план изменил промпт — кадр `stale` с причиной |
+| `user_override` | объект \| `null` | `null` | ручные правки полей кадра поверх плана; импорт не затирает, конфликт с планом — `stale` с причиной |
+| `stale_reasons` | string[] | `[]` | почему кадр `stale` / `removed`, человеческим языком; ставит импорт плана |
 
-Ключ — `shot.id` плана (`s\d{3,}`).
+Ключ — `shot.id` плана (`s\d{3,}`). Правило `stale` и мёрджа — «Импорт и версии» в `docs/director_schema.md`.
+
+## `director_versions{}` — DirectorVersionInfo
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `version` | `vNNN` | равен ключу |
+| `hash` | `sha256:…` | канонический JSON плана; тот же план второй раз версию не создаёт |
+| `imported_at` | ISO 8601 UTC | первый импорт этой версии |
+| `parts` | int ≥ 1 | из скольких частей собран план |
+| `shots` | int | кадров в версии |
+| `added`, `changed`, `removed` | int | итог последнего мёрджа этой версии в проект |
 
 ## `assets{}` — Asset
 
@@ -65,7 +78,8 @@
 проверяется целиком как `Project`; при ошибке — 422, файл не меняется. `updated_at` клиента игнорируется.
 Дебаунс автосохранения (800 мс) — на фронте; бэкенд пишет сразу.
 
-Тем же правилом M2.4 мёрджит импорт новой версии плана по `shot.id`.
+Импорт новой версии плана (M2.4) идёт мимо PATCH: `merge_into_project` меняет в `shots` только `status` и
+`stale_reasons`, добавляет запись в `director_versions` и переставляет `director_version`.
 
 ## Пример
 
@@ -75,10 +89,20 @@
   "episode_id": "c07-pirate-ship",
   "channel": "cursus",
   "director_version": "v002",
+  "director_versions": {
+    "v001": { "version": "v001", "hash": "sha256:2f78…", "imported_at": "2026-09-20T18:02:11+00:00",
+              "parts": 1, "shots": 10, "added": 10, "changed": 0, "removed": 0 },
+    "v002": { "version": "v002", "hash": "sha256:5aa2…", "imported_at": "2026-09-21T02:40:57+00:00",
+              "parts": 2, "shots": 10, "added": 1, "changed": 3, "removed": 1 }
+  },
   "shots": {
-    "s001": { "status": "done", "duration_locked": false, "prompt_locked": false, "user_override": null },
+    "s001": { "status": "done", "duration_locked": false, "prompt_locked": false, "user_override": null,
+              "stale_reasons": [] },
     "s002": { "status": "stale", "duration_locked": true, "prompt_locked": false,
-              "user_override": { "motion": { "strength": 0.12 } } }
+              "user_override": { "motion": { "strength": 0.12 } },
+              "stale_reasons": ["Промпт: добавлено „his small silhouette framed by the low doorway“"] },
+    "s006": { "status": "removed", "duration_locked": false, "prompt_locked": false, "user_override": null,
+              "stale_reasons": ["Кадр убран из плана v002"] }
   },
   "assets": {
     "img-s001-v1": { "id": "img-s001-v1", "shot_id": "s001", "kind": "image", "version": 1,

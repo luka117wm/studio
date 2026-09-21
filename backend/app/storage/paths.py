@@ -76,6 +76,15 @@ class StudioPaths:
     def cache_dir(self, channel: str, episode: str) -> Path:
         return self.episode_dir(channel, episode) / "cache"
 
+    def director_parts_dir(self, channel: str, episode: str) -> Path:
+        """Части плана 1…N копятся здесь до сборки; после сборки папка очищается."""
+        return self.cache_dir(channel, episode) / "director_parts"
+
+    def director_part_path(self, channel: str, episode: str, part: int) -> Path:
+        if part < 1:
+            raise ValueError(f"director part must be >= 1, got {part}")
+        return self.director_parts_dir(channel, episode) / f"part-{part:02d}.json"
+
     def exports_dir(self, channel: str, episode: str) -> Path:
         return self.episode_dir(channel, episode) / "exports"
 

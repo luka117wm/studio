@@ -20,7 +20,9 @@ from app.storage.db import now_iso
 PROJECT_SCHEMA_VERSION = "studio.project/1"
 DIRECTOR_VERSION_PATTERN = r"^v\d{3}$"
 
-ShotStatus = Literal["todo", "queued", "generating", "done", "failed", "stale"]
+# `stale` — картинка перестала соответствовать плану или план конфликтует с блокировкой (M2.4);
+# `removed` — кадр убран из плана, ассеты на месте (принцип 8).
+ShotStatus = Literal["todo", "queued", "generating", "done", "failed", "stale", "removed"]
 AssetKind = Literal["image", "voice", "animation", "sfx", "music", "thumbnail", "render"]
 AssetStatus = Literal["ok", "stale", "failed"]
 TimingSource = Literal["voice", "locked", "estimate"]
@@ -34,6 +36,22 @@ class ShotState(StrictModel):
     prompt_locked: bool = False
     # Ручные правки полей кадра поверх плана; импорт новой версии их не затирает.
     user_override: dict[str, Any] | None = None
+    # Почему кадр `stale`/`removed` — человеческим языком, ставит импорт плана; пусто у остальных.
+    stale_reasons: list[str] = []
+
+
+class DirectorVersionInfo(StrictModel):
+    """Строка индекса версий плана: хэш для дедупа повторного импорта и итог мёрджа."""
+
+    version: str = Field(pattern=DIRECTOR_VERSION_PATTERN)
+    # sha256 канонического JSON плана: тот же план второй раз версию не создаёт.
+    hash: str
+    imported_at: str
+    parts: int = Field(ge=1)
+    shots: int = Field(ge=0)
+    added: int = Field(ge=0)
+    changed: int = Field(ge=0)
+    removed: int = Field(ge=0)
 
 
 class Asset(StrictModel):
@@ -64,6 +82,8 @@ class Project(StrictModel):
     episode_id: str = Field(pattern=EPISODE_ID_PATTERN)
     channel: Channel
     director_version: str | None = Field(default=None, pattern=DIRECTOR_VERSION_PATTERN)
+    # Все импортированные версии плана; файлы — `director/vNNN.json`, неизменяемые.
+    director_versions: dict[str, DirectorVersionInfo] = {}
     shots: dict[str, ShotState] = {}
     assets: dict[str, Asset] = {}
     timings: dict[str, Timing] = {}
@@ -83,6 +103,11 @@ class Project(StrictModel):
             f"timings: key {k!r} != shot_id {t.shot_id!r}"
             for k, t in self.timings.items()
             if k != t.shot_id
+        ]
+        problems += [
+            f"director_versions: key {k!r} != version {v.version!r}"
+            for k, v in self.director_versions.items()
+            if k != v.version
         ]
         if problems:
             raise ValueError("; ".join(problems))

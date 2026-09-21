@@ -294,10 +294,30 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   M2.5 (новой миграцией, 001 не править); `now_iso()` с точностью до секунды — порядок списков по `rowid`, не по
   времени.
 
+### 13. M2.4 — Импорт версии плана: мёрдж по shot.id, stale, locked (2026-09-21, ветка `m2-backend`)
+
+- `pipeline/director_import/merge.py` — `canonical_hash` (sha256 канонического JSON), `assemble_parts` (шапка из части
+  1, `shots`/`music`/`facts` конкатенацией, `sections` с дедупом по id, валидация целиком), `diff_shots`/`diff_canon`
+  (изменение = поле + причина по-русски, для промпта и VO — словарный diff через `difflib`), `merge_into_project`
+  (меняет только `status` и `stale_reasons`; новые → `queued`, убранные → `removed`, ассеты и тайминги на месте).
+  `stale.py` — `STALE_FIELDS`, причины по канону, конфликты с `*_locked`/`user_override`, `decide`.
+- `api/director.py` — `POST /api/projects/{id}/director` (часть или целиком; 422 списком ошибок, 409 для частей),
+  `GET …/director/versions`, `GET …/director/vNNN`. Части копятся в `cache/director_parts/part-NN.json`, часть 1
+  начинает набор, после сборки папка чистится; ошибка сборки — 422, части остаются.
+- **Решения:** `stale` только по картинке и конфликту с блокировкой, VO/движение/SFX — в отчёт без смены статуса
+  (L-015). Индекс версий — `project.json → director_versions` (хэш, `imported_at`, части, счётчики), без миграции
+  и mtime; повтор по хэшу версию не создаёт, совпадение со старой версией — откат к ней без нового файла.
+  `ShotStatus` + `removed`, `ShotState.stale_reasons` — расширены модели M2.3, `docs/project_schema.md` обновлён.
+- Фикстуры: `director_pirate_v2.json` (s002 промпт, s008 облик, s009 только VO, +s011, −s006),
+  `director_pirate_part{1,2}.json` — v2 по разделам, часть 2 без `canon_ref`/`voice`. `tests/test_director_import.py`
+  — 15 тестов; всего 73 зелёных, ruff/mypy чисты.
+- Хвосты: `drawn_at`/`price` в отчёте всегда `null` — у `Asset` нет времени создания, цен нет до модуля cost;
+  `changed` в отчёте считает и не-stale изменения (VO), ConflictBar должен показывать `stale` отдельно.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.4 Импорт версии плана:
-мёрдж по shot.id, stale, locked** (`docs/tasks/M2.4.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.5 Очередь джобов и SSE**
+(`docs/tasks/M2.5.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
 приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 ## Как смотреть прототипы

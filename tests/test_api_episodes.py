@@ -137,12 +137,14 @@ def test_patch_project_merges_and_keeps_rest(seeded: TestClient, paths: StudioPa
             "duration_locked": True,
             "prompt_locked": False,
             "user_override": None,
+            "stale_reasons": [],
         },
         "s002": {
             "status": "done",
             "duration_locked": False,
             "prompt_locked": False,
             "user_override": None,
+            "stale_reasons": [],
         },
     }
 
