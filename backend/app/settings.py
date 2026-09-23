@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     studio_data_dir: Path = REPO_ROOT / "data"
     log_level: str = "INFO"
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    # Очередь джобов (M2.5, docs/jobs.md). 0 воркеров — очередь без исполнения (тесты API);
+    # больше 4 — нельзя: рендер не больше 4 воркеров (принцип 12).
+    job_workers: int = Field(default=3, ge=0, le=4)
+    job_max_attempts: int = Field(default=3, ge=1)
+    job_retry_wait_s: float = Field(default=1.0, ge=0)  # база экспоненты: 1, 2, 4 … с
+    sse_heartbeat_s: float = Field(default=15.0, gt=0)
 
     # Ключи провайдеров — пустые по умолчанию, наличие проверяется в своём этапе (M2.6).
     gemini_api_key: SecretStr = SecretStr("")

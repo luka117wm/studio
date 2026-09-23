@@ -22,6 +22,7 @@
 | `design/handoff/tokens.css` | единственный источник цветов и размеров; копия — `frontend/src/styles/tokens.css` | не читать — использовать утилиты из `theme.css` |
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
 | `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | появятся в M2 |
+| `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
 | `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в M2 |

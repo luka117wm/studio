@@ -1,6 +1,6 @@
 # Studio — состояние проекта
 
-Обновлено: 2026-09-21. Файл для Claude Code: что уже сделано, где что лежит,
+Обновлено: 2026-09-23. Файл для Claude Code: что уже сделано, где что лежит,
 что делать дальше. Обновлять при каждом значимом шаге.
 
 ## Что это за проект
@@ -314,10 +314,38 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
 - Хвосты: `drawn_at`/`price` в отчёте всегда `null` — у `Asset` нет времени создания, цен нет до модуля cost;
   `changed` в отчёте считает и не-stale изменения (VO), ConflictBar должен показывать `stale` отдельно.
 
+### 14. M2.5 — Очередь джобов и SSE (2026-09-23, ветка `m2-backend`)
+
+- `jobs/queue.py` — очередь в SQLite: `enqueue[_many]` (`ON CONFLICT(idempotency_key) DO NOTHING` → существующий
+  джоб), `claim` (FIFO, `UPDATE … RETURNING`, `attempts + 1`, без видов на паузе), `finish`, `requeue`,
+  `recover_running`, `request_cancel`, `list_jobs` (сводка по статусам + курсор журнала). Каждый переход — условный
+  UPDATE и строка `job_events` в одной транзакции. `002_jobs.sql`: `idempotency_key` (UNIQUE-индекс), `batch_id`,
+  `attempts`, `cancel_requested`, `message`, таблица `job_events`.
+- `jobs/worker.py` — `JobPool` (asyncio-задачи; синхронные обработчики — в пул потоков, async — в loop; `job_workers`
+  0…4, по умолчанию 3), `HandlerSpec(kind, fn, payload_model, resource)`, `JobContext` (`progress` не чаще 200 мс,
+  `cancelled()` — флаг в БД или остановка бэкенда), ретраи `tenacity`: `TransientError`, сеть, 5xx; 4xx — нет.
+  Пауза GPU, пока идёт render-джоб или поднят `gpu_paused`. `jobs/events.py` — журнал, `EventBus`, генератор SSE.
+  `jobs/handlers/sleep.py` — `sleep_job`. API: `POST|GET /api/jobs`, `GET /api/jobs/{id}`,
+  `POST /api/jobs/{id}/cancel`, `GET /api/events`. Контракт — `docs/jobs.md` (строка в карте `CLAUDE.md`).
+- **Решения:** SSE вручную через `StreamingResponse`, без sse-starlette. Источник событий — таблица, id события = её
+  строка, поэтому `Last-Event-ID` работает и после перезапуска; курсор ещё и в `?last_event_id=`, а `GET /api/jobs`
+  отдаёт `last_event_id` для подписки без пропусков. Сверх задания — события `job.queued`, `job.started`. Штатная
+  остановка возвращает джоб в очередь без траты попытки; аварийные перезапуски тратят, джоб с `attempts` > 3 —
+  `failed`. `httpx` — из dev в зависимости (классификатор ретраев). `run.sh`: `--timeout-graceful-shutdown 3` (L-016).
+- Приёмка: kill -9 — автотест `test_kill_9_mid_batch_resumes_without_repeats` (uvicorn в подпроцессе, SIGKILL при
+  ≥ 4 done, рестарт, повторная постановка тех же ключей → 200; сделанное до падения не перезапускалось, прерванные —
+  `attempts` 2, по одному `job.done` на джоб). Вручную: `curl -N localhost:5173/api/events` через прокси Vite —
+  шаги `sleep_job` приходят с интервалом 1 с без буферизации, heartbeat через 15 с. `test_jobs.py` (26),
+  `test_sse.py` (4); всего 103 зелёных в трёх прогонах подряд, ruff/mypy чисты.
+- Хвосты: 429 не ретраится — решить в M2.6 вместе с `Retry-After`; там же договориться, что провайдер сам не
+  повторяет (иначе 3 × 3 вызова). Операции «повторить упавший» нет — ключ идемпотентности вечный. Отмены пачки целиком
+  нет. `mypy tests` падает на `Settings(_env_file=…)` — давнее, проект проверяет только `backend`.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.5 Очередь джобов и SSE**
-(`docs/tasks/M2.5.md`). Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 —
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.6 Провайдеры, цены
+и бюджеты** (`docs/tasks/M2.6.md`), ключи — `docs/api_keys.md`. Провайдеры переводят ошибки SDK в `TransientError`
+или HTTP-статус (`docs/jobs.md`, «Ретраи»); 429 и место ретраев — хвосты M2.5 выше. После M2.7 —
 приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 ## Как смотреть прототипы

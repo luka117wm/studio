@@ -139,7 +139,8 @@ def _schema_snapshot(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
 
 def test_migrate_twice_is_idempotent(tmp_path: Path) -> None:
     db_path = tmp_path / "data" / "app.db"
-    assert migrate(db_path) == [1]
+    all_versions = [version for version, _ in list_migrations()]
+    assert migrate(db_path) == all_versions
     conn = connect(db_path)
     before = _schema_snapshot(conn)
     conn.close()
@@ -148,11 +149,19 @@ def test_migrate_twice_is_idempotent(tmp_path: Path) -> None:
     conn = connect(db_path)
     assert _schema_snapshot(conn) == before
     versions = [row["version"] for row in conn.execute("SELECT version FROM schema_version")]
-    assert versions == [1]
+    assert versions == all_versions
     tables = {
         row["name"] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
     }
-    assert {"schema_version", "channels", "episodes", "jobs", "assets", "cost_ledger"} <= tables
+    assert {
+        "schema_version",
+        "channels",
+        "episodes",
+        "jobs",
+        "job_events",
+        "assets",
+        "cost_ledger",
+    } <= tables
     conn.close()
 
 

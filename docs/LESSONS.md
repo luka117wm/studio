@@ -18,6 +18,15 @@
 
 ---
 
+## L-016 · M2.5 · 2026-09-23 · SSE и uvicorn
+**Симптом:** при открытом `GET /api/events` uvicorn на SIGTERM пишет «Waiting for connections to close» и не выходит
+(проверено: > 10 с, дальше только kill -9); так же виснут Ctrl+C в `run.sh` и перезапуск по `--reload`.
+**Причина:** uvicorn сначала ждёт завершения всех запросов и только потом шлёт lifespan shutdown; поток SSE
+бесконечен, а приложение об остановке узнаёт только в lifespan — закрыть поток заранее ему нечем.
+**Правило:** uvicorn с SSE запускается с `--timeout-graceful-shutdown` (в `run.sh` — 3 с, выход за 3,3 с); тестовый
+сервер — `uvicorn.Config(timeout_graceful_shutdown=1)`. Бесконечные потоки тестируются живым uvicorn, не TestClient.
+**Закреплено:** `run.sh`, `tests/test_sse.py::LiveServer`, раздел SSE в `docs/jobs.md`.
+
 ## L-015 · M2.4 · 2026-09-21 · stale
 **Симптом:** задание M2.4 перечисляло VO среди изменений, а приёмка требовала «ровно 2 кадра stale» при фикстуре с
 двумя изменёнными кадрами и одним изменённым VO — либо три stale, либо VO не stale.
