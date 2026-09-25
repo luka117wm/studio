@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/provider",
+  "title": "provider",
+  "description": "Модели API Studio, группа «provider». Сгенерировано из Pydantic.",
+  "$defs": {
+    "CharQuota": {
+      "description": "Пакет символов ElevenLabs — один на аккаунт и общий для голоса и видео.",
+      "properties": {
+        "tier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tier"
+        },
+        "used_chars": {
+          "title": "Used Chars",
+          "type": "integer"
+        },
+        "limit_chars": {
+          "title": "Limit Chars",
+          "type": "integer"
+        },
+        "resets_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resets At"
+        }
+      },
+      "required": [
+        "tier",
+        "used_chars",
+        "limit_chars",
+        "resets_at"
+      ],
+      "title": "CharQuota",
+      "type": "object"
+    },
+    "KeyStatus": {
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "missing_models": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Models",
+          "type": "array"
+        },
+        "quota": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CharQuota"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "provider",
+        "configured",
+        "ok",
+        "message",
+        "missing_models",
+        "quota"
+      ],
+      "title": "KeyStatus",
+      "type": "object"
+    }
+  }
+}

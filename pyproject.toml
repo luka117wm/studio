@@ -45,6 +45,9 @@ python_version = "3.12"
 strict = true
 mypy_path = "backend"
 explicit_package_bases = true
+# Плагин знает конструкторы моделей и служебные аргументы BaseSettings (`_env_file`) — иначе
+# `mypy tests` падает на каждом `Settings(_env_file=None)`.
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -54,4 +57,8 @@ asyncio_mode = "auto"
 addopts = "-m 'not live'"
 markers = [
     "live: real provider calls (cost cents); run manually with -m live",
+]
+filterwarnings = [
+    # starlette.testclient ссылается на устаревший alias anyio; не наш код, уйдёт с обновлением starlette
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
 ]

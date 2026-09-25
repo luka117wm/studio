@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from pydantic import BaseModel
+
 from app.cost.ledger import SPENT_STATUSES
 from app.cost.pricing import format_usd, usd_to_micro
 from app.models.channel import Budgets, ChannelProfile
@@ -45,6 +47,18 @@ class Committed:
         return self.charged + self.reserved + self.queued
 
 
+class BudgetRefusal(BaseModel):
+    """Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса."""
+
+    code: Literal["budget_exceeded"] = "budget_exceeded"
+    level: BudgetLevel
+    limit_usd_micro: int
+    spent_usd_micro: int  # charged + резерв идущих вызовов
+    queued_usd_micro: int  # оценки платных джобов в очереди
+    cost_usd_micro: int  # цена операции, которой отказано
+    message: str
+
+
 class BudgetExceeded(Exception):
     def __init__(
         self, level: BudgetLevel, limit_micro: int, committed: Committed, cost_micro: int
@@ -56,16 +70,15 @@ class BudgetExceeded(Exception):
         super().__init__(_message(level, limit_micro, committed, cost_micro))
 
     def detail(self) -> dict[str, Any]:
-        """Тело 409: текст для пользователя и числа для интерфейса."""
-        return {
-            "code": "budget_exceeded",
-            "level": self.level,
-            "limit_usd_micro": self.limit_micro,
-            "spent_usd_micro": self.committed.spent,
-            "queued_usd_micro": self.committed.queued,
-            "cost_usd_micro": self.cost_micro,
-            "message": str(self),
-        }
+        """Тело 409 (`BudgetRefusal`): текст для пользователя и числа для интерфейса."""
+        return BudgetRefusal(
+            level=self.level,
+            limit_usd_micro=self.limit_micro,
+            spent_usd_micro=self.committed.spent,
+            queued_usd_micro=self.committed.queued,
+            cost_usd_micro=self.cost_micro,
+            message=str(self),
+        ).model_dump(mode="json")
 
 
 def _message(level: BudgetLevel, limit: int, committed: Committed, cost: int) -> str:

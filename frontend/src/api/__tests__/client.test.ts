@@ -2,7 +2,7 @@
 // Клиент /api на замоканном fetch: URL и тело, разбор ответа, ошибки бэкенда как {status, message}.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Episode } from '@/types/episode'
-import { api, ApiError } from '../client'
+import { api, ApiError, budgetRefusal } from '../client'
 
 type Handler = (url: string, init: RequestInit) => Promise<Response>
 
@@ -77,6 +77,9 @@ describe('api', () => {
     expect(error.status).toBe(409)
     expect(error.message).toBe(detail.message)
     expect(error.detail).toEqual(detail)
+    expect(budgetRefusal(error)?.level).toBe('month')
+    expect(budgetRefusal(new ApiError(409, 'Джоб уже завершён', 'text'))).toBeNull()
+    expect(budgetRefusal(new Error('x'))).toBeNull()
   })
 
   test('422 валидации: строки по полям без "body"', async () => {

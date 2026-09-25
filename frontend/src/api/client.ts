@@ -1,6 +1,7 @@
 // Клиент бэкенда: fetch только к `/api`, JSON, таймаут, ошибки в виде {status, message} для UI.
 // Текст ошибки приходит с бэкенда (что случилось и что сделать); клиент пишет свой только когда
 // ответа нет вовсе — сеть или таймаут. Провайдеров и очередей во фронте нет (CLAUDE.md, «Стек»).
+import type { BudgetRefusal } from '@/types/cost'
 
 export const API_BASE = '/api'
 export const DEFAULT_TIMEOUT_MS = 15_000
@@ -129,6 +130,12 @@ async function request<T>(
     throw new ApiError(response.status, errorMessage(response.status, payload), detail)
   }
   return payload as T
+}
+
+/** Отказ по бюджету (409, docs/providers.md, «Бюджеты») из ошибки запроса; иначе null. */
+export function budgetRefusal(error: unknown): BudgetRefusal | null {
+  if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
+  return error.detail.code === 'budget_exceeded' ? (error.detail as unknown as BudgetRefusal) : null
 }
 
 /** Типизированный доступ к `/api`: тип ответа — из `@/types/*` (сгенерированы из Pydantic). */

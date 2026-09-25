@@ -209,6 +209,9 @@ anthropic:
             "message": "Месячный лимит $150 исчерпан, потрачено $151.20; поднять лимит можно в настройках канала."}}
 ```
 
+Тело описано моделью `BudgetRefusal` (`cost/budget.py`); во фронте — тип `@/types/cost` и помощник
+`budgetRefusal(error)` из `src/api/client.ts`.
+
 Если лимит ещё не исчерпан, текст такой: «Лимит на выпуск $0.20: потрачено $0, в очереди $0.13, операция — $0.07, не
 хватает <$0.01; поднять лимит можно в настройках канала.»
 
@@ -219,6 +222,7 @@ anthropic:
 | Запрос | Ответ |
 |---|---|
 | `GET /api/cost/summary?channel=` | `{channel, month: "2026-09", budget, by_stage: [{stage, spent}], stale_pricing: [{provider, model, checked_at, age_days}]}`; 404 — канала нет |
+| `GET /api/providers/status?refresh=` | `[KeyStatus]` по провайдерам конфига: `configured`, `ok`, `message`, `missing_models`, `quota` (остаток символов ElevenLabs для шапки). Бесплатные запросы, ответ держится 60 с; `refresh=true` — проверить заново |
 | `GET /api/cost/ledger?episode=&channel=&limit=500` | `{items: [строки журнала + usd], episode_budget, animation_budget}` (лимиты — только с `episode`); 422 без `episode` и `channel` |
 
 `budget` = `{limit, charged, reserved, queued, remaining}`, где `remaining = max(limit − занятое, 0)`.
@@ -233,5 +237,5 @@ anthropic:
 | Gemini | `models.list` | принят ли ключ; какие модели каталога ключ не видит |
 | ElevenLabs | `/v1/user/subscription` | тариф и остаток символов (`KeyStatus.quota`); ключу нужно право User → Read |
 
-`Gateway.check_keys()` проверяет всех провайдеров конфига. `uv run pytest -m live -v -rP` проверяет ключи из
+`Gateway.check_keys()` проверяет всех провайдеров конфига параллельно; его же отдаёт `GET /api/providers/status`. `uv run pytest -m live -v -rP` проверяет ключи из
 `backend/.env`: без ключа — `skip` с причиной, отказ — `fail` с текстом, что сделать.

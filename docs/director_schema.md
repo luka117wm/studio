@@ -107,7 +107,7 @@
 
 | Поле | Тип | Обяз. | Значение |
 |---|---|---|---|
-| `prompt` | string | да | **только действие, композиция, ракурс**; без стилевых токенов из стоп-листа |
+| `prompt` | string | да | **только действие, композиция, ракурс**; непустой; без стилевых токенов из стоп-листа |
 | `period` | string | да | ключ из `canon_ref.periods` |
 | `appearances` | string[] | нет, `[]` | ключи из `canon_ref.appearances`; пусто — кадр без персонажа |
 | `shot_size` | `"establishing"` \| `"action"` \| `"reaction"` \| `"detail"` | да | крупность |
@@ -250,6 +250,7 @@ diff: «Промпт: добавлено „a lantern in his hand“; убран
 | уникальность `shot.id` | `кадр s002: id повторяется, ожидалось уникальный id кадра` |
 | `shot.section` существует | `кадр s003: раздел «r9» не найден, ожидалось один из r1, r2` |
 | `vo` непустой | `кадр s002: пустой vo, ожидалось текст закадрового голоса` |
+| `image.prompt` непустой | `кадр s004: пустой image.prompt, ожидалось действие и композиция кадра` |
 | `animate.prompt` при `recommended` | `кадр s003: animate.recommended = true без animate.prompt, ожидалось описание движения для анимации` |
 | `image.period` в `canon_ref.periods` | `кадр s001: image.period «england-1347» нет в canon_ref.periods, ожидалось один из caribbean-1716` |
 | `image.appearances` в `canon_ref.appearances` | `кадр s002: облик «you@captain-35» нет в canon_ref.appearances, ожидалось один из you@powder-monkey-11` |

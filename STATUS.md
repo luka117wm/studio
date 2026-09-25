@@ -407,6 +407,32 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   `Settings`, `.env.example`), значений среди них нет. `backend/.env` в `.gitignore`.
 - ☑ LESSONS пополнен (L-017…L-019), L-004…L-006 свёрнуты в архив — файл был у лимита 150 строк.
 
+### 18. Хвосты, закрытые перед тегом `m2` (2026-09-25)
+
+Закрыты:
+- `mypy tests` — плагин `pydantic.mypy` в `pyproject.toml`; `uv run mypy backend tests` чист (было 11 ошибок
+  `_env_file`).
+- Предупреждение TestClient про `httpx` ушло само: `anthropic` 1.x принёс `httpx2`. Оставшееся стороннее про alias
+  `anyio` в starlette — `filterwarnings` в pytest; прогоны без предупреждений.
+- `YOUTUBE_OAUTH_CLIENT_SECRET_*` убраны из `Settings` и `.env.example` — секрет канала только в
+  `data/channels/<channel>/oauth/client_secret.json` (M10). В `backend/.env` эти строки пустые, их можно удалить.
+- `run.sh`: `sed -u` — хвост логов не теряется при перенаправлении в файл.
+- Пустой `image.prompt` — доменная ошибка с ID кадра (`validators.py`, фикстура `director_broken_empty_prompt.json`,
+  строка в `docs/director_schema.md`).
+- Тело 409 бюджета — модель `BudgetRefusal`, тип `@/types/cost`, помощник `budgetRefusal(error)` во фронте.
+- Квота символов для шапки — `GET /api/providers/status` (`KeyStatus` с `quota`, кэш 60 с, `?refresh=true`), типы
+  `@/types/provider`.
+- Проверка Gemini подсказывает про ID проекта: живой прогон показал, что в `GEMINI_API_KEY` лежит
+  `gen-lang-client-…` (26 символов), а не ключ `AIza…` (39) — проверено булевыми признаками, значение не выводилось.
+
+Остаются, со своим модулем: `voice_quota` в профиле канала (M3 — шапка берёт квоту из `/api/providers/status`, поле
+убрать или оставить лимитом канала); `ProjectPatch` (M3); `Episode.stage/status` (M3); «повторить упавший» и отмена
+пачки (M6, вместе с интерфейсом пачки); эндпоинт пачки с общей суммой (M6); `drawn_at`/`price` и `changed` в отчёте
+импорта (M6 и экран конфликтов); кэш текстов LLM (M4); `static` с `strength > 0` (модуль движения); удалённый id
+генерации (M8); хвосты оболочки M1 и handoff — в сессии правок handoff перед M4. Claude Opus 5.5 в каталоге —
+решение пользователя. Vitest однажды дал 2 падения, в 11 повторах (и под нагрузкой) не воспроизвелось; имена не
+сохранились — при повторе сохранить вывод.
+
 ## Дальше
 
 Модуль **M2 — Бэкенд-фундамент** закрыт по этапам, ветка `m2-backend`. Дальше — приёмка модуля по уставу

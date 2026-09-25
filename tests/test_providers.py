@@ -8,12 +8,16 @@ from typing import Any
 import httpx
 import httpx2
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from app.jobs.worker import TransientError, is_retryable, retry_after_s
 from app.providers.anthropic import AnthropicProvider
 from app.providers.base import (
+    CharQuota,
     ImageRequest,
+    KeyStatus,
     ProviderError,
     RateLimited,
     Route,
@@ -23,7 +27,7 @@ from app.providers.base import (
     status_error,
 )
 from app.providers.elevenlabs import ElevenLabsProvider
-from app.providers.gateway import build_gateway
+from app.providers.gateway import Gateway, build_gateway
 from app.providers.gemini import GeminiProvider
 from app.settings import Settings
 from app.storage.paths import StudioPaths
@@ -197,13 +201,20 @@ def test_gemini_invalid_key_400_reads_as_rejected_key() -> None:
         }
         return httpx.Response(**_json(400, {"error": error}))
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    status = asyncio.run(GeminiProvider(KEY, http_client=client).check())
-    assert not status.ok
-    assert status.message == (
+    def status_for(key: str) -> str:
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        status = asyncio.run(GeminiProvider(SecretStr(key), http_client=client).check())
+        assert not status.ok
+        return status.message
+
+    base = (
         "Gemini: ключ не принят (401): API key not valid. Please pass a valid API key."
         " Проверьте ключ в backend/.env — см. docs/api_keys.md."
     )
+    assert status_for("AIza" + "x" * 35) == base
+    # Частая ошибка — вставить ID проекта AI Studio вместо ключа: подсказка, куда смотреть.
+    assert status_for("gen-lang-client-0123456789").startswith(base)
+    assert "возможно, там ID проекта" in status_for("gen-lang-client-0123456789")
 
 
 def test_elevenlabs_missing_permission_reads_as_no_access() -> None:
@@ -219,3 +230,30 @@ def test_elevenlabs_missing_permission_reads_as_no_access() -> None:
     status = asyncio.run(ElevenLabsProvider(KEY, transport=httpx.MockTransport(handler)).check())
     assert "нет доступа (403): missing_permissions" in status.message
     assert "user_read. Проверьте права ключа" in status.message
+
+
+class CountingProvider:
+    """Считает проверки ключа — для кэша `GET /api/providers/status`."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.checks = 0
+
+    async def check(self, expected_models: Any = ()) -> KeyStatus:
+        self.checks += 1
+        quota = CharQuota(tier="creator", used_chars=1, limit_chars=10, resets_at=None)
+        return KeyStatus(provider=self.name, configured=True, ok=True, message="ok", quota=quota)
+
+
+def test_providers_status_endpoint_caches_and_refreshes(app: FastAPI) -> None:
+    gateway: Gateway = app.state.gateway
+    fakes = {name: CountingProvider(name) for name in ("anthropic", "gemini", "elevenlabs")}
+    gateway.registry.providers.update(fakes)  # type: ignore[arg-type]
+    with TestClient(app) as client:
+        first = client.get("/api/providers/status").json()
+        assert [s["provider"] for s in first] == ["anthropic", "elevenlabs", "gemini"]
+        assert first[1]["quota"]["limit_chars"] == 10
+        client.get("/api/providers/status")  # из памяти, без запросов к провайдерам
+        assert [f.checks for f in fakes.values()] == [1, 1, 1]
+        client.get("/api/providers/status", params={"refresh": "true"})
+        assert [f.checks for f in fakes.values()] == [2, 2, 2]

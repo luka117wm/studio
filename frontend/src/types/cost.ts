@@ -1,8 +1,21 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/cost.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:39b9bb2e46b8d074a9e9c5d3f8dd6a6a5e4c75a6955dec722137ea91f9718b13
+ * @generated sha256:bc958c830442fb9f2055755fc179427579985e5a1055449be481e821fdd47c3a
  */
+/**
+ * Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса.
+ */
+export interface BudgetRefusal {
+  code: 'budget_exceeded'
+  level: 'month' | 'episode' | 'animation'
+  limit_usd_micro: number
+  spent_usd_micro: number
+  queued_usd_micro: number
+  cost_usd_micro: number
+  message: string
+}
+
 export interface BudgetUsage {
   limit: Money
   charged: Money

@@ -4,6 +4,57 @@
   "title": "cost",
   "description": "Модели API Studio, группа «cost». Сгенерировано из Pydantic.",
   "$defs": {
+    "BudgetRefusal": {
+      "description": "Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса.",
+      "properties": {
+        "code": {
+          "const": "budget_exceeded",
+          "default": "budget_exceeded",
+          "title": "Code",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "month",
+            "episode",
+            "animation"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "limit_usd_micro": {
+          "title": "Limit Usd Micro",
+          "type": "integer"
+        },
+        "spent_usd_micro": {
+          "title": "Spent Usd Micro",
+          "type": "integer"
+        },
+        "queued_usd_micro": {
+          "title": "Queued Usd Micro",
+          "type": "integer"
+        },
+        "cost_usd_micro": {
+          "title": "Cost Usd Micro",
+          "type": "integer"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "limit_usd_micro",
+        "spent_usd_micro",
+        "queued_usd_micro",
+        "cost_usd_micro",
+        "message"
+      ],
+      "title": "BudgetRefusal",
+      "type": "object"
+    },
     "BudgetUsage": {
       "properties": {
         "limit": {

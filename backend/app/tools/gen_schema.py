@@ -21,13 +21,14 @@ from pydantic_core import core_schema
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate
 from app.api.jobs import JobCreate, JobList
+from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
 from app.models.channel import ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
 from app.models.project import DirectorVersionInfo, Project
 from app.pipeline.director_import import ImportResult
-from app.providers.base import Cost
+from app.providers.base import Cost, KeyStatus
 from app.settings import REPO_ROOT
 
 SCHEMA_PATH = REPO_ROOT / "docs" / "director.schema.json"
@@ -57,7 +58,9 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (CostSummary, "serialization"),
         (LedgerPage, "serialization"),
         (Cost, "serialization"),
+        (BudgetRefusal, "serialization"),
     ],
+    "provider": [(KeyStatus, "serialization")],
 }
 
 log = logging.getLogger(__name__)

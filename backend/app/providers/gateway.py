@@ -7,10 +7,12 @@
 короткие, в потоке вызывающего (L-014).
 """
 
+import asyncio
 import hashlib
 import json
 import logging
 import sqlite3
+import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -33,6 +35,9 @@ from app.storage.db import connect, now_iso
 from app.storage.paths import StudioPaths
 
 log = logging.getLogger(__name__)
+
+# Статус ключей для шапки (`GET /api/providers/status`): бесплатные запросы, но не на каждый показ.
+KEY_STATUS_TTL_S = 60.0
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,7 @@ class Gateway:
         self.registry = registry
         self.pricing = pricing
         self.paths = paths
+        self._key_statuses: tuple[float, list[KeyStatus]] | None = None
 
     # --- без сети -----------------------------------------------------------------------------
 
@@ -161,13 +167,20 @@ class Gateway:
         finally:
             conn.close()
 
-    async def check_keys(self) -> list[KeyStatus]:
-        """Проверка ключей всех провайдеров из конфига, кроме тестового."""
+    async def check_keys(self, *, max_age_s: float = 0) -> list[KeyStatus]:
+        """Проверка ключей всех провайдеров из конфига, кроме тестового, параллельно. Результат
+        не старше `max_age_s` отдаётся из памяти (0 — проверить заново)."""
+        cached = self._key_statuses
+        if cached is not None and time.monotonic() - cached[0] <= max_age_s:
+            return cached[1]
         names = sorted({route.provider for route in self.registry.routes()} - {FakeProvider.name})
-        return [
-            await self.registry.provider(name).check(self.registry.models_of(name))
-            for name in names
-        ]
+        statuses = list(
+            await asyncio.gather(
+                *(self.registry.provider(n).check(self.registry.models_of(n)) for n in names)
+            )
+        )
+        self._key_statuses = (time.monotonic(), statuses)
+        return statuses
 
     # --- внутреннее ---------------------------------------------------------------------------
 

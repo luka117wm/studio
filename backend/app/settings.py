@@ -43,8 +43,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr = SecretStr("")
     elevenlabs_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
-    youtube_oauth_client_secret_cursus: SecretStr = SecretStr("")
-    youtube_oauth_client_secret_otto: SecretStr = SecretStr("")
+    # YouTube OAuth в .env не живёт: `data/channels/<channel>/oauth/client_secret.json` (M10).
 
     @field_validator("studio_data_dir", mode="after")
     @classmethod

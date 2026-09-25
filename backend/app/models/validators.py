@@ -143,6 +143,8 @@ def check_director(d: "Director") -> list[str]:
             )
         if not shot.vo.strip():
             errors.append(f"{prefix}: пустой vo, ожидалось текст закадрового голоса")
+        if not shot.image.prompt.strip():
+            errors.append(f"{prefix}: пустой image.prompt, ожидалось действие и композиция кадра")
         if shot.animate.recommended and not (shot.animate.prompt or "").strip():
             errors.append(
                 f"{prefix}: animate.recommended = true без animate.prompt, "

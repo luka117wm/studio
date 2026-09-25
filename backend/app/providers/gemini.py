@@ -68,8 +68,14 @@ class GeminiProvider:
         except genai_errors.APIError as exc:
             headers = getattr(exc.response, "headers", None)
             retry_after = parse_retry_after(headers.get("retry-after") if headers else None)
-            error = status_error(TITLE, _status(exc), exc.message or str(exc), retry_after)
-            return KeyStatus(provider=self.name, configured=True, ok=False, message=str(error))
+            status = _status(exc)
+            message = str(status_error(TITLE, status, exc.message or str(exc), retry_after))
+            if status == 401 and not key.startswith("AIza"):
+                message += (
+                    " Значение в GEMINI_API_KEY не похоже на ключ Google (он начинается с AIza,"
+                    " 39 символов) — возможно, там ID проекта (gen-lang-client-…)."
+                )
+            return KeyStatus(provider=self.name, configured=True, ok=False, message=message)
         except httpx.TransportError as exc:
             error = TransientError(f"{TITLE}: нет соединения: {exc}")
             return KeyStatus(provider=self.name, configured=True, ok=False, message=str(error))

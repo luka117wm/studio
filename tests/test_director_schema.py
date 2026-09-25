@@ -65,6 +65,7 @@ def test_roundtrip_keeps_schema_alias(pirate: dict[str, Any]) -> None:
         ("motion_strength", ["кадр s002", "motion.strength = 0.4", "≤ 0.25"]),
         ("unknown_section", ["кадр s003", "раздел «r9» не найден", "r1"]),
         ("empty_vo", ["кадр s002", "пустой vo"]),
+        ("empty_prompt", ["кадр s004", "пустой image.prompt"]),
         ("style_token", ["кадр s003", "«cinematic lighting»", "«8k»", "стиль задаёт канон"]),
     ],
 )
