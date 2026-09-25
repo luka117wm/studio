@@ -1,0 +1,434 @@
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "cursus",
+    "episode_id": "c07-pirate-ship",
+    "working_title": "Every Rank on a Pirate Ship",
+    "format": "every_rank",
+    "language": "en",
+    "target_minutes": 20,
+    "part": 1,
+    "parts_total": 1
+  },
+  "brief": {
+    "idea": "Climb every rank on a Caribbean pirate ship of 1716, from powder monkey to captain, and learn what each one actually did all day.",
+    "angle": "Second person: you are the boy, then the sailor, then the officer. Every promotion costs something.",
+    "hook_promise": "By the end you will know why the captain was the least powerful man aboard in peacetime.",
+    "reference_mode": "none",
+    "sources": [
+      {
+        "title": "Marcus Rediker, Villains of All Nations",
+        "url": "https://www.versobooks.com/products/1620-villains-of-all-nations"
+      },
+      {
+        "title": "Charles Johnson, A General History of the Pyrates (1724)",
+        "url": "https://www.gutenberg.org/ebooks/40580"
+      }
+    ]
+  },
+  "canon_ref": {
+    "style": "style/v003",
+    "periods": {
+      "caribbean-1716": "periods/caribbean-1716/v002"
+    },
+    "appearances": {
+      "you@powder-monkey-11": "characters/you/v004#powder-monkey-11"
+    }
+  },
+  "voice": {
+    "provider": "elevenlabs",
+    "voice_id": "narrator-cursus-01",
+    "model": "eleven_multilingual_v2",
+    "pace_wpm": 150
+  },
+  "sections": [
+    {
+      "id": "r1",
+      "title": "Powder monkey",
+      "chapter": true,
+      "vo_direction": "calm, dry irony; let the pauses breathe"
+    },
+    {
+      "id": "r2",
+      "title": "Gun drill",
+      "chapter": true,
+      "vo_direction": "quicker, clipped, the rhythm of orders"
+    }
+  ],
+  "shots": [
+    {
+      "id": "s001",
+      "section": "r1",
+      "vo": "You are eleven years old, and the first thing you learn on this ship is where the gunpowder lives.",
+      "image": {
+        "prompt": "a sloop at anchor in a shallow turquoise bay at dawn, seen from the beach, small figures moving on deck",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.06,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [
+        {
+          "prompt": "gentle waves lapping a wooden hull, distant gulls",
+          "offset": 0.0,
+          "duration": 6.0,
+          "gain_db": -20
+        }
+      ],
+      "overlay": null
+    },
+    {
+      "id": "s002",
+      "section": "r1",
+      "vo": "It lives below the waterline, behind a felt curtain, in a room where nobody is allowed to carry an open flame.",
+      "image": {
+        "prompt": "pulls aside a heavy felt curtain to peer into a low dark magazine lined with stacked kegs, lantern light from behind a glass panel",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s003",
+      "section": "r1",
+      "vo": "Your job is to run. Cartridge case in both arms, up the ladder, along the gun deck, and back down before the gun captain shouts your name again.",
+      "image": {
+        "prompt": "sprints along a crowded gun deck hugging a leather cartridge case to his chest, glancing back over his shoulder, gun crews at work on both sides",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "pan_right",
+        "strength": 0.1,
+        "ease": "in_out_sine"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": true,
+        "reason": "the run is the whole point of the rank; a still frame reads as posed",
+        "prompt": "the boy runs toward the camera along the deck, crew members lean aside, the case bounces against his chest",
+        "seconds": 5
+      },
+      "sfx": [
+        {
+          "prompt": "bare feet slapping on wooden planks, rope creaking",
+          "offset": 0.5,
+          "duration": 4.0,
+          "gain_db": -18
+        }
+      ],
+      "overlay": null
+    },
+    {
+      "id": "s004",
+      "section": "r1",
+      "vo": "The case is not heavy. That is the trick. A boy can carry it, so a boy is what they use.",
+      "image": {
+        "prompt": "  ",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "detail"
+      },
+      "motion": {
+        "type": "static",
+        "strength": 0.0,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "crossfade",
+        "duration": 0.4
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s005",
+      "section": "r1",
+      "vo": "Nobody explains the rules to you. You learn them by watching who gets hit, and for what.",
+      "image": {
+        "prompt": "stands very still at the foot of a ladder, looking up at a boatswain who is shouting at another boy, crew members deliberately not watching",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.08,
+        "ease": "out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s006",
+      "section": "r1",
+      "vo": "You are paid a quarter share, when there is anything to share. Most months there is not.",
+      "image": {
+        "prompt": "sits on a coil of rope on the forecastle at dusk counting three coins in his palm, the sea empty behind him",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "pull_out",
+        "strength": 0.07,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "dip",
+        "duration": 0.6
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s007",
+      "section": "r2",
+      "vo": "Then one morning the drum beats to quarters, and for the first time the drill is not a drill.",
+      "image": {
+        "prompt": "the full length of the gun deck from the stern looking forward, every gun run out, crews frozen mid-motion, hatches open above",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.12,
+        "ease": "in_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [
+        {
+          "prompt": "a single drum beating fast, men shouting, feet on planks",
+          "offset": 0.0,
+          "duration": 5.0,
+          "gain_db": -16
+        }
+      ],
+      "overlay": null
+    },
+    {
+      "id": "s008",
+      "section": "r2",
+      "vo": "Sponge. Load. Ram. Prime. You do not fire the gun. You keep it fed, and you keep your head below the rail.",
+      "image": {
+        "prompt": "crouches beside a gun carriage passing a cartridge up to a bare-chested loader, the gun captain above them with the slow match raised",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "tilt_up",
+        "strength": 0.09,
+        "ease": "in_out_sine"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s009",
+      "section": "r2",
+      "vo": "The gun goes off eighteen inches from your ear. You will not hear properly again until Thursday.",
+      "image": {
+        "prompt": "flinches away from the gun with both hands clamped over his ears, mouth open, smoke pouring past him toward the open port",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "static",
+        "strength": 0.0,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s010",
+      "section": "r2",
+      "vo": "And then you run again. Because the gun is empty, and the magazine is not, and that is the whole of your rank.",
+      "image": {
+        "prompt": "seen from behind, a small figure disappearing down a smoke-filled ladderway, the gun deck chaos above him going out of view",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "tilt_down",
+        "strength": 0.08,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    }
+  ],
+  "music": [
+    {
+      "section": "r1",
+      "mood": "tense low strings, sparse, a single repeating note",
+      "gain_db": -24
+    },
+    {
+      "section": "r2",
+      "mood": "drum-driven, rising, no melody",
+      "gain_db": -22
+    }
+  ],
+  "thumbnail": {
+    "concepts": [
+      {
+        "prompt": "a small boy with a cartridge case looks up at a towering gun deck, viewed from below",
+        "text": "POWDER MONKEY TO CAPTAIN"
+      },
+      {
+        "prompt": "a ladder of ranks drawn as ship decks stacked on top of each other, the boy at the bottom",
+        "text": "EVERY RANK"
+      }
+    ]
+  },
+  "publish": {
+    "titles": [
+      "Every Rank on a Pirate Ship (1716)",
+      "You Are Eleven and Your Job Is Gunpowder",
+      "From Powder Monkey to Captain: Every Rank Explained"
+    ],
+    "description": "Climb every rank on a Caribbean pirate ship of 1716. What each rank did, what it paid, and what it cost.",
+    "tags": [
+      "pirates",
+      "1716",
+      "history",
+      "every rank",
+      "age of sail"
+    ],
+    "category_id": "27",
+    "synthetic_media": true,
+    "made_for_kids": false
+  },
+  "facts": [
+    {
+      "claim": "Powder monkeys on pirate and naval vessels were typically boys aged 10 to 14.",
+      "status": "verified",
+      "source_url": "https://www.rmg.co.uk/stories/topics/powder-monkeys"
+    },
+    {
+      "claim": "Pirate articles commonly granted boys a half share; a quarter share is attested but less common.",
+      "status": "disputed",
+      "source_url": "https://www.gutenberg.org/ebooks/40580"
+    },
+    {
+      "claim": "Felt curtains were used at magazine doors specifically to catch sparks.",
+      "status": "not_found",
+      "source_url": null
+    }
+  ]
+}

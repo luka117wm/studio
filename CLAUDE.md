@@ -21,10 +21,12 @@
 | `design/handoff/stack.md` | UI-стек, мост токенов, порядок экранов | споры о стеке фронта |
 | `design/handoff/tokens.css` | единственный источник цветов и размеров; копия — `frontend/src/styles/tokens.css` | не читать — использовать утилиты из `theme.css` |
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
-| `docs/director_schema.md`, `docs/director.schema.json` | контракт director.json | появятся в M2 |
+| `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | этап с планом, импортом или project.json |
+| `docs/schema/*.schema.json` | JSON Schema моделей API — источник `frontend/src/types/`; генерируется, не править | не читать — типы в `frontend/src/types/` |
+| `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
-| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в M2 |
+| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → профиль → провайдер → модель; цены с датой проверки; журнал расходов, бюджеты, кэш | этап с платным вызовом; смена модели или цены |
 | `docs/api_keys.md` | где взять и куда положить ключи провайдеров и OAuth YouTube | перед M2.6; при смене провайдера |
 
 ## Стек
@@ -45,17 +47,17 @@ frontend/src/
   engine/         motion.ts, renderFrame.ts, subtitles.ts
   store/  api/    uiStore.ts; client.ts, sse.ts (с M2)
   styles/         tokens.css (копия, не править), theme.css (мост @theme), base.css
-  types/          сгенерировано — не править (до M2 — временные типы фикстур)
+  types/          сгенерировано `pnpm typegen` — не править; fixtures.ts — временные типы оболочки до M3
 backend/app/
   main.py  api/   роутеры
   models/         director.py, project.py, channel.py
   jobs/           queue.py, worker.py, events.py
-  providers/      base.py, anthropic.py, gemini.py, elevenlabs.py, kling.py, youtube.py, gateway.py, local/
+  providers/      base.py, registry.py, gateway.py, fake.py, anthropic.py, gemini.py, elevenlabs.py, kling.py, youtube.py, local/
   pipeline/       research, script, director_import, voice, alignment, images, animate, sfx_music, publish
   engine/         motion.py, compositor.py, audio_mix.py, subtitles_ass.py
   export/         mp4.py, fcp7.py, otio.py, srt.py
   prompts/        *.md с front-matter (id, version, model_hint); тексты промптов на английском
-  cost/           ledger.py, budget.py
+  cost/           pricing.py, ledger.py, budget.py
   storage/        paths.py, atomic.py, db.py
 tests/fixtures/   director_pirate_10shots.json, motion_golden.json, alignment_*.json
 data/             (gitignored)
@@ -149,10 +151,10 @@ data/             (gitignored)
 ./run.sh                                   # backend :8000 (WSL) + frontend :5173 с прокси /api
 pnpm -C frontend dev | build | lint | test # vitest — с M1.1
 pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/handoff — M1.1
-pnpm -C frontend typegen                   # Pydantic → JSON Schema → TS — появится в M2
-pnpm -C frontend e2e                       # Playwright, скриншоты и WYSIWYG — появится в M1.6
-uv run pytest                              # бэкенд — появится в M2
-uv run pytest -m live                      # проверка ключей провайдеров (центы) — M2
+pnpm -C frontend typegen | typegen:check  # Pydantic → docs/schema → src/types; check — типы не устарели
+pnpm -C frontend e2e                       # Playwright: визуальные эталоны оболочки, позже WYSIWYG
+uv run pytest                              # бэкенд; сеть замокана
+uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip
 uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```
 

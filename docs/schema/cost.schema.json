@@ -1,0 +1,450 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/cost",
+  "title": "cost",
+  "description": "Модели API Studio, группа «cost». Сгенерировано из Pydantic.",
+  "$defs": {
+    "BudgetRefusal": {
+      "description": "Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса.",
+      "properties": {
+        "code": {
+          "const": "budget_exceeded",
+          "default": "budget_exceeded",
+          "title": "Code",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "month",
+            "episode",
+            "animation"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "limit_usd_micro": {
+          "title": "Limit Usd Micro",
+          "type": "integer"
+        },
+        "spent_usd_micro": {
+          "title": "Spent Usd Micro",
+          "type": "integer"
+        },
+        "queued_usd_micro": {
+          "title": "Queued Usd Micro",
+          "type": "integer"
+        },
+        "cost_usd_micro": {
+          "title": "Cost Usd Micro",
+          "type": "integer"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "limit_usd_micro",
+        "spent_usd_micro",
+        "queued_usd_micro",
+        "cost_usd_micro",
+        "message"
+      ],
+      "title": "BudgetRefusal",
+      "type": "object"
+    },
+    "BudgetUsage": {
+      "properties": {
+        "limit": {
+          "$ref": "#/$defs/Money"
+        },
+        "charged": {
+          "$ref": "#/$defs/Money"
+        },
+        "reserved": {
+          "$ref": "#/$defs/Money"
+        },
+        "queued": {
+          "$ref": "#/$defs/Money"
+        },
+        "remaining": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "limit",
+        "charged",
+        "reserved",
+        "queued",
+        "remaining"
+      ],
+      "title": "BudgetUsage",
+      "type": "object"
+    },
+    "Cost": {
+      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "Cost",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "CostSummary": {
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "month": {
+          "title": "Month",
+          "type": "string"
+        },
+        "budget": {
+          "$ref": "#/$defs/BudgetUsage"
+        },
+        "by_stage": {
+          "items": {
+            "$ref": "#/$defs/StageSpend"
+          },
+          "title": "By Stage",
+          "type": "array"
+        },
+        "stale_pricing": {
+          "items": {
+            "$ref": "#/$defs/StalePrice"
+          },
+          "title": "Stale Pricing",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "month",
+        "budget",
+        "by_stage",
+        "stale_pricing"
+      ],
+      "title": "CostSummary",
+      "type": "object"
+    },
+    "LedgerPage": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/LedgerRow"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "episode_budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BudgetUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "animation_budget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BudgetUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "items",
+        "episode_budget",
+        "animation_budget"
+      ],
+      "title": "LedgerPage",
+      "type": "object"
+    },
+    "LedgerRow": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "string"
+        },
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Job Id"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "estimated",
+            "charged",
+            "cached",
+            "refused",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "call_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Call Id"
+        },
+        "input_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Hash"
+        }
+      },
+      "required": [
+        "id",
+        "ts",
+        "channel",
+        "episode_id",
+        "stage",
+        "job_id",
+        "provider",
+        "model",
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro",
+        "usd",
+        "status",
+        "call_id",
+        "input_hash"
+      ],
+      "title": "LedgerRow",
+      "type": "object"
+    },
+    "Money": {
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "StageSpend": {
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "spent": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "stage",
+        "spent"
+      ],
+      "title": "StageSpend",
+      "type": "object"
+    },
+    "StalePrice": {
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "age_days": {
+          "title": "Age Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "provider",
+        "model",
+        "checked_at",
+        "age_days"
+      ],
+      "title": "StalePrice",
+      "type": "object"
+    }
+  }
+}

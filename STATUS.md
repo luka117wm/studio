@@ -1,6 +1,6 @@
 # Studio — состояние проекта
 
-Обновлено: 2026-09-19. Файл для Claude Code: что уже сделано, где что лежит,
+Обновлено: 2026-09-23. Файл для Claude Code: что уже сделано, где что лежит,
 что делать дальше. Обновлять при каждом значимом шаге.
 
 ## Что это за проект
@@ -215,12 +215,236 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   320–420»; артборд 3 — убрать ⌘1…⌘3 из статус-строки, клавиши вкладок решить в M4 (⌘⇧1…3 или без них);
   `components.md` — описать Tooltip, Popover, DropdownMenu, Tabs, ProgressBar, Skeleton, Divider, ScrollArea, KeyHint.
 
+### 10. M2.1 — Каркас бэкенда и хвосты M0 (2026-09-20, коммит `082f563`, ветка `m2-backend`)
+
+- `pyproject.toml`: убраны `[project.scripts]`, `uv_build`, `src/studio/`; `[tool.uv] package = false` — проект
+  приложение, не пакет. Конфиги ruff (100, E/F/I/UP/B), mypy strict (`mypy_path = backend`), pytest (`pythonpath =
+  backend`, `asyncio_mode = auto`, маркер `live`, `addopts = -m 'not live'` — живые вызовы только вручную).
+- **Решение:** `app` — пакет верхнего уровня, `backend/` на `sys.path` (`--app-dir backend` в `run.sh`, `pythonpath`
+  в pytest, `mypy_path`). Импорты — только `from app.… import`, никогда `backend.app` (L-013). Ради этого изменена
+  одна строка `run.sh` вопреки «не трогать» в задании — иначе абсолютные импорты не работают под uvicorn.
+- `app/settings.py`: `Settings` на pydantic-settings, `STUDIO_DATA_DIR` (по умолчанию `<repo>/data`, `expanduser().resolve()`),
+  `LOG_LEVEL`, `cors_origins`, ключи провайдеров как `SecretStr` (не утекают в repr/логи), `env_file = backend/.env`,
+  `env_ignore_empty` — пустая строка в `.env` = значение по умолчанию. `.env.example` приведён к `CLAUDE.md`
+  (`data/` в репозитории), убран мусорный `EOF`.
+- `app/main.py` — `create_app(settings)`, lifespan создаёт каталог данных; `app/api/` — агрегатор + `health.py`
+  (`HealthResponse`); `app/log.py` — `dictConfig`, логгеры uvicorn без своих хендлеров → единый формат
+  `время уровень модуль: сообщение` (проверено вживую).
+- Тесты: `conftest.py` (`Settings(_env_file=None, studio_data_dir=tmp_path)` — изоляция от реального `.env`;
+  `TestClient` как контекст → lifespan), `test_health.py`, `test_settings.py` (default, env с `~`, `.env`-файл, пустое
+  значение, создание каталога, секреты в repr). 7 зелёных; ruff, ruff format, mypy чисты.
+- Приёмка: `./run.sh` → health по curl напрямую и через прокси Vite, Ctrl+C гасит оба без сирот;
+  `STUDIO_DATA_DIR` во временном `backend/.env` переопределяет путь, каталог создаётся.
+- Хвосты: `starlette.testclient` предупреждает, что `httpx` в TestClient deprecated в пользу `httpx2` — решить,
+  когда httpx понадобится провайдерам (M2.6); `run.sh` при перенаправлении в файл теряет хвост логов из-за
+  буферизации `sed` (в терминале не проявляется) — не трогали.
+
+### 11. M2.2 — Контракт director.json (2026-09-20, коммит `aa08cfa`, ветка `m2-backend`)
+
+- `backend/app/models/director.py` — 18 Pydantic-моделей строго по скелету `CLAUDE.md` (+ `ThumbnailConcept` для
+  элементов `thumbnail.concepts`), все с `extra="forbid"`. Литералы: `channel`, `format`, `reference_mode`,
+  `shot_size`, `motion.type` (8), `motion.ease` (`linear | in_out_sine | in_out_cubic | in_cubic | out_cubic` —
+  списка в задании не было, уточнится в `motion_spec.md`), `transition.type`, `fact.status`. Диапазоны по заданию.
+  Паттерны ID и ссылок канона (`episode_id`, `shot.id` `s\d{3,}`, `section.id`, `style/vNNN`, `periods/<id>/vNNN`,
+  `characters/<id>/vNNN#<облик>`). `overlay` — только `null` (форма не определена, зарезервировано).
+- **Решения:** поле `schema` конфликтует с `BaseModel.schema()` → `schema_version` с алиасом `schema`
+  (`validate_by_name` + `validate_by_alias`; в JSON/JSON Schema — `schema`). Обязательны все блоки скелета, кроме
+  `canon_ref`/`voice` при `part > 1`; дефолты только подразумеваемые скелетом (`part`, `parts_total`, `language`,
+  `chapter=true`, `transition_in={cut,0}`, `animate`, списки). PyYAML добавлен сейчас (стоп-лист — `.yaml`),
+  не в M2.6, как планировалось.
+- `validators.py`: `check_director()` — доменные проверки (уникальность, ссылки на разделы/канон, `vo`,
+  `animate.prompt`, стоп-лист, `part ≤ parts_total`, обязательность `canon_ref`/`voice` в части 1) встроены в
+  `Director` через `model_validator` + `PydanticCustomError("director_domain", ctx.messages)` — обойти через
+  `model_validate` нельзя. `validate_director(data)` — точка входа: структурные ошибки pydantic переводятся в
+  русский с ID кадра по `loc` (`missing`, `extra_forbidden`, `literal_error`, диапазоны, типы, паттерны,
+  `none_required`), доменные разворачиваются из `ctx`; всё одним списком в `DirectorValidationError.errors`.
+  Структурные проверяются первыми, доменные — когда структура цела.
+- `config/prompt_stoplist.yaml` — 5 категорий (`render`, `lighting`, `optics`, `medium`, `artists`), ~70 токенов;
+  матчинг без регистра, по целым словам и фразам (`animated` ≠ `anime`, `18k` ≠ `8k`).
+- `app/tools/gen_schema.py` → `docs/director.schema.json` (`$schema` 2020-12, `$id = studio.director/1`);
+  запуск `PYTHONPATH=backend uv run python -m app.tools.gen_schema` (L-013); тест сверяет файл с генерацией.
+- `docs/director_schema.md` — таблицы всех полей, правило частей, таблица доменных проверок с сообщениями, два
+  примера кадра. Фикстуры: `director_pirate_10shots.json` (10 кадров, 2 раздела, реальные VO и промпты) и 5
+  битых компактных. `tests/test_director_schema.py` — 22 теста; всего 29 зелёных, ruff/mypy чисты.
+- Хвосты: `image.prompt` не проверяется на пустоту (в задании нет); `static` с `strength > 0` допустим —
+  решить в модуле движения; сообщения для редких типов ошибок pydantic — английский `msg` как fallback.
+
+### 12. M2.3 — Хранилище: пути, атомарная запись, SQLite, project.json (2026-09-21, ветка `m2-backend`)
+
+- `storage/paths.py` — `StudioPaths(root)`: все пути `data/` одной точкой по дереву `CLAUDE.md`, id проверяются
+  регуляркой до обращения к диску. `storage/atomic.py` — `write_json_atomic` (temp в той же папке → fsync →
+  rename → fsync каталога), `read_json`; тест на 500 записей со сбоями в сериализации/`replace`/`fsync`.
+- `storage/db.py` — `connect` (WAL, `foreign_keys=ON`, `busy_timeout` 5 с), `apply_migrations`/`migrate` по
+  `schema_version` (файлы `migrations/NNN_*.sql`, каждая в транзакции, повторный запуск — no-op), `get_db`;
+  `001_init.sql` — `channels`, `episodes`, `jobs`, `assets` (индекс кэша `(kind, input_hash)`), `cost_ledger`
+  (микродоллары). Миграции накатываются в `lifespan`.
+- **Решения:** соединение sqlite на запрос в потоке event loop — `get_db` и роутеры `async def`, без
+  `check_same_thread=False` (L-014). Коллекции `project.json` (`shots`, `assets`, `timings`) — объекты с ключом-id,
+  чтобы PATCH и импорт плана (M2.4) мёрджили одним правилом: словари рекурсивно, остальное заменой. Профиль канала
+  (`profile.json`) — источник правды, таблица `channels` — реестр для FK. Id выпуска глобален (пути API без канала).
+- `models/channel.py` (`ChannelProfile`: бюджеты месяц/выпуск/анимация в USD, квота голоса), `models/project.py`
+  (`Project`, `empty_project`, `merge_patch`), `docs/project_schema.md`. `tools/seed.py` — `cursus`/`otto` с числами
+  из фикстур оболочки (150/100 USD, 600 000 знаков); лимитов на выпуск/анимацию в макете нет — 15/5 и 8/3 USD.
+- API: `GET /api/channels[/{id}]`, `GET /api/episodes?channel=`, `POST /api/episodes` (дерево + `project.json` +
+  строка; 409 при повторе и при каталоге-сироте на диске), `GET /api/episodes/{id}`, `GET|PATCH /api/projects/{id}`
+  (422 на невалидный результат и на смену `schema`/`episode_id`/`channel`). Списки — в порядке создания (`rowid`).
+- Тесты: `test_storage.py` (14), `test_api_episodes.py` (11); всего 58 зелёных, ruff/mypy чисты. Проверено вживую
+  через uvicorn + curl.
+- Хвосты: `Episode.stage/status` — литералы из фикстур оболочки, уточнятся в M3; `jobs.payload/result` — форма в
+  M2.5 (новой миграцией, 001 не править); `now_iso()` с точностью до секунды — порядок списков по `rowid`, не по
+  времени.
+
+### 13. M2.4 — Импорт версии плана: мёрдж по shot.id, stale, locked (2026-09-21, ветка `m2-backend`)
+
+- `pipeline/director_import/merge.py` — `canonical_hash` (sha256 канонического JSON), `assemble_parts` (шапка из части
+  1, `shots`/`music`/`facts` конкатенацией, `sections` с дедупом по id, валидация целиком), `diff_shots`/`diff_canon`
+  (изменение = поле + причина по-русски, для промпта и VO — словарный diff через `difflib`), `merge_into_project`
+  (меняет только `status` и `stale_reasons`; новые → `queued`, убранные → `removed`, ассеты и тайминги на месте).
+  `stale.py` — `STALE_FIELDS`, причины по канону, конфликты с `*_locked`/`user_override`, `decide`.
+- `api/director.py` — `POST /api/projects/{id}/director` (часть или целиком; 422 списком ошибок, 409 для частей),
+  `GET …/director/versions`, `GET …/director/vNNN`. Части копятся в `cache/director_parts/part-NN.json`, часть 1
+  начинает набор, после сборки папка чистится; ошибка сборки — 422, части остаются.
+- **Решения:** `stale` только по картинке и конфликту с блокировкой, VO/движение/SFX — в отчёт без смены статуса
+  (L-015). Индекс версий — `project.json → director_versions` (хэш, `imported_at`, части, счётчики), без миграции
+  и mtime; повтор по хэшу версию не создаёт, совпадение со старой версией — откат к ней без нового файла.
+  `ShotStatus` + `removed`, `ShotState.stale_reasons` — расширены модели M2.3, `docs/project_schema.md` обновлён.
+- Фикстуры: `director_pirate_v2.json` (s002 промпт, s008 облик, s009 только VO, +s011, −s006),
+  `director_pirate_part{1,2}.json` — v2 по разделам, часть 2 без `canon_ref`/`voice`. `tests/test_director_import.py`
+  — 15 тестов; всего 73 зелёных, ruff/mypy чисты.
+- Хвосты: `drawn_at`/`price` в отчёте всегда `null` — у `Asset` нет времени создания, цен нет до модуля cost;
+  `changed` в отчёте считает и не-stale изменения (VO), ConflictBar должен показывать `stale` отдельно.
+
+### 14. M2.5 — Очередь джобов и SSE (2026-09-23, ветка `m2-backend`)
+
+- `jobs/queue.py` — очередь в SQLite: `enqueue[_many]` (`ON CONFLICT(idempotency_key) DO NOTHING` → существующий
+  джоб), `claim` (FIFO, `UPDATE … RETURNING`, `attempts + 1`, без видов на паузе), `finish`, `requeue`,
+  `recover_running`, `request_cancel`, `list_jobs` (сводка по статусам + курсор журнала). Каждый переход — условный
+  UPDATE и строка `job_events` в одной транзакции. `002_jobs.sql`: `idempotency_key` (UNIQUE-индекс), `batch_id`,
+  `attempts`, `cancel_requested`, `message`, таблица `job_events`.
+- `jobs/worker.py` — `JobPool` (asyncio-задачи; синхронные обработчики — в пул потоков, async — в loop; `job_workers`
+  0…4, по умолчанию 3), `HandlerSpec(kind, fn, payload_model, resource)`, `JobContext` (`progress` не чаще 200 мс,
+  `cancelled()` — флаг в БД или остановка бэкенда), ретраи `tenacity`: `TransientError`, сеть, 5xx; 4xx — нет.
+  Пауза GPU, пока идёт render-джоб или поднят `gpu_paused`. `jobs/events.py` — журнал, `EventBus`, генератор SSE.
+  `jobs/handlers/sleep.py` — `sleep_job`. API: `POST|GET /api/jobs`, `GET /api/jobs/{id}`,
+  `POST /api/jobs/{id}/cancel`, `GET /api/events`. Контракт — `docs/jobs.md` (строка в карте `CLAUDE.md`).
+- **Решения:** SSE вручную через `StreamingResponse`, без sse-starlette. Источник событий — таблица, id события = её
+  строка, поэтому `Last-Event-ID` работает и после перезапуска; курсор ещё и в `?last_event_id=`, а `GET /api/jobs`
+  отдаёт `last_event_id` для подписки без пропусков. Сверх задания — события `job.queued`, `job.started`. Штатная
+  остановка возвращает джоб в очередь без траты попытки; аварийные перезапуски тратят, джоб с `attempts` > 3 —
+  `failed`. `httpx` — из dev в зависимости (классификатор ретраев). `run.sh`: `--timeout-graceful-shutdown 3` (L-016).
+- Приёмка: kill -9 — автотест `test_kill_9_mid_batch_resumes_without_repeats` (uvicorn в подпроцессе, SIGKILL при
+  ≥ 4 done, рестарт, повторная постановка тех же ключей → 200; сделанное до падения не перезапускалось, прерванные —
+  `attempts` 2, по одному `job.done` на джоб). Вручную: `curl -N localhost:5173/api/events` через прокси Vite —
+  шаги `sleep_job` приходят с интервалом 1 с без буферизации, heartbeat через 15 с. `test_jobs.py` (26),
+  `test_sse.py` (4); всего 103 зелёных в трёх прогонах подряд, ruff/mypy чисты.
+- Хвосты: 429 не ретраится — решить в M2.6 вместе с `Retry-After`; там же договориться, что провайдер сам не
+  повторяет (иначе 3 × 3 вызова). Операции «повторить упавший» нет — ключ идемпотентности вечный. Отмены пачки целиком
+  нет. `mypy tests` падает на `Settings(_env_file=…)` — давнее, проект проверяет только `backend`.
+
+### 15. M2.6 — Провайдеры, цены и бюджеты (2026-09-25, ветка `m2-backend`)
+
+- `providers/`: `base.py` — контракт (запросы `Text/Image/Speech/VideoRequest`, `Route`, `Usage`, `Cost`, `Result`,
+  `KeyStatus`, ошибки `ProviderError`/`RateLimited`, `status_error()`); `registry.py` — каталог этапа, профили
+  `economy/standard/premium`, `override`, запрет моделей по шаблонам; `gateway.py` — единая точка: оценка → хэш входов
+  → кэш `cached` → бюджет и резерв в одной транзакции `BEGIN IMMEDIATE` → вызов → `charged`/`failed` → файл в
+  `media/<этап>/` и строка `assets`; `fake.py`; `anthropic.py`, `gemini.py`, `elevenlabs.py` — только `usage()` и
+  `check()`. `cost/`: `pricing.py` (Decimal, микродоллары, одно округление на строку, `format_usd` только в API),
+  `ledger.py` (статусы `estimated|charged|cached|refused|failed`, `call_id`), `budget.py` (месяц UTC, выпуск,
+  анимация). API `GET /api/cost/summary`, `GET /api/cost/ledger`. `003_cost.sql`. Контракт — `docs/providers.md`.
+- **Решения:** провайдер отдаёт единицы (`usage`), деньги считает только `cost/pricing.py` — вместо
+  `Provider.estimate` из задания (L-001: оценка и факт одной функцией). Добавлен статус `failed` ($0): резерв
+  `estimated` пишется до вызова, чтобы параллельные воркеры не прошли в лимит вдвоём. Оценки платных джобов в очереди
+  (`jobs.cost_usd_micro`) занимают бюджет — пачка упирается в лимит до оплаты; `HandlerSpec.estimate`,
+  `ctx.gateway`, платный джоб только с `episode_id`. 429 повторяется с `Retry-After` (≤ 60 с), SDK без своих
+  ретраев. `providers.yaml` = каталог + маршрут по умолчанию, выбор пользователя — `override` из каталога; порядок
+  модели голоса: пачка → `director.json → voice` → канал → профиль (код — M7). Цены Claude сверены 2026-09-25,
+  Gemini и ElevenLabs — 2026-09-23 (`docs/api_keys.md`).
+- Приёмка: 10 вызовов → 10 строк, сумма = ручной расчёт из YAML (871 000 мкд); превышение → 409 с текстом, джоба нет;
+  смена `default_profile` меняет модель, запрещённая модель и модель без цены — ошибка старта; повтор — `cached` $0.
+  `test_cost.py` (21), `test_providers.py` (11), `test_jobs.py` +1; всего 136 зелёных, ruff/mypy чисты. `curl
+  /api/cost/summary?channel=cursus` отвечает на живом uvicorn.
+- **`-m live` не пройден — ключи:** Anthropic — skip (ключа нет); Gemini — `400 API key not valid` (ключ неверный:
+  выпустить заново в AI Studio); ElevenLabs — у ключа нет права `user_read` (включить User → Read). Код проверки
+  отработал: оба ответа разобраны в понятный текст (L-018). Повторить `uv run pytest -m live -v -rP`.
+- Хвосты: квота символов ElevenLabs есть в `KeyStatus.quota`, но эндпоинта для шапки нет, а `voice_quota` в профиле
+  канала бюджетом не используется — решить с шапкой (M2.7/M3). Кэш текстов LLM — M4. Пачка из многих POST держит
+  бюджет оценками в очереди, отдельного эндпоинта пачки с общей суммой нет — M6. Claude Opus 5.5 ($4/$20) дешевле
+  Opus 5 — добавить в каталог, если решите.
+
+### 16. M2.7 — Typegen и API-клиент фронта (2026-09-25, ветка `m2-backend`)
+
+- `tools/gen_schema.py` выгружает, кроме `docs/director.schema.json`, группы API в `docs/schema/{project,channel,
+  episode,job,cost}.schema.json`: ответы — генератором `ApiJsonSchema` (поля с умолчанием обязательны), тела запросов —
+  в режиме validation; `$id` на файл; `--stdout` — всё одним JSON без записи. `JobEventData` — Pydantic-модель
+  данных SSE (`jobs/queue.py`).
+- `frontend/scripts/typegen.mjs`: схемы из Python → json-schema-to-typescript по определению (заголовки полей
+  сняты, стиль репозитория) → `src/types/{director,project,channel,episode,job,cost}.ts` с шапкой и sha256 тела.
+  `pnpm typegen` пишет и удаляет устаревшие; `typegen:check` сверяет в памяти, без записи и без `git status`
+  (решение из плана: честно и на грязном дереве). `@/*` в `tsconfig.app.json`.
+- `src/api/client.ts` — `api.get/post/patch<T>`, таймаут 15 с, `ApiError {status, message, detail}`: текст из
+  `detail` / `detail.message` / 422 по полям / `detail.errors`, свой текст — только без ответа (status 0).
+  `src/api/sse.ts` — `subscribe(onEvent, {lastEventId, onState})`, переподключение закрытого потока 1…30 с с
+  `?last_event_id=`, дедуп по id, после отписки событий нет.
+- Приёмка: повторный `typegen` не меняет файлы; `typegen:check` падает на изменённой модели (поле в `Episode`,
+  проверено и откачено); ручная правка в `src/types/` валит `types.test.ts`; `tsc -b` и oxlint чисты; vitest 211,
+  e2e 44 (+22 пропуска по замыслу), эталоны не менялись; pytest 140.
+- Хвосты: тело `PATCH /api/projects` — `dict`, типа нет (M3 решит, нужен ли `ProjectPatch`); тело 409 бюджета
+  типизировано только в `ApiError.detail: unknown`. `fixtures.ts` и моки уходят в M3.
+
+### 17. Приёмка M2 (2026-09-25, ветка `m2-backend`, тег `m2`)
+
+- ☑ семь этапов, коммит на каждый (у M2.1 и M2.2 — ещё коммиты записи этапа).
+- ☑ `uv run pytest` (142) · `ruff check .` · `mypy backend tests` — зелёные. ☑ `pytest -m live` после правки ключей
+  пользователем: Gemini — принят, все модели каталога видны ключу; ElevenLabs — принят, Creator, 118 654 из 121 084
+  символов; Anthropic — skip, ключа нет (заводится к M4, модули до M4 его не вызывают).
+- ☑ фронт: vitest 211, oxlint, `build`, `typegen:check`, e2e 44 + 22 пропуска по замыслу; эталоны не переснимались.
+- ☑ `./run.sh` поднимает оба процесса; `/api/health`, `/api/channels`, `/api/events` (200, `text/event-stream`)
+  отвечают через прокси Vite. Реальная `data/app.db` при этом получила миграцию 003.
+- ☑ фикстуры, 500 прерванных записей, `kill -9` посреди пачки, 409 бюджета, `cached` $0 — автотестами.
+- ☑ документы-контракты на месте и в карте `CLAUDE.md` (снята устаревшая пометка «появятся в M2»).
+- ☑ секретов в истории нет: значения ключей (`sk-ant-…`, `AIza…`, `*_KEY=<значение>`, `client_secret`) не
+  найдены; буквальный `git log -p | grep -i api_key` не пуст — 99 строк с именами переменных (документы,
+  `Settings`, `.env.example`), значений среди них нет. `backend/.env` в `.gitignore`.
+- ☑ LESSONS пополнен (L-017…L-019), L-004…L-006 свёрнуты в архив — файл был у лимита 150 строк.
+
+### 18. Хвосты, закрытые перед тегом `m2` (2026-09-25)
+
+Закрыты:
+- `mypy tests` — плагин `pydantic.mypy` в `pyproject.toml`; `uv run mypy backend tests` чист (было 11 ошибок
+  `_env_file`).
+- Предупреждение TestClient про `httpx` ушло само: `anthropic` 1.x принёс `httpx2`. Оставшееся стороннее про alias
+  `anyio` в starlette — `filterwarnings` в pytest; прогоны без предупреждений.
+- `YOUTUBE_OAUTH_CLIENT_SECRET_*` убраны из `Settings` и `.env.example` — секрет канала только в
+  `data/channels/<channel>/oauth/client_secret.json` (M10). В `backend/.env` эти строки пустые, их можно удалить.
+- `run.sh`: `sed -u` — хвост логов не теряется при перенаправлении в файл.
+- Пустой `image.prompt` — доменная ошибка с ID кадра (`validators.py`, фикстура `director_broken_empty_prompt.json`,
+  строка в `docs/director_schema.md`).
+- Тело 409 бюджета — модель `BudgetRefusal`, тип `@/types/cost`, помощник `budgetRefusal(error)` во фронте.
+- Квота символов для шапки — `GET /api/providers/status` (`KeyStatus` с `quota`, кэш 60 с, `?refresh=true`), типы
+  `@/types/provider`.
+- Проверка Gemini подсказывает про ID проекта: живой прогон показал, что в `GEMINI_API_KEY` лежит
+  `gen-lang-client-…` (26 символов), а не ключ `AIza…` (39) — проверено булевыми признаками, значение не выводилось.
+
+Остаются, со своим модулем: `voice_quota` в профиле канала (M3 — шапка берёт квоту из `/api/providers/status`, поле
+убрать или оставить лимитом канала); `ProjectPatch` (M3); `Episode.stage/status` (M3); «повторить упавший» и отмена
+пачки (M6, вместе с интерфейсом пачки); эндпоинт пачки с общей суммой (M6); `drawn_at`/`price` и `changed` в отчёте
+импорта (M6 и экран конфликтов); кэш текстов LLM (M4); `static` с `strength > 0` (модуль движения); удалённый id
+генерации (M8); хвосты оболочки M1 и handoff — в сессии правок handoff перед M4. Claude Opus 5.5 — по решению
+пользователя в каталоге `research` и `script`, профиль premium ($4/$20 — дешевле Opus 5 в standard; перевести в
+standard — одна строка в `providers.yaml`). У 5.5 мышление не отключается — учесть в M4. Vitest однажды дал 2 падения, в 11 повторах (и под нагрузкой) не воспроизвелось; имена не
+сохранились — при повторе сохранить вывод.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`, устав и семь этапов составлены 2026-09-19), ветка `m2-backend`,
-первый этап — **M2.1 Каркас бэкенда и хвосты M0** (`docs/tasks/M2.1.md`, Sonnet, без плана). Стартовая фраза — в уставе.
-Ключи провайдеров понадобятся в M2.6 — `docs/api_keys.md`. После M2.7 — приёмка и тег `m2`, затем устав M3 отдельной
-сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
+Модуль **M3 — Выпуски и календарь слотов** (`docs/roadmap.md`, контур): устав `docs/tasks/M3.md` и этапы M3.x
+составляются отдельной сессией по этому файлу — M2 закрыт тегом `m2` на ветке `m2-backend`. Входы для M3:
+`@/types/*` и `src/api/{client,sse}.ts` (M2.7), `GET /api/providers/status` для квоты в шапке (раздел 18), хвосты
+M3 из раздела 18 (`voice_quota`, `ProjectPatch`, `Episode.stage/status`). Ключ Anthropic понадобится к M4. Перед
+M4 — сессия правок handoff (раздел M1.6 выше).
+
+Открытые хвосты разбора видео ElevenLabs (2026-09-23, `docs/api_keys.md`, «Анимация кадров»):
+- M8: удалённый id генерации (Veo, ElevenLabs, Kling) сохранять до начала опроса, иначе после падения джоб заплатит
+  второй раз (принципы 7, 8); выбор пути анимации — при составлении M8.
 
 ## Как смотреть прототипы
 

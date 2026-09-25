@@ -1,31 +1,64 @@
 [project]
 name = "studio"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local studio for producing narrated history videos from AI-generated footage"
 readme = "README.md"
 authors = [
     { name = "Khon", email = "merrimen03@gmail.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=1.8.0",
     "fastapi>=0.141.1",
+    "google-genai>=2.25.0",
+    "httpx>=0.28.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0",
+    "tenacity>=9.1.4",
     "uvicorn[standard]>=0.53.0",
 ]
 
-[project.scripts]
-studio = "studio:main"
-
-[build-system]
-requires = ["uv_build>=0.12.6,<0.13.0"]
-build-backend = "uv_build"
-
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+# Проект — приложение, не пакет: uv не собирает и не ставит его в окружение.
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["backend", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "backend"
+explicit_package_bases = true
+# Плагин знает конструкторы моделей и служебные аргументы BaseSettings (`_env_file`) — иначе
+# `mypy tests` падает на каждом `Settings(_env_file=None)`.
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+# Живые вызовы провайдеров стоят денег — запускаются только вручную: `uv run pytest -m live`.
+addopts = "-m 'not live'"
+markers = [
+    "live: real provider calls (cost cents); run manually with -m live",
+]
+filterwarnings = [
+    # starlette.testclient ссылается на устаревший alias anyio; не наш код, уйдёт с обновлением starlette
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
 ]

@@ -1,0 +1,33 @@
+# Тестовые маршруты: все этапы — на фейковом провайдере (без сети). Формат — config/providers.yaml.
+
+default_profile: standard
+
+forbidden_models:
+  - "gemini-2.5-flash-image*"
+  - "sora-2*"
+
+stages:
+  script:
+    kind: text
+    catalog:
+      llm: {provider: fake, model: fake-llm}
+    profiles: {economy: llm, standard: llm, premium: llm}
+
+  images:
+    kind: image
+    catalog:
+      small: {provider: fake, model: fake-image-small, params: {size: 1K}}
+      large: {provider: fake, model: fake-image-large, params: {size: 2K}}
+    profiles: {economy: small, standard: small, premium: large}
+
+  voice:
+    kind: speech
+    catalog:
+      tts: {provider: fake, model: fake-tts}
+    profiles: {economy: tts, standard: tts, premium: tts}
+
+  animate:
+    kind: video
+    catalog:
+      clip: {provider: fake, model: fake-video, params: {resolution: 720p}}
+    profiles: {economy: clip, standard: clip, premium: clip}

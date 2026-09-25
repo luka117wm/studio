@@ -1,0 +1,697 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.director/1",
+  "title": "Director",
+  "description": "Режиссёрский план эпизода Studio, версия studio.director/1.",
+  "$defs": {
+    "AnimateSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "recommended": {
+          "default": false,
+          "title": "Recommended",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "seconds": {
+          "default": 4,
+          "maximum": 10,
+          "minimum": 2,
+          "title": "Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "AnimateSpec",
+      "type": "object"
+    },
+    "Brief": {
+      "additionalProperties": false,
+      "properties": {
+        "idea": {
+          "title": "Idea",
+          "type": "string"
+        },
+        "angle": {
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "reference_mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "structure_clone",
+            "own_version"
+          ],
+          "title": "Reference Mode",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "idea",
+        "angle",
+        "hook_promise"
+      ],
+      "title": "Brief",
+      "type": "object"
+    },
+    "CanonRef": {
+      "additionalProperties": false,
+      "description": "Ссылки на версии канона; ключи `periods` и `appearances` — то, на что ссылаются кадры.\n\nФормат значений (`periods/<id>/vNNN`, `characters/<id>/vNNN#<облик>`) проверяет\n`check_director`.",
+      "properties": {
+        "style": {
+          "pattern": "^style/v\\d{3}$",
+          "title": "Style",
+          "type": "string"
+        },
+        "periods": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Periods",
+          "type": "object"
+        },
+        "appearances": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Appearances",
+          "type": "object"
+        }
+      },
+      "required": [
+        "style"
+      ],
+      "title": "CanonRef",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "claim": {
+          "title": "Claim",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "disputed",
+            "not_found"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        }
+      },
+      "required": [
+        "claim",
+        "status"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "ImageSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "period": {
+          "title": "Period",
+          "type": "string"
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "shot_size": {
+          "enum": [
+            "establishing",
+            "action",
+            "reaction",
+            "detail"
+          ],
+          "title": "Shot Size",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "period",
+        "shot_size"
+      ],
+      "title": "ImageSpec",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "episode_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Episode Id",
+          "type": "string"
+        },
+        "working_title": {
+          "title": "Working Title",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "every_rank",
+            "host"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "language": {
+          "default": "en",
+          "title": "Language",
+          "type": "string"
+        },
+        "target_minutes": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Target Minutes",
+          "type": "integer"
+        },
+        "part": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Parts Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel",
+        "episode_id",
+        "working_title",
+        "format",
+        "target_minutes"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "push_in",
+            "pull_out",
+            "pan_left",
+            "pan_right",
+            "tilt_up",
+            "tilt_down",
+            "static",
+            "drift"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "strength": {
+          "maximum": 0.25,
+          "minimum": 0.0,
+          "title": "Strength",
+          "type": "number"
+        },
+        "ease": {
+          "enum": [
+            "linear",
+            "in_out_sine",
+            "in_out_cubic",
+            "in_cubic",
+            "out_cubic"
+          ],
+          "title": "Ease",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "strength",
+        "ease"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "MusicCue": {
+      "additionalProperties": false,
+      "properties": {
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "mood": {
+          "title": "Mood",
+          "type": "string"
+        },
+        "gain_db": {
+          "maximum": 0.0,
+          "minimum": -40.0,
+          "title": "Gain Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "section",
+        "mood",
+        "gain_db"
+      ],
+      "title": "MusicCue",
+      "type": "object"
+    },
+    "PublishMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "titles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Titles",
+          "type": "array"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "category_id": {
+          "title": "Category Id",
+          "type": "string"
+        },
+        "synthetic_media": {
+          "title": "Synthetic Media",
+          "type": "boolean"
+        },
+        "made_for_kids": {
+          "title": "Made For Kids",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "titles",
+        "description",
+        "tags",
+        "category_id",
+        "synthetic_media",
+        "made_for_kids"
+      ],
+      "title": "PublishMeta",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "chapter": {
+          "default": true,
+          "title": "Chapter",
+          "type": "boolean"
+        },
+        "vo_direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vo Direction"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "SfxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Offset",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "gain_db": {
+          "maximum": 0.0,
+          "minimum": -40.0,
+          "title": "Gain Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "prompt",
+        "duration",
+        "gain_db"
+      ],
+      "title": "SfxSpec",
+      "type": "object"
+    },
+    "Shot": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^s\\d{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "vo": {
+          "title": "Vo",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/ImageSpec"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "transition_in": {
+          "$ref": "#/$defs/Transition",
+          "default": {
+            "type": "cut",
+            "duration": 0.0
+          }
+        },
+        "animate": {
+          "$ref": "#/$defs/AnimateSpec",
+          "default": {
+            "recommended": false,
+            "reason": null,
+            "prompt": null,
+            "seconds": 4
+          }
+        },
+        "sfx": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SfxSpec"
+          },
+          "title": "Sfx",
+          "type": "array"
+        },
+        "overlay": {
+          "default": null,
+          "title": "Overlay",
+          "type": "null"
+        }
+      },
+      "required": [
+        "id",
+        "section",
+        "vo",
+        "image",
+        "motion"
+      ],
+      "title": "Shot",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "Thumbnail": {
+      "additionalProperties": false,
+      "properties": {
+        "concepts": {
+          "items": {
+            "$ref": "#/$defs/ThumbnailConcept"
+          },
+          "title": "Concepts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "concepts"
+      ],
+      "title": "Thumbnail",
+      "type": "object"
+    },
+    "ThumbnailConcept": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "text"
+      ],
+      "title": "ThumbnailConcept",
+      "type": "object"
+    },
+    "Transition": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "cut",
+          "enum": [
+            "cut",
+            "crossfade",
+            "dip"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "duration": {
+          "default": 0.0,
+          "maximum": 1.5,
+          "minimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        }
+      },
+      "title": "Transition",
+      "type": "object"
+    },
+    "VoiceCfg": {
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "voice_id": {
+          "title": "Voice Id",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "pace_wpm": {
+          "maximum": 200,
+          "minimum": 100,
+          "title": "Pace Wpm",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "provider",
+        "voice_id",
+        "model",
+        "pace_wpm"
+      ],
+      "title": "VoiceCfg",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "studio.director/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "brief": {
+      "$ref": "#/$defs/Brief"
+    },
+    "canon_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CanonRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "voice": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VoiceCfg"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/Section"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "shots": {
+      "items": {
+        "$ref": "#/$defs/Shot"
+      },
+      "title": "Shots",
+      "type": "array"
+    },
+    "music": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/MusicCue"
+      },
+      "title": "Music",
+      "type": "array"
+    },
+    "thumbnail": {
+      "$ref": "#/$defs/Thumbnail"
+    },
+    "publish": {
+      "$ref": "#/$defs/PublishMeta"
+    },
+    "facts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Fact"
+      },
+      "title": "Facts",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "meta",
+    "brief",
+    "sections",
+    "shots",
+    "thumbnail",
+    "publish"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,162 @@
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "cursus",
+    "episode_id": "c07-pirate-ship",
+    "working_title": "Every Rank on a Pirate Ship",
+    "format": "every_rank",
+    "language": "en",
+    "target_minutes": 20,
+    "part": 1,
+    "parts_total": 1
+  },
+  "brief": {
+    "idea": "Every rank on a 1716 pirate ship.",
+    "angle": "Second person.",
+    "hook_promise": "Why the captain was the least powerful man aboard.",
+    "reference_mode": "none",
+    "sources": []
+  },
+  "canon_ref": {
+    "style": "style/v003",
+    "periods": {
+      "caribbean-1716": "periods/caribbean-1716/v002"
+    },
+    "appearances": {
+      "you@powder-monkey-11": "characters/you/v004#powder-monkey-11"
+    }
+  },
+  "voice": {
+    "provider": "elevenlabs",
+    "voice_id": "narrator-cursus-01",
+    "model": "eleven_multilingual_v2",
+    "pace_wpm": 150
+  },
+  "sections": [
+    {
+      "id": "r1",
+      "title": "Powder monkey",
+      "chapter": true,
+      "vo_direction": "calm, dry irony"
+    }
+  ],
+  "shots": [
+    {
+      "id": "s001",
+      "section": "r1",
+      "vo": "You are eleven years old, and the first thing you learn on this ship is where the gunpowder lives.",
+      "image": {
+        "prompt": "a sloop at anchor in a shallow bay at dawn, seen from the beach",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.06,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s002",
+      "section": "r1",
+      "vo": "It lives below the waterline, behind a felt curtain.",
+      "image": {
+        "prompt": "pulls aside a heavy felt curtain to peer into a low dark magazine",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.4,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s003",
+      "section": "r1",
+      "vo": "Your job is to run.",
+      "image": {
+        "prompt": "sprints along a crowded gun deck hugging a leather cartridge case",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "push_in",
+        "strength": 0.06,
+        "ease": "in_out_cubic"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    }
+  ],
+  "music": [
+    {
+      "section": "r1",
+      "mood": "tense low strings, sparse",
+      "gain_db": -24
+    }
+  ],
+  "thumbnail": {
+    "concepts": [
+      {
+        "prompt": "a small boy with a cartridge case looks up at a gun deck",
+        "text": "POWDER MONKEY"
+      }
+    ]
+  },
+  "publish": {
+    "titles": [
+      "Every Rank on a Pirate Ship (1716)"
+    ],
+    "description": "Every rank, what it did and what it cost.",
+    "tags": [
+      "pirates",
+      "history"
+    ],
+    "category_id": "27",
+    "synthetic_media": true,
+    "made_for_kids": false
+  },
+  "facts": []
+}

@@ -1,0 +1,84 @@
+# Цены за единицу (принцип 6, L-001). В коде цен нет — только здесь; как обновлять — docs/providers.md.
+#
+# провайдер → модель → {checked_at, source, prices: единица → цена}
+#   единицы: image, char, second, token_in, token_out, search
+#   цена: {usd: "0.10", per: 1000} — USD строкой в кавычках за `per` единиц (по умолчанию 1)
+#         или {variants: {1K: "0.067", 2K: "0.101"}} — цена по параметру маршрута (size, resolution)
+# checked_at обязателен: цена старше 60 дней — предупреждение в логе и stale_pricing в сводке.
+# Скидки пакетного режима (Batch API) здесь не учтены — оценка сверху.
+
+anthropic:
+  claude-sonnet-5:
+    checked_at: 2026-09-25
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+    prices:
+      token_in: {usd: "2.00", per: 1000000}
+      token_out: {usd: "10.00", per: 1000000}
+      search: {usd: "10.00", per: 1000}
+  claude-opus-5:
+    checked_at: 2026-09-25
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+    prices:
+      token_in: {usd: "5.00", per: 1000000}
+      token_out: {usd: "25.00", per: 1000000}
+      search: {usd: "10.00", per: 1000}
+  # Преемник Opus 5, дешевле. Мышление не отключается (только effort, по умолчанию medium) —
+  # учесть в модуле сценария (M4).
+  claude-opus-5-5:
+    checked_at: 2026-09-25
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+    prices:
+      token_in: {usd: "4.00", per: 1000000}
+      token_out: {usd: "20.00", per: 1000000}
+      search: {usd: "10.00", per: 1000}
+
+gemini:
+  gemini-3.1-flash-lite-image:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      image: {variants: {1K: "0.034"}}
+  gemini-3.1-flash-image:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      image: {variants: {1K: "0.067", 2K: "0.101", 4K: "0.151"}}
+  gemini-3-pro-image:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      image: {variants: {1K: "0.134", 2K: "0.134", 4K: "0.24"}}
+  veo-3.1-lite-generate-preview:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      second: {variants: {720p: "0.05", 1080p: "0.08"}}
+  veo-3.1-fast-generate-preview:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      second: {variants: {720p: "0.10", 1080p: "0.12", 4K: "0.30"}}
+  veo-3.1-generate-preview:
+    checked_at: 2026-09-23
+    source: https://ai.google.dev/gemini-api/docs/pricing
+    prices:
+      second: {variants: {720p: "0.40", 1080p: "0.40", 4K: "0.60"}}
+
+# Цены API в долларах (Pay As You Go). Символы месячного пакета подписки — отдельная квота
+# (проверка ключа показывает остаток); бюджет считает по этим ценам — оценка сверху.
+elevenlabs:
+  eleven_flash_v2_5:
+    checked_at: 2026-09-23
+    source: https://elevenlabs.io/pricing/api
+    prices:
+      char: {usd: "0.05", per: 1000}
+  eleven_multilingual_v2:
+    checked_at: 2026-09-23
+    source: https://elevenlabs.io/pricing/api
+    prices:
+      char: {usd: "0.10", per: 1000}
+  eleven_v3:
+    checked_at: 2026-09-23
+    source: https://elevenlabs.io/pricing/api
+    prices:
+      char: {usd: "0.10", per: 1000}
