@@ -2,7 +2,8 @@
 
 Контракт очереди долгих операций (принцип 7) и потока событий `GET /api/events`. Появился в M2.5.
 Код: `backend/app/jobs/` (`queue.py` — очередь, `worker.py` — пул и контекст обработчика, `events.py` — журнал и
-SSE), роутер `backend/app/api/jobs.py`, миграция `storage/migrations/002_jobs.sql`.
+SSE), роутер `backend/app/api/jobs.py`, миграции `storage/migrations/002_jobs.sql`, `003_cost.sql` (M2.6: оценка
+платных джобов). Платные вызовы и бюджеты — `docs/providers.md`.
 
 Очередь живёт только в SQLite: процесс можно убить в любой момент, после запуска всё продолжится. Celery, Redis,
 очереди в памяти и WebSocket не используются: прогресс идёт в одну сторону.
@@ -35,12 +36,13 @@ queued ──cancel──▶ cancelled
 | `episode_id`, `batch_id` | выпуск (FK на `episodes`) и пачка |
 | `idempotency_key` | уникален во всей таблице; `null` — без дедупликации |
 | `created_at`, `started_at`, `finished_at` | ISO 8601 UTC, до секунды |
+| `cost_usd_micro`, `cost_stage` | платный джоб (M2.6): оценка при постановке и её этап; пока джоб `queued`, оценка занимает бюджет; у бесплатных — `null` |
 
 ## API
 
 | Запрос | Ответ |
 |---|---|
-| `POST /api/jobs` `{kind, payload, idempotency_key?, episode_id?, batch_id?}` | 201 — новый джоб; 200 — джоб с этим ключом уже есть, возвращается он (в любом статусе); 422 — неизвестный `kind` или невалидный `payload`; 404 — нет выпуска |
+| `POST /api/jobs` `{kind, payload, idempotency_key?, episode_id?, batch_id?}` | 201 — новый джоб; 200 — джоб с этим ключом уже есть, возвращается он (в любом статусе); 422 — неизвестный `kind`, невалидный `payload`, платный джоб без `episode_id`; 404 — нет выпуска; 409 — платный джоб не влезает в бюджет, джоб не создан (тело — `docs/providers.md`, «Бюджеты») |
 | `GET /api/jobs?batch=&episode=&status=&kind=&limit=200` | `{items, summary, last_event_id}`: последние `limit` джобов по фильтру в порядке постановки, `summary` — счётчики по статусам по всему фильтру (сводка пачки), `last_event_id` — курсор журнала для подписки |
 | `GET /api/jobs/{id}` | джоб или 404 |
 | `POST /api/jobs/{id}/cancel` | `queued` → `cancelled` сразу; `running` → флаг, ответ со `status: running, cancel_requested: true`; повтор для `cancelled` — 200; `done`/`failed` — 409 |
@@ -82,6 +84,23 @@ def sleep_job(ctx: JobContext, payload: SleepPayload) -> dict[str, int]:
 - `ctx.attempt` — номер текущей попытки с учётом прошлых стартов.
 - В БД обработчик сам не пишет: переходы статусов делает только пул.
 
+**Платный обработчик** (M2.6) объявляет оценку и ходит к провайдеру только через `ctx.gateway`:
+
+```python
+SPEC = HandlerSpec("image_job", image_job, ImagePayload, resource="cpu",
+                   estimate=lambda gateway, p: gateway.estimate("images", request_of(p)))
+
+async def image_job(ctx: JobContext, payload: ImagePayload) -> dict[str, Any]:
+    call = CallContext(stage="images", episode_id=ctx.episode_id, shot_id=payload.shot_id, job_id=ctx.job_id)
+    outcome = await ctx.gateway.call(call, request_of(payload))   # cached | charged, иначе исключение
+    return {"status": outcome.status, "path": str(outcome.asset_path)}
+```
+
+- `estimate(gateway, payload) -> Cost` — без сети; по ней `POST /api/jobs` проверяет бюджет до постановки и пишет
+  `cost_usd_micro`. Платный джоб ставится только с `episode_id`: бюджет считается по выпуску и его каналу.
+- `gateway.call` — async, поэтому обработчик платного вызова тоже `async`. Отказ по бюджету в момент вызова (лимит
+  заняли, пока джоб ждал) — `BudgetExceeded`, джоб `failed` без повтора.
+
 ## Ретраи
 
 `tenacity` вокруг вызова обработчика: экспоненциальная задержка `job_retry_wait_s × 2^(n−1)` (1, 2, 4 … с, не больше
@@ -89,11 +108,19 @@ def sleep_job(ctx: JobContext, payload: SleepPayload) -> dict[str, int]:
 
 | Ошибка | Повтор |
 |---|---|
-| `TransientError` (своё исключение; провайдеры переводят в него ошибки SDK без HTTP-статуса) | да |
+| `TransientError` (своё исключение; провайдеры переводят в него сеть и 5xx своих SDK) | да |
+| `RateLimited` (подкласс `TransientError`) и любое исключение со статусом 429 | да, не раньше `Retry-After` |
 | `httpx.TransportError` (соединение, таймауты), встроенные `ConnectionError`, `TimeoutError` | да |
 | любое исключение с HTTP-статусом 5xx в `status_code` или `response.status_code` | да |
-| 4xx, включая 429 (пересмотр в M2.6 вместе с `Retry-After`) | нет, сразу `failed` |
+| остальные 4xx, включая `ProviderError` (401 ключ, 402 оплата, 403 права) и `BudgetExceeded` | нет, сразу `failed` |
 | всё остальное (ошибки в коде, валидация) | нет |
+
+**429 и `Retry-After`** (M2.6). Пауза перед повтором — `max(экспонента, Retry-After)`, но не больше 60 с: пауза берётся
+из `retry_after` исключения (`RateLimited`) или заголовка ответа `Retry-After` в секундах. Дольше 60 с не ждём:
+следующая попытка или `failed` с текстом «уменьшите JOB_WORKERS».
+
+**Повторяет только очередь.** Провайдеры сами не повторяют: SDK Anthropic — `max_retries=0`, google-genai —
+`HttpRetryOptions(attempts=1)`, httpx без ретраев. Иначе 3 попытки очереди × 3 попытки SDK.
 
 Отменённый или останавливаемый джоб не повторяется. Перед повтором `attempts + 1`, в `message` — «Повтор 2/3 через 2 с: …»
 (событие `job.progress`).

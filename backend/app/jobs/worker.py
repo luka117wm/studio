@@ -16,7 +16,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -33,6 +33,10 @@ from app.jobs.events import EventBus, prune_events
 from app.jobs.queue import FinalStatus, Job
 from app.storage.db import connect
 
+if TYPE_CHECKING:
+    from app.providers.base import Cost
+    from app.providers.gateway import Gateway
+
 log = logging.getLogger(__name__)
 
 JobResult = dict[str, Any] | None
@@ -41,6 +45,7 @@ SyncHandler = Callable[["JobContext", Any], JobResult]
 AsyncHandler = Callable[["JobContext", Any], Awaitable[JobResult]]
 
 RETRY_WAIT_MAX_S = 30.0
+RETRY_AFTER_MAX_S = 60.0  # дольше `Retry-After` не ждём: следующая попытка или `failed`
 PROGRESS_INTERVAL_S = 0.2
 CANCEL_CHECK_INTERVAL_S = 0.1
 POLL_S = 1.0
@@ -49,8 +54,8 @@ ERROR_MAX_CHARS = 2000
 
 
 class TransientError(Exception):
-    """Временный сбой (сеть, перегрузка, 5xx) — джоб повторяется. Провайдеры (M2.6) переводят
-    в него ошибки своих SDK, у которых нет HTTP-статуса в `status_code` / `response.status_code`."""
+    """Временный сбой (сеть, перегрузка, 5xx, 429) — джоб повторяется. Провайдеры переводят в него
+    ошибки своих SDK (`providers/base.py::status_error`), 429 — в `RateLimited` с `retry_after`."""
 
 
 def http_status(exc: BaseException) -> int | None:
@@ -63,11 +68,24 @@ def http_status(exc: BaseException) -> int | None:
 
 
 def is_retryable(exc: BaseException) -> bool:
-    """Повторяем только сеть и 5xx; 4xx и ошибки в коде повторять бессмысленно."""
+    """Повторяем сеть, 5xx и 429; остальные 4xx и ошибки в коде повторять бессмысленно."""
     if isinstance(exc, TransientError | httpx.TransportError | ConnectionError | TimeoutError):
         return True
     status = http_status(exc)
-    return status is not None and 500 <= status < 600
+    return status is not None and (status == 429 or 500 <= status < 600)
+
+
+def retry_after_s(exc: BaseException | None) -> float | None:
+    """Пауза, которую назвал провайдер: `retry_after` исключения или заголовок `Retry-After`."""
+    value = getattr(exc, "retry_after", None)
+    if isinstance(value, int | float):
+        return float(value)
+    headers = getattr(getattr(exc, "response", None), "headers", None)
+    raw = headers.get("retry-after") if headers is not None else None
+    try:
+        return float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def describe(exc: BaseException) -> str:
@@ -81,6 +99,9 @@ class HandlerSpec:
     payload_model: type[BaseModel]
     # render — пока идёт, gpu-джобы не стартуют (принцип 12); cpu — без ограничений.
     resource: Resource = "cpu"
+    # Платный вид (M2.6): оценка по payload. `POST /api/jobs` проверяет по ней бюджет до
+    # постановки (409 при превышении) и держит её в `jobs.cost_usd_micro`, пока джоб в очереди.
+    estimate: "Callable[[Gateway, Any], Cost] | None" = None
 
 
 class JobContext:
@@ -88,7 +109,12 @@ class JobContext:
     короткими соединениями, записи прогресса — не чаще раза в `PROGRESS_INTERVAL_S`."""
 
     def __init__(
-        self, job: Job, db_path: Path, notify: Callable[[], None], shutdown: threading.Event
+        self,
+        job: Job,
+        db_path: Path,
+        notify: Callable[[], None],
+        shutdown: threading.Event,
+        gateway: "Gateway | None" = None,
     ) -> None:
         self.job_id = job.id
         self.kind = job.kind
@@ -103,6 +129,14 @@ class JobContext:
         self._written_at = -math.inf
         self._checked_at = -math.inf
         self._cancel_flag = False
+        self._gateway = gateway
+
+    @property
+    def gateway(self) -> "Gateway":
+        """Единая точка платных вызовов (`providers/gateway.py`)."""
+        if self._gateway is None:
+            raise RuntimeError("JobPool started without a Gateway: paid calls are unavailable")
+        return self._gateway
 
     def progress(self, fraction: float, message: str | None = None) -> None:
         self.fraction = min(max(float(fraction), 0.0), 1.0)
@@ -149,6 +183,7 @@ class JobPool:
         workers: int,
         max_attempts: int,
         retry_wait_s: float,
+        gateway: "Gateway | None" = None,
     ) -> None:
         self.db_path = db_path
         self.handlers = dict(handlers)
@@ -158,6 +193,7 @@ class JobPool:
         self._workers = workers
         self._max_attempts = max_attempts
         self._retry_wait_s = retry_wait_s
+        self._gateway = gateway
         self._render_running = 0
         self._stopping = False
         self._shutdown = threading.Event()
@@ -285,7 +321,9 @@ class JobPool:
             except ValidationError as exc:
                 self._finish(job.id, "failed", progress=0.0, error=f"Некорректный payload: {exc}")
                 return
-            ctx = JobContext(job, self.db_path, self.bus.notify_threadsafe, self._shutdown)
+            ctx = JobContext(
+                job, self.db_path, self.bus.notify_threadsafe, self._shutdown, self._gateway
+            )
             result: JobResult = None
             error: Exception | None = None
             try:
@@ -310,10 +348,18 @@ class JobPool:
             queue.record_retry(self._db(), job.id, message)
             self.bus.notify()
 
+        backoff = wait_exponential(multiplier=self._retry_wait_s, max=RETRY_WAIT_MAX_S)
+
+        def pause(state: RetryCallState) -> float:
+            """Экспонента, но не меньше `Retry-After` провайдера (не дольше `RETRY_AFTER_MAX_S`)."""
+            delay = float(backoff(state))
+            hint = retry_after_s(state.outcome.exception() if state.outcome else None)
+            return delay if hint is None else max(delay, min(hint, RETRY_AFTER_MAX_S))
+
         retrying = AsyncRetrying(
             # Попытки прошлых стартов (аварийный перезапуск) уже потрачены.
             stop=stop_after_attempt(self._max_attempts - job.attempts + 1),
-            wait=wait_exponential(multiplier=self._retry_wait_s, max=RETRY_WAIT_MAX_S),
+            wait=pause,
             retry=retry_if_exception(lambda exc: is_retryable(exc) and not ctx.cancelled()),
             before_sleep=before_sleep,
             reraise=True,

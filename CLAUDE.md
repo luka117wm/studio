@@ -25,7 +25,7 @@
 | `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
-| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → провайдер → модель; цены с датой проверки | появятся в M2 |
+| `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → профиль → провайдер → модель; цены с датой проверки; журнал расходов, бюджеты, кэш | этап с платным вызовом; смена модели или цены |
 | `docs/api_keys.md` | где взять и куда положить ключи провайдеров и OAuth YouTube | перед M2.6; при смене провайдера |
 
 ## Стек
@@ -51,12 +51,12 @@ backend/app/
   main.py  api/   роутеры
   models/         director.py, project.py, channel.py
   jobs/           queue.py, worker.py, events.py
-  providers/      base.py, anthropic.py, gemini.py, elevenlabs.py, kling.py, youtube.py, gateway.py, local/
+  providers/      base.py, registry.py, gateway.py, fake.py, anthropic.py, gemini.py, elevenlabs.py, kling.py, youtube.py, local/
   pipeline/       research, script, director_import, voice, alignment, images, animate, sfx_music, publish
   engine/         motion.py, compositor.py, audio_mix.py, subtitles_ass.py
   export/         mp4.py, fcp7.py, otio.py, srt.py
   prompts/        *.md с front-matter (id, version, model_hint); тексты промптов на английском
-  cost/           ledger.py, budget.py
+  cost/           pricing.py, ledger.py, budget.py
   storage/        paths.py, atomic.py, db.py
 tests/fixtures/   director_pirate_10shots.json, motion_golden.json, alignment_*.json
 data/             (gitignored)
@@ -153,7 +153,7 @@ pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/h
 pnpm -C frontend typegen                   # Pydantic → JSON Schema → TS — появится в M2
 pnpm -C frontend e2e                       # Playwright, скриншоты и WYSIWYG — появится в M1.6
 uv run pytest                              # бэкенд — появится в M2
-uv run pytest -m live                      # проверка ключей провайдеров (центы) — M2
+uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip
 uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```
 

@@ -1,0 +1,30 @@
+# Тестовый прайс фейкового провайдера. Формат — config/pricing.yaml.
+
+fake:
+  fake-llm:
+    checked_at: 2026-09-25
+    source: tests
+    prices:
+      token_in: {usd: "3.00", per: 1000000}
+      token_out: {usd: "15.00", per: 1000000}
+      search: {usd: "10.00", per: 1000}
+  fake-image-small:
+    checked_at: 2026-09-25
+    source: tests
+    prices:
+      image: {variants: {1K: "0.067", 2K: "0.101"}}
+  fake-image-large:
+    checked_at: 2026-09-25
+    source: tests
+    prices:
+      image: {variants: {2K: "0.134"}}
+  fake-tts:
+    checked_at: 2026-09-25
+    source: tests
+    prices:
+      char: {usd: "0.10", per: 1000}
+  fake-video:
+    checked_at: 2026-09-25
+    source: tests
+    prices:
+      second: {variants: {720p: "0.40"}}

@@ -341,12 +341,54 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   повторяет (иначе 3 × 3 вызова). Операции «повторить упавший» нет — ключ идемпотентности вечный. Отмены пачки целиком
   нет. `mypy tests` падает на `Settings(_env_file=…)` — давнее, проект проверяет только `backend`.
 
+### 15. M2.6 — Провайдеры, цены и бюджеты (2026-09-25, ветка `m2-backend`)
+
+- `providers/`: `base.py` — контракт (запросы `Text/Image/Speech/VideoRequest`, `Route`, `Usage`, `Cost`, `Result`,
+  `KeyStatus`, ошибки `ProviderError`/`RateLimited`, `status_error()`); `registry.py` — каталог этапа, профили
+  `economy/standard/premium`, `override`, запрет моделей по шаблонам; `gateway.py` — единая точка: оценка → хэш входов
+  → кэш `cached` → бюджет и резерв в одной транзакции `BEGIN IMMEDIATE` → вызов → `charged`/`failed` → файл в
+  `media/<этап>/` и строка `assets`; `fake.py`; `anthropic.py`, `gemini.py`, `elevenlabs.py` — только `usage()` и
+  `check()`. `cost/`: `pricing.py` (Decimal, микродоллары, одно округление на строку, `format_usd` только в API),
+  `ledger.py` (статусы `estimated|charged|cached|refused|failed`, `call_id`), `budget.py` (месяц UTC, выпуск,
+  анимация). API `GET /api/cost/summary`, `GET /api/cost/ledger`. `003_cost.sql`. Контракт — `docs/providers.md`.
+- **Решения:** провайдер отдаёт единицы (`usage`), деньги считает только `cost/pricing.py` — вместо
+  `Provider.estimate` из задания (L-001: оценка и факт одной функцией). Добавлен статус `failed` ($0): резерв
+  `estimated` пишется до вызова, чтобы параллельные воркеры не прошли в лимит вдвоём. Оценки платных джобов в очереди
+  (`jobs.cost_usd_micro`) занимают бюджет — пачка упирается в лимит до оплаты; `HandlerSpec.estimate`,
+  `ctx.gateway`, платный джоб только с `episode_id`. 429 повторяется с `Retry-After` (≤ 60 с), SDK без своих
+  ретраев. `providers.yaml` = каталог + маршрут по умолчанию, выбор пользователя — `override` из каталога; порядок
+  модели голоса: пачка → `director.json → voice` → канал → профиль (код — M7). Цены Claude сверены 2026-09-25,
+  Gemini и ElevenLabs — 2026-09-23 (`docs/api_keys.md`).
+- Приёмка: 10 вызовов → 10 строк, сумма = ручной расчёт из YAML (871 000 мкд); превышение → 409 с текстом, джоба нет;
+  смена `default_profile` меняет модель, запрещённая модель и модель без цены — ошибка старта; повтор — `cached` $0.
+  `test_cost.py` (21), `test_providers.py` (11), `test_jobs.py` +1; всего 136 зелёных, ruff/mypy чисты. `curl
+  /api/cost/summary?channel=cursus` отвечает на живом uvicorn.
+- **`-m live` не пройден — ключи:** Anthropic — skip (ключа нет); Gemini — `400 API key not valid` (ключ неверный:
+  выпустить заново в AI Studio); ElevenLabs — у ключа нет права `user_read` (включить User → Read). Код проверки
+  отработал: оба ответа разобраны в понятный текст (L-018). Повторить `uv run pytest -m live -v -rP`.
+- Хвосты: квота символов ElevenLabs есть в `KeyStatus.quota`, но эндпоинта для шапки нет, а `voice_quota` в профиле
+  канала бюджетом не используется — решить с шапкой (M2.7/M3). Кэш текстов LLM — M4. Пачка из многих POST держит
+  бюджет оценками в очереди, отдельного эндпоинта пачки с общей суммой нет — M6. Claude Opus 5.5 ($4/$20) дешевле
+  Opus 5 — добавить в каталог, если решите.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.6 Провайдеры, цены
-и бюджеты** (`docs/tasks/M2.6.md`), ключи — `docs/api_keys.md`. Провайдеры переводят ошибки SDK в `TransientError`
-или HTTP-статус (`docs/jobs.md`, «Ретраи»); 429 и место ретраев — хвосты M2.5 выше. После M2.7 —
-приёмка и тег `m2`, затем устав M3 отдельной сессией. Перед M4 — сессия правок handoff (раздел M1.6 выше).
+Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.7 Typegen и
+API-клиент фронта** → приёмка и тег `m2`, затем устав M3 отдельной сессией. В typegen попадут новые поля `Job`
+(`cost_usd_micro`, `cost_stage`) и ответы `/api/cost/*` (`docs/providers.md`). Перед M4 — сессия правок handoff
+(раздел M1.6 выше).
+
+До тега `m2`: поправить ключи Gemini и ElevenLabs, по возможности завести ключ Anthropic и прогнать
+`uv run pytest -m live -v -rP` (раздел M2.6 выше).
+
+Открытые хвосты разбора видео ElevenLabs (2026-09-23, `docs/api_keys.md`, «Анимация кадров»):
+- `backend/.env.example` и `Settings` держат `YOUTUBE_OAUTH_CLIENT_SECRET_*`, а `docs/api_keys.md` велит класть
+  `client_secret.json` в `data/channels/<channel>/oauth/` — развести в M10;
+- M8: удалённый id генерации (Veo, ElevenLabs, Kling) сохранять до начала опроса, иначе после падения джоб заплатит
+  второй раз (принципы 7, 8); выбор пути анимации — при составлении M8.
+
+Закрыты в M2.6: квота голоса берётся из `/v1/user/subscription`; выбор модели — каталог этапа + `override`, порядок
+модели голоса — `docs/providers.md`.
 
 ## Как смотреть прототипы
 

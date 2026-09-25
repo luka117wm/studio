@@ -1,0 +1,58 @@
+# Маршруты «этап → профиль качества → провайдер → модель» (принцип 5). ID моделей — только здесь.
+# Правила и как менять — docs/providers.md; цены каждой модели каталога — config/pricing.yaml
+# (без цены бэкенд не стартует). Профиль меняет только выбор модели по умолчанию; выбор
+# пользователя на пачку или кадр — ключ каталога или ID модели из каталога этапа.
+
+default_profile: standard
+
+# CLAUDE.md, «Чего не делать»: API этих моделей закрываются осенью 2026. Шаблоны fnmatch без
+# учёта регистра; модель из каталога, попавшая под шаблон, — ошибка старта.
+forbidden_models:
+  - "gemini-2.5-flash-image*"
+  - "sora-2*"
+
+stages:
+  # Исследование и факт-чек (M4): текст + веб-поиск.
+  research:
+    kind: text
+    catalog:
+      sonnet-5: {provider: anthropic, model: claude-sonnet-5}
+      opus-5: {provider: anthropic, model: claude-opus-5}
+    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5}
+
+  # Сценарий и director.json (M4).
+  script:
+    kind: text
+    catalog:
+      sonnet-5: {provider: anthropic, model: claude-sonnet-5}
+      opus-5: {provider: anthropic, model: claude-opus-5}
+    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5}
+
+  # Кадры (M6). `size` выбирает цену: 1K, 2K, 4K.
+  images:
+    kind: image
+    catalog:
+      nb2-lite: {provider: gemini, model: gemini-3.1-flash-lite-image, params: {size: 1K}}
+      nb2: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 1K}}
+      nb2-2k: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 2K}}
+      nb-pro: {provider: gemini, model: gemini-3-pro-image, params: {size: 2K}}
+    profiles: {economy: nb2-lite, standard: nb2, premium: nb-pro}
+
+  # Голос (M7). Порядок выбора модели голоса — docs/providers.md.
+  voice:
+    kind: speech
+    catalog:
+      flash-v2-5: {provider: elevenlabs, model: eleven_flash_v2_5}
+      multilingual-v2: {provider: elevenlabs, model: eleven_multilingual_v2}
+      v3: {provider: elevenlabs, model: eleven_v3}
+    profiles: {economy: flash-v2-5, standard: multilingual-v2, premium: v3}
+
+  # Анимация кадров (M8): путь ещё не выбран (docs/api_keys.md, «Анимация кадров»). Каталог нужен
+  # уже сейчас — по нему считается лимит «анимация на выпуск». `resolution` выбирает цену.
+  animate:
+    kind: video
+    catalog:
+      veo-lite: {provider: gemini, model: veo-3.1-lite-generate-preview, params: {resolution: 720p}}
+      veo-fast: {provider: gemini, model: veo-3.1-fast-generate-preview, params: {resolution: 720p}}
+      veo: {provider: gemini, model: veo-3.1-generate-preview, params: {resolution: 720p}}
+    profiles: {economy: veo-lite, standard: veo-lite, premium: veo-fast}

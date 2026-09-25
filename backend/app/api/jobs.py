@@ -9,12 +9,14 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
-from app.api.deps import DbDep, JobsDep, PathsDep
+from app.api.deps import DbDep, GatewayDep, JobsDep, PathsDep
 from app.api.episodes import require_episode
+from app.cost.budget import BudgetExceeded
 from app.jobs import queue
 from app.jobs.events import SSE_HEADERS, stream_events
 from app.jobs.queue import Job, JobStatus, JobSummary, NewJob
 from app.models.director import StrictModel
+from app.providers.base import RouteError
 from app.settings import Settings
 
 router = APIRouter(tags=["jobs"])
@@ -43,8 +45,11 @@ def _require_job(db: DbDep, job_id: str) -> Job:
 
 
 @router.post("/jobs", status_code=201)
-async def create_job(body: JobCreate, response: Response, db: DbDep, jobs: JobsDep) -> Job:
-    """201 — поставлен новый; 200 — джоб с этим `idempotency_key` уже есть, возвращается он."""
+async def create_job(
+    body: JobCreate, response: Response, db: DbDep, jobs: JobsDep, gateway: GatewayDep
+) -> Job:
+    """201 — поставлен новый; 200 — джоб с этим `idempotency_key` уже есть, возвращается он.
+    Платный вид — бюджет до постановки: 409 с текстом, джоб не создаётся (`docs/providers.md`)."""
     spec = jobs.handlers.get(body.kind)
     if spec is None:
         known = ", ".join(sorted(jobs.handlers)) or "нет"
@@ -60,6 +65,28 @@ async def create_job(body: JobCreate, response: Response, db: DbDep, jobs: JobsD
         ) from exc
     if body.episode_id is not None:
         require_episode(db, body.episode_id)
+    cost_usd_micro: int | None = None
+    cost_stage: str | None = None
+    # Повтор с тем же ключом вернёт существующий джоб — бюджет за него уже проверен.
+    repeat = (
+        body.idempotency_key is not None
+        and queue.get_job_by_key(db, body.idempotency_key) is not None
+    )
+    if spec.estimate is not None and not repeat:
+        if body.episode_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Платный джоб «{body.kind}» ставится только с episode_id: бюджет"
+                " считается по выпуску и его каналу.",
+            )
+        try:
+            cost = spec.estimate(gateway, payload)
+            gateway.check_budget(db, cost, episode_id=body.episode_id)
+        except RouteError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except BudgetExceeded as exc:
+            raise HTTPException(status_code=409, detail=exc.detail()) from exc
+        cost_usd_micro, cost_stage = cost.usd_micro, cost.stage
     job, created = queue.enqueue(
         db,
         NewJob(
@@ -68,6 +95,8 @@ async def create_job(body: JobCreate, response: Response, db: DbDep, jobs: JobsD
             idempotency_key=body.idempotency_key,
             episode_id=body.episode_id,
             batch_id=body.batch_id,
+            cost_usd_micro=cost_usd_micro,
+            cost_stage=cost_stage,
         ),
     )
     if created:

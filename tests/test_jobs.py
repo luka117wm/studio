@@ -30,7 +30,7 @@ TERMINAL = ("done", "failed", "cancelled")
 
 class FlakyPayload(StrictModel):
     fail_times: int = 0
-    error: Literal["transient", "http503", "http404", "value"] = "transient"
+    error: Literal["transient", "http503", "http404", "http429", "value"] = "transient"
 
 
 def _error(kind: str) -> Exception:
@@ -39,7 +39,8 @@ def _error(kind: str) -> Exception:
         return TransientError("provider overloaded")
     if kind.startswith("http"):
         status = int(kind.removeprefix("http"))
-        response = httpx.Response(status, request=request)
+        headers = {"Retry-After": "0.3"} if status == 429 else None
+        response = httpx.Response(status, request=request, headers=headers)
         return httpx.HTTPStatusError(f"HTTP {status}", request=request, response=response)
     return ValueError("bad input")
 
@@ -210,7 +211,7 @@ def test_request_cancel(db: sqlite3.Connection) -> None:
         (ConnectionResetError(), True),
         (_error("http503"), True),
         (_error("http404"), False),
-        (_error("http429"), False),  # 4xx не повторяем; 429 — решение M2.6 (Retry-After)
+        (_error("http429"), True),  # 429 повторяем с учётом Retry-After (M2.6)
         (ValueError("bug"), False),
     ],
 )
@@ -255,6 +256,15 @@ def test_5xx_exhausts_attempts(jobs_client: TestClient) -> None:
     failed = wait_job(jobs_client, job["id"])
     assert failed["status"] == "failed" and failed["attempts"] == 3
     assert "503" in failed["error"]
+
+
+def test_429_waits_for_retry_after(jobs_client: TestClient) -> None:
+    """Экспонента в тестах — 0 с, пауза перед повтором — из `Retry-After: 0.3`."""
+    started = time.monotonic()
+    job = post_job(jobs_client, "flaky_job", {"fail_times": 1, "error": "http429"})
+    done = wait_job(jobs_client, job["id"])
+    assert done["status"] == "done" and done["attempts"] == 2
+    assert time.monotonic() - started >= 0.3
 
 
 @pytest.mark.parametrize("error", ["http404", "value"])

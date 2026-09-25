@@ -45,6 +45,9 @@ class Job(BaseModel):
     created_at: str
     started_at: str | None
     finished_at: str | None
+    # Платный джоб (M2.6): оценка при постановке и её этап; пока `queued` — занимает бюджет.
+    cost_usd_micro: int | None = None
+    cost_stage: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Job":
@@ -88,6 +91,8 @@ class NewJob:
     idempotency_key: str | None = None
     episode_id: str | None = None
     batch_id: str | None = None
+    cost_usd_micro: int | None = None
+    cost_stage: str | None = None
 
 
 def _emit(conn: sqlite3.Connection, job: Job, event_type: EventType) -> None:
@@ -111,7 +116,8 @@ def enqueue_many(conn: sqlite3.Connection, jobs: Sequence[NewJob]) -> list[tuple
             job = _one(
                 conn,
                 "INSERT INTO jobs (id, kind, status, payload, idempotency_key, episode_id,"
-                " batch_id, created_at) VALUES (?, ?, 'queued', ?, ?, ?, ?, ?)"
+                " batch_id, cost_usd_micro, cost_stage, created_at)"
+                " VALUES (?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT(idempotency_key) DO NOTHING RETURNING *",
                 (
                     uuid.uuid4().hex,
@@ -120,6 +126,8 @@ def enqueue_many(conn: sqlite3.Connection, jobs: Sequence[NewJob]) -> list[tuple
                     new.idempotency_key,
                     new.episode_id,
                     new.batch_id,
+                    new.cost_usd_micro,
+                    new.cost_stage,
                     now_iso(),
                 ),
             )
@@ -287,6 +295,10 @@ def is_cancel_requested(conn: sqlite3.Connection, job_id: str) -> bool:
 
 def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
     return _one(conn, "SELECT * FROM jobs WHERE id = ?", (job_id,))
+
+
+def get_job_by_key(conn: sqlite3.Connection, idempotency_key: str) -> Job | None:
+    return _one(conn, "SELECT * FROM jobs WHERE idempotency_key = ?", (idempotency_key,))
 
 
 def list_jobs(

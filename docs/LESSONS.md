@@ -18,6 +18,25 @@
 
 ---
 
+## L-018 · M2.6 · 2026-09-25 · ошибки провайдеров
+**Симптом:** живая проверка: неверный ключ Gemini пришёл как `400 INVALID_ARGUMENT`, ключ ElevenLabs без права —
+как `401 missing_permissions`; по одному статусу текст ошибки врал («запрос отклонён», «ключ не принят»).
+**Причина:** провайдеры кодируют смысл в теле (`reason: API_KEY_INVALID`, `detail.status`), а не в HTTP-статусе.
+Вдобавок `anthropic` 1.x работает на `httpx2`, а не на `httpx`: `httpx.TransportError` в воркере его сетевые ошибки
+не ловит, а моки строятся на `httpx2.MockTransport`.
+**Правило:** провайдер переводит ошибку по телу ответа, а не только по статусу, и всегда через `status_error()`;
+сетевые исключения своего SDK сам превращает в `TransientError`; новый провайдер проверяется живым тестом до
+первого платного вызова.
+**Закреплено:** `providers/gemini.py::_status`, `providers/elevenlabs.py`, `tests/test_providers.py` (оба случая).
+
+## L-017 · M2.6 · 2026-09-25 · логи в тестах
+**Симптом:** `caplog.text` пуст, хотя предупреждение в логе точно пишется.
+**Причина:** `create_app` вызывает `configure_logging` → `dictConfig` пересобирает хендлеры корневого логгера и
+снимает хендлер caplog.
+**Правило:** логи проверяются до `create_app` — через `build_gateway` и другие части напрямую; либо `caplog` не
+использовать вместе с фабрикой приложения.
+**Закреплено:** `tests/test_cost.py::test_stale_pricing_warns_and_shows_in_summary`.
+
 ## L-016 · M2.5 · 2026-09-23 · SSE и uvicorn
 **Симптом:** при открытом `GET /api/events` uvicorn на SIGTERM пишет «Waiting for connections to close» и не выходит
 (проверено: > 10 с, дальше только kill -9); так же виснут Ctrl+C в `run.sh` и перезапуск по `--reload`.

@@ -34,7 +34,12 @@ class Settings(BaseSettings):
     job_retry_wait_s: float = Field(default=1.0, ge=0)  # база экспоненты: 1, 2, 4 … с
     sse_heartbeat_s: float = Field(default=15.0, gt=0)
 
-    # Ключи провайдеров — пустые по умолчанию, наличие проверяется в своём этапе (M2.6).
+    # Маршруты и цены провайдеров (M2.6, docs/providers.md); тесты подают свой каталог.
+    config_dir: Path = REPO_ROOT / "config"
+    # Цена, проверенная дольше этого срока назад, — предупреждение в логе и `stale_pricing`.
+    pricing_stale_days: int = Field(default=60, gt=0)
+
+    # Ключи провайдеров — пустые по умолчанию; без ключа проверка `-m live` — skip (M2.6).
     gemini_api_key: SecretStr = SecretStr("")
     elevenlabs_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
