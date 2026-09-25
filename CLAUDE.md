@@ -21,7 +21,7 @@
 | `design/handoff/stack.md` | UI-стек, мост токенов, порядок экранов | споры о стеке фронта |
 | `design/handoff/tokens.css` | единственный источник цветов и размеров; копия — `frontend/src/styles/tokens.css` | не читать — использовать утилиты из `theme.css` |
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
-| `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | появятся в M2 |
+| `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | этап с планом, импортом или project.json |
 | `docs/schema/*.schema.json` | JSON Schema моделей API — источник `frontend/src/types/`; генерируется, не править | не читать — типы в `frontend/src/types/` |
 | `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
@@ -152,8 +152,8 @@ data/             (gitignored)
 pnpm -C frontend dev | build | lint | test # vitest — с M1.1
 pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/handoff — M1.1
 pnpm -C frontend typegen | typegen:check  # Pydantic → docs/schema → src/types; check — типы не устарели
-pnpm -C frontend e2e                       # Playwright, скриншоты и WYSIWYG — появится в M1.6
-uv run pytest                              # бэкенд — появится в M2
+pnpm -C frontend e2e                       # Playwright: визуальные эталоны оболочки, позже WYSIWYG
+uv run pytest                              # бэкенд; сеть замокана
 uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip
 uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```
