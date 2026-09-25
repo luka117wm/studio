@@ -18,7 +18,8 @@ stages:
     catalog:
       sonnet-5: {provider: anthropic, model: claude-sonnet-5}
       opus-5: {provider: anthropic, model: claude-opus-5}
-    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5}
+      opus-5-5: {provider: anthropic, model: claude-opus-5-5}
+    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5-5}
 
   # Сценарий и director.json (M4).
   script:
@@ -26,7 +27,8 @@ stages:
     catalog:
       sonnet-5: {provider: anthropic, model: claude-sonnet-5}
       opus-5: {provider: anthropic, model: claude-opus-5}
-    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5}
+      opus-5-5: {provider: anthropic, model: claude-opus-5-5}
+    profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5-5}
 
   # Кадры (M6). `size` выбирает цену: 1K, 2K, 4K.
   images:

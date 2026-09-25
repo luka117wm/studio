@@ -22,6 +22,15 @@ anthropic:
       token_in: {usd: "5.00", per: 1000000}
       token_out: {usd: "25.00", per: 1000000}
       search: {usd: "10.00", per: 1000}
+  # Преемник Opus 5, дешевле. Мышление не отключается (только effort, по умолчанию medium) —
+  # учесть в модуле сценария (M4).
+  claude-opus-5-5:
+    checked_at: 2026-09-25
+    source: https://platform.claude.com/docs/en/about-claude/pricing
+    prices:
+      token_in: {usd: "4.00", per: 1000000}
+      token_out: {usd: "20.00", per: 1000000}
+      search: {usd: "10.00", per: 1000}
 
 gemini:
   gemini-3.1-flash-lite-image:

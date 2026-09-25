@@ -13,8 +13,8 @@
 
 | Этап | Вид запроса | Провайдер | economy | standard | premium |
 |---|---|---|---|---|---|
-| `research` | text (+ поиск) | anthropic | claude-sonnet-5 | claude-opus-5 | claude-opus-5 |
-| `script` | text | anthropic | claude-sonnet-5 | claude-opus-5 | claude-opus-5 |
+| `research` | text (+ поиск) | anthropic | claude-sonnet-5 | claude-opus-5 | claude-opus-5-5 |
+| `script` | text | anthropic | claude-sonnet-5 | claude-opus-5 | claude-opus-5-5 |
 | `images` | image | gemini | gemini-3.1-flash-lite-image 1K | gemini-3.1-flash-image 1K | gemini-3-pro-image 2K |
 | `voice` | speech | elevenlabs | eleven_flash_v2_5 | eleven_multilingual_v2 | eleven_v3 |
 | `animate` | video | gemini (Veo) | veo-3.1-lite 720p | veo-3.1-lite 720p | veo-3.1-fast 720p |
