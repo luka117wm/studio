@@ -1,0 +1,449 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/project",
+  "title": "project",
+  "description": "Модели API Studio, группа «project». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Asset": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "pattern": "^s\\d{3,}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Id"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "voice",
+            "animation",
+            "sfx",
+            "music",
+            "thumbnail",
+            "render"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "hash": {
+          "title": "Hash",
+          "type": "string"
+        },
+        "status": {
+          "default": "ok",
+          "enum": [
+            "ok",
+            "stale",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "shot_id",
+        "kind",
+        "version",
+        "path",
+        "hash",
+        "status"
+      ],
+      "title": "Asset",
+      "type": "object"
+    },
+    "DirectorVersionInfo": {
+      "additionalProperties": false,
+      "description": "Строка индекса версий плана: хэш для дедупа повторного импорта и итог мёрджа.",
+      "properties": {
+        "version": {
+          "pattern": "^v\\d{3}$",
+          "title": "Version",
+          "type": "string"
+        },
+        "hash": {
+          "title": "Hash",
+          "type": "string"
+        },
+        "imported_at": {
+          "title": "Imported At",
+          "type": "string"
+        },
+        "parts": {
+          "minimum": 1,
+          "title": "Parts",
+          "type": "integer"
+        },
+        "shots": {
+          "minimum": 0,
+          "title": "Shots",
+          "type": "integer"
+        },
+        "added": {
+          "minimum": 0,
+          "title": "Added",
+          "type": "integer"
+        },
+        "changed": {
+          "minimum": 0,
+          "title": "Changed",
+          "type": "integer"
+        },
+        "removed": {
+          "minimum": 0,
+          "title": "Removed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "hash",
+        "imported_at",
+        "parts",
+        "shots",
+        "added",
+        "changed",
+        "removed"
+      ],
+      "title": "DirectorVersionInfo",
+      "type": "object"
+    },
+    "ImportResult": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "created": {
+          "title": "Created",
+          "type": "boolean"
+        },
+        "added": {
+          "title": "Added",
+          "type": "integer"
+        },
+        "changed": {
+          "title": "Changed",
+          "type": "integer"
+        },
+        "removed": {
+          "title": "Removed",
+          "type": "integer"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/ShotChange"
+          },
+          "title": "Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "created",
+        "added",
+        "changed",
+        "removed",
+        "changes"
+      ],
+      "title": "ImportResult",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "studio.project/1",
+          "title": "Schema",
+          "type": "string"
+        },
+        "episode_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Episode Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "director_version": {
+          "anyOf": [
+            {
+              "pattern": "^v\\d{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Director Version"
+        },
+        "director_versions": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DirectorVersionInfo"
+          },
+          "default": {},
+          "title": "Director Versions",
+          "type": "object"
+        },
+        "shots": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ShotState"
+          },
+          "default": {},
+          "title": "Shots",
+          "type": "object"
+        },
+        "assets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Asset"
+          },
+          "default": {},
+          "title": "Assets",
+          "type": "object"
+        },
+        "timings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Timing"
+          },
+          "default": {},
+          "title": "Timings",
+          "type": "object"
+        },
+        "cost": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "default": {},
+          "title": "Cost",
+          "type": "object"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "episode_id",
+        "channel",
+        "director_version",
+        "director_versions",
+        "shots",
+        "assets",
+        "timings",
+        "cost",
+        "updated_at"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "ShotChange": {
+      "additionalProperties": false,
+      "description": "Строка таблицы расхождений (ConflictBar, экран 10).",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Section"
+        },
+        "kind": {
+          "enum": [
+            "added",
+            "changed",
+            "removed"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "change": {
+          "title": "Change",
+          "type": "string"
+        },
+        "fields": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "drawn_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drawn At"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price"
+        }
+      },
+      "required": [
+        "shot_id",
+        "section",
+        "kind",
+        "change",
+        "fields",
+        "stale",
+        "drawn_at",
+        "price"
+      ],
+      "title": "ShotChange",
+      "type": "object"
+    },
+    "ShotState": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "default": "todo",
+          "enum": [
+            "todo",
+            "queued",
+            "generating",
+            "done",
+            "failed",
+            "stale",
+            "removed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "duration_locked": {
+          "default": false,
+          "title": "Duration Locked",
+          "type": "boolean"
+        },
+        "prompt_locked": {
+          "default": false,
+          "title": "Prompt Locked",
+          "type": "boolean"
+        },
+        "user_override": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Override"
+        },
+        "stale_reasons": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Stale Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "duration_locked",
+        "prompt_locked",
+        "user_override",
+        "stale_reasons"
+      ],
+      "title": "ShotState",
+      "type": "object"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "properties": {
+        "shot_id": {
+          "pattern": "^s\\d{3,}$",
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0.0,
+          "title": "Start",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "source": {
+          "enum": [
+            "voice",
+            "locked",
+            "estimate"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_id",
+        "start",
+        "duration",
+        "source"
+      ],
+      "title": "Timing",
+      "type": "object"
+    }
+  }
+}

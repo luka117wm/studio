@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/job",
+  "title": "job",
+  "description": "Модели API Studio, группа «job». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Job": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "progress": {
+          "title": "Progress",
+          "type": "number"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Result"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "attempts": {
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "cancel_requested": {
+          "title": "Cancel Requested",
+          "type": "boolean"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Batch Id"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Idempotency Key"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "cost_usd_micro": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd Micro"
+        },
+        "cost_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Stage"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "progress",
+        "message",
+        "payload",
+        "result",
+        "error",
+        "attempts",
+        "cancel_requested",
+        "episode_id",
+        "batch_id",
+        "idempotency_key",
+        "created_at",
+        "started_at",
+        "finished_at",
+        "cost_usd_micro",
+        "cost_stage"
+      ],
+      "title": "Job",
+      "type": "object"
+    },
+    "JobCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Episode Id"
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Id"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "JobCreate",
+      "type": "object"
+    },
+    "JobEventData": {
+      "description": "`data` событий SSE `job.*` (`docs/jobs.md`): полное состояние, клиент заменяет его.",
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "progress": {
+          "title": "Progress",
+          "type": "number"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        },
+        "attempts": {
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "cancel_requested": {
+          "title": "Cancel Requested",
+          "type": "boolean"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Batch Id"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind",
+        "status",
+        "progress",
+        "message",
+        "attempts",
+        "cancel_requested",
+        "episode_id",
+        "batch_id",
+        "error"
+      ],
+      "title": "JobEventData",
+      "type": "object"
+    },
+    "JobList": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/Job"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "summary": {
+          "$ref": "#/$defs/JobSummary"
+        },
+        "last_event_id": {
+          "title": "Last Event Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "items",
+        "summary",
+        "last_event_id"
+      ],
+      "title": "JobList",
+      "type": "object"
+    },
+    "JobSummary": {
+      "description": "Счётчики по статусам — сводка пачки (`GET /api/jobs?batch=`).",
+      "properties": {
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "queued": {
+          "default": 0,
+          "title": "Queued",
+          "type": "integer"
+        },
+        "running": {
+          "default": 0,
+          "title": "Running",
+          "type": "integer"
+        },
+        "done": {
+          "default": 0,
+          "title": "Done",
+          "type": "integer"
+        },
+        "failed": {
+          "default": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "cancelled": {
+          "default": 0,
+          "title": "Cancelled",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "queued",
+        "running",
+        "done",
+        "failed",
+        "cancelled"
+      ],
+      "title": "JobSummary",
+      "type": "object"
+    }
+  }
+}

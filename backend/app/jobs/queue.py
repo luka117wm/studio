@@ -59,18 +59,33 @@ class Job(BaseModel):
 
     def event_data(self) -> dict[str, Any]:
         """Тело события SSE: состояние без payload и result — их отдаёт `GET /api/jobs/{id}`."""
-        return {
-            "job_id": self.id,
-            "kind": self.kind,
-            "status": self.status,
-            "progress": self.progress,
-            "message": self.message,
-            "attempts": self.attempts,
-            "cancel_requested": self.cancel_requested,
-            "episode_id": self.episode_id,
-            "batch_id": self.batch_id,
-            "error": self.error,
-        }
+        return JobEventData(
+            job_id=self.id,
+            kind=self.kind,
+            status=self.status,
+            progress=self.progress,
+            message=self.message,
+            attempts=self.attempts,
+            cancel_requested=self.cancel_requested,
+            episode_id=self.episode_id,
+            batch_id=self.batch_id,
+            error=self.error,
+        ).model_dump(mode="json")
+
+
+class JobEventData(BaseModel):
+    """`data` событий SSE `job.*` (`docs/jobs.md`): полное состояние, клиент заменяет его."""
+
+    job_id: str
+    kind: str
+    status: JobStatus
+    progress: float
+    message: str | None
+    attempts: int
+    cancel_requested: bool
+    episode_id: str | None
+    batch_id: str | None
+    error: str | None
 
 
 class JobSummary(BaseModel):

@@ -22,6 +22,7 @@
 | `design/handoff/tokens.css` | единственный источник цветов и размеров; копия — `frontend/src/styles/tokens.css` | не читать — использовать утилиты из `theme.css` |
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
 | `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | появятся в M2 |
+| `docs/schema/*.schema.json` | JSON Schema моделей API — источник `frontend/src/types/`; генерируется, не править | не читать — типы в `frontend/src/types/` |
 | `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
@@ -46,7 +47,7 @@ frontend/src/
   engine/         motion.ts, renderFrame.ts, subtitles.ts
   store/  api/    uiStore.ts; client.ts, sse.ts (с M2)
   styles/         tokens.css (копия, не править), theme.css (мост @theme), base.css
-  types/          сгенерировано — не править (до M2 — временные типы фикстур)
+  types/          сгенерировано `pnpm typegen` — не править; fixtures.ts — временные типы оболочки до M3
 backend/app/
   main.py  api/   роутеры
   models/         director.py, project.py, channel.py
@@ -150,7 +151,7 @@ data/             (gitignored)
 ./run.sh                                   # backend :8000 (WSL) + frontend :5173 с прокси /api
 pnpm -C frontend dev | build | lint | test # vitest — с M1.1
 pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/handoff — M1.1
-pnpm -C frontend typegen                   # Pydantic → JSON Schema → TS — появится в M2
+pnpm -C frontend typegen | typegen:check  # Pydantic → docs/schema → src/types; check — типы не устарели
 pnpm -C frontend e2e                       # Playwright, скриншоты и WYSIWYG — появится в M1.6
 uv run pytest                              # бэкенд — появится в M2
 uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip

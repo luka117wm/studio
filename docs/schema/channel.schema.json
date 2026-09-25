@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/channel",
+  "title": "channel",
+  "description": "Модели API Studio, группа «channel». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Budgets": {
+      "additionalProperties": false,
+      "description": "Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).",
+      "properties": {
+        "monthly_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Monthly Usd",
+          "type": "number"
+        },
+        "per_episode_usd": {
+          "exclusiveMinimum": 0,
+          "title": "Per Episode Usd",
+          "type": "number"
+        },
+        "animation_usd": {
+          "minimum": 0,
+          "title": "Animation Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "monthly_usd",
+        "per_episode_usd",
+        "animation_usd"
+      ],
+      "title": "Budgets",
+      "type": "object"
+    },
+    "ChannelProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "every_rank",
+            "host"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "budgets": {
+          "$ref": "#/$defs/Budgets"
+        },
+        "voice_quota": {
+          "$ref": "#/$defs/VoiceQuota"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "format",
+        "budgets",
+        "voice_quota"
+      ],
+      "title": "ChannelProfile",
+      "type": "object"
+    },
+    "VoiceQuota": {
+      "additionalProperties": false,
+      "properties": {
+        "limit_chars": {
+          "exclusiveMinimum": 0,
+          "title": "Limit Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "limit_chars"
+      ],
+      "title": "VoiceQuota",
+      "type": "object"
+    }
+  }
+}

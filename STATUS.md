@@ -371,24 +371,38 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
   бюджет оценками в очереди, отдельного эндпоинта пачки с общей суммой нет — M6. Claude Opus 5.5 ($4/$20) дешевле
   Opus 5 — добавить в каталог, если решите.
 
+### 16. M2.7 — Typegen и API-клиент фронта (2026-09-25, ветка `m2-backend`)
+
+- `tools/gen_schema.py` выгружает, кроме `docs/director.schema.json`, группы API в `docs/schema/{project,channel,
+  episode,job,cost}.schema.json`: ответы — генератором `ApiJsonSchema` (поля с умолчанием обязательны), тела запросов —
+  в режиме validation; `$id` на файл; `--stdout` — всё одним JSON без записи. `JobEventData` — Pydantic-модель
+  данных SSE (`jobs/queue.py`).
+- `frontend/scripts/typegen.mjs`: схемы из Python → json-schema-to-typescript по определению (заголовки полей
+  сняты, стиль репозитория) → `src/types/{director,project,channel,episode,job,cost}.ts` с шапкой и sha256 тела.
+  `pnpm typegen` пишет и удаляет устаревшие; `typegen:check` сверяет в памяти, без записи и без `git status`
+  (решение из плана: честно и на грязном дереве). `@/*` в `tsconfig.app.json`.
+- `src/api/client.ts` — `api.get/post/patch<T>`, таймаут 15 с, `ApiError {status, message, detail}`: текст из
+  `detail` / `detail.message` / 422 по полям / `detail.errors`, свой текст — только без ответа (status 0).
+  `src/api/sse.ts` — `subscribe(onEvent, {lastEventId, onState})`, переподключение закрытого потока 1…30 с с
+  `?last_event_id=`, дедуп по id, после отписки событий нет.
+- Приёмка: повторный `typegen` не меняет файлы; `typegen:check` падает на изменённой модели (поле в `Episode`,
+  проверено и откачено); ручная правка в `src/types/` валит `types.test.ts`; `tsc -b` и oxlint чисты; vitest 211,
+  e2e 44 (+22 пропуска по замыслу), эталоны не менялись; pytest 140.
+- Хвосты: тело `PATCH /api/projects` — `dict`, типа нет (M3 решит, нужен ли `ProjectPatch`); тело 409 бюджета
+  типизировано только в `ApiError.detail: unknown`. `fixtures.ts` и моки уходят в M3.
+
 ## Дальше
 
-Модуль **M2 — Бэкенд-фундамент** (`docs/tasks/M2.md`), ветка `m2-backend`. Следующий этап — **M2.7 Typegen и
-API-клиент фронта** → приёмка и тег `m2`, затем устав M3 отдельной сессией. В typegen попадут новые поля `Job`
-(`cost_usd_micro`, `cost_stage`) и ответы `/api/cost/*` (`docs/providers.md`). Перед M4 — сессия правок handoff
-(раздел M1.6 выше).
-
-До тега `m2`: поправить ключи Gemini и ElevenLabs, по возможности завести ключ Anthropic и прогнать
-`uv run pytest -m live -v -rP` (раздел M2.6 выше).
+Модуль **M2 — Бэкенд-фундамент** закрыт по этапам, ветка `m2-backend`. Дальше — приёмка модуля по уставу
+`docs/tasks/M2.md` и `git tag m2` после «ок» пользователя (живая проверка ключей M2.6 ждёт исправленных ключей:
+Gemini — новый ключ, ElevenLabs — право User → Read, Anthropic — завести). Затем устав M3 отдельной сессией по
+этому файлу. Перед M4 — сессия правок handoff (раздел M1.6 выше).
 
 Открытые хвосты разбора видео ElevenLabs (2026-09-23, `docs/api_keys.md`, «Анимация кадров»):
 - `backend/.env.example` и `Settings` держат `YOUTUBE_OAUTH_CLIENT_SECRET_*`, а `docs/api_keys.md` велит класть
   `client_secret.json` в `data/channels/<channel>/oauth/` — развести в M10;
 - M8: удалённый id генерации (Veo, ElevenLabs, Kling) сохранять до начала опроса, иначе после падения джоб заплатит
   второй раз (принципы 7, 8); выбор пути анимации — при составлении M8.
-
-Закрыты в M2.6: квота голоса берётся из `/v1/user/subscription`; выбор модели — каталог этапа + `override`, порядок
-модели голоса — `docs/providers.md`.
 
 ## Как смотреть прототипы
 

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/episode",
+  "title": "episode",
+  "description": "Модели API Studio, группа «episode». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Episode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "short_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Title"
+        },
+        "stage": {
+          "enum": [
+            "idea",
+            "script",
+            "generate",
+            "edit",
+            "export",
+            "publish"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "generating",
+            "warning",
+            "ready",
+            "failed",
+            "published"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "slot_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slot Date"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "title",
+        "short_title",
+        "stage",
+        "status",
+        "slot_date",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "Episode",
+      "type": "object"
+    },
+    "EpisodeCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "short_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Title"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "title"
+      ],
+      "title": "EpisodeCreate",
+      "type": "object"
+    }
+  }
+}
