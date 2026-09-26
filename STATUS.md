@@ -452,8 +452,13 @@ standard — одна строка в `providers.yaml`). У 5.5 мышление
 - Вне списка «Создать» (согласовано): `cost/ledger.py`, `jobs/queue.py` — по функции; `frontend/scripts/typegen.mjs`
   — починен баг M2.7: снимались поля с именем `title` (`Episode.title`, `Section.title`, `Source.title`, L-020),
   тест в `types.test.ts`.
-- Проверки: pytest 179, ruff, mypy, `typegen:check`, vitest 212, oxlint, `build` — зелёные. Тест гонки падает с
+- Проверки: pytest 184, ruff, mypy, `typegen:check`, vitest 212, oxlint, `build` — зелёные. Тест гонки падает с
   обычным `BEGIN` — проверено и откачено.
+- Живая проверка (uvicorn на временном `STUDIO_DATA_DIR`, рабочая `data/` не тронута): `c01`/`c02`/`o01`; 8
+  параллельных `POST` — 8 × 201, id без дублей; `PATCH` и отказы; импорт пиратского плана через API + живой
+  `sleep_job` + строки журнала → сводка 10/5/1/1/1, 204 слова, 81,6 с, $1,75, джоб с прогрессом, после отмены
+  `null`; порядок по слоту, фильтр канала; битый `project.json` — 200 и предупреждение в логе. Нашла: тексты 422
+  были английскими и двойными («Input should be None») — исправлено (`PydanticCustomError`, L-022).
 - Хвосты: колонка доски в `docs/episodes.md` — словами, сверить с артбордом 1 в M3.5; `ruff format --check .` ругается
   на код в `docs/jobs.md` (с M2.5, не правил).
 

@@ -259,6 +259,32 @@ def test_patch_rejects_bad_values(seeded: TestClient, body: dict[str, Any]) -> N
     assert seeded.get("/api/episodes/c01").json()["title"] == "Keep me"
 
 
+@pytest.mark.parametrize(
+    ("body", "text"),
+    [
+        ({"title": "   "}, "Название не может быть пустым"),
+        ({"title": None}, "Название не может быть пустым"),
+        ({"title": "x" * 201}, "Название длиннее 200 знаков"),
+        ({"short_title": "x" * 41}, "Короткое имя длиннее 40 знаков"),
+        ({"title": "New", "stage": "edit"}, "Поля stage через PATCH не меняются"),
+    ],
+)
+def test_errors_are_one_readable_message(
+    seeded: TestClient, body: dict[str, Any], text: str
+) -> None:
+    """Текст 422 увидит пользователь: одна ошибка на поле, по-русски, без «Value error» и без
+    «Input should be None» от второй ветки `str | None` (нашла живая проверка M3.1)."""
+    seeded.post("/api/episodes", json={"channel": "cursus"})
+    detail = seeded.patch("/api/episodes/c01", json=body).json()["detail"]
+    assert len(detail) == 1, detail
+    assert detail[0]["msg"].startswith(text)
+
+    create = seeded.post("/api/episodes", json={"channel": "cursus", "title": "   "}).json()
+    assert [e["msg"] for e in create["detail"]] == [
+        "Название не может быть пустым — введите текст."
+    ]
+
+
 @pytest.mark.parametrize("field", ["stage", "status", "channel", "id", "origin"])
 def test_patch_frozen_fields_are_422_with_reason(seeded: TestClient, field: str) -> None:
     seeded.post("/api/episodes", json={"channel": "cursus"})

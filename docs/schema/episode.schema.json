@@ -130,15 +130,12 @@
         },
         "title": {
           "default": "Новый выпуск",
-          "maxLength": 200,
-          "minLength": 1,
           "title": "Title",
           "type": "string"
         },
         "short_title": {
           "anyOf": [
             {
-              "maxLength": 40,
               "type": "string"
             },
             {
@@ -316,15 +313,12 @@
       "properties": {
         "title": {
           "default": null,
-          "maxLength": 200,
-          "minLength": 1,
           "title": "Title",
           "type": "string"
         },
         "short_title": {
           "anyOf": [
             {
-              "maxLength": 40,
               "type": "string"
             },
             {

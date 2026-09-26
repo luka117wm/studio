@@ -10,8 +10,9 @@ import sqlite3
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BeforeValidator, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
+from pydantic_core import PydanticCustomError
 
 from app.api.deps import DbDep, PathsDep
 from app.cost.ledger import spent_by_episode
@@ -48,16 +49,34 @@ FROZEN_FIELDS = ("id", "channel", "origin", "stage", "status")
 _ORDER = " ORDER BY slot_date IS NULL, slot_date, created_at, rowid"
 
 
-def _blank_to_none(value: object) -> object:
-    return (value.strip() or None) if isinstance(value, str) else value
+def _clean_title(value: str | None) -> str:
+    """Название после `strip`: непустое, до `TITLE_MAX` знаков; явный null — как пустое."""
+    title = (value or "").strip()
+    if not title:
+        raise PydanticCustomError("title_empty", "Название не может быть пустым — введите текст.")
+    if len(title) > TITLE_MAX:
+        raise PydanticCustomError(
+            "title_too_long", "Название длиннее {max} знаков — сократите его.", {"max": TITLE_MAX}
+        )
+    return title
 
 
-Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TITLE_MAX)]
-# Короткое имя для ячейки слота; пустая строка — то же, что null.
-ShortTitle = Annotated[
-    Annotated[str, StringConstraints(max_length=SHORT_TITLE_MAX)] | None,
-    BeforeValidator(_blank_to_none),
-]
+def _clean_short_title(value: str | None) -> str | None:
+    """Короткое имя для ячейки слота после `strip`; пустое — то же, что null (сброс)."""
+    short = (value or "").strip()
+    if len(short) > SHORT_TITLE_MAX:
+        raise PydanticCustomError(
+            "short_title_too_long",
+            "Короткое имя длиннее {max} знаков — сократите его.",
+            {"max": SHORT_TITLE_MAX},
+        )
+    return short or None
+
+
+# Проверка — одной функцией после разбора типа, с русским текстом. Ограничения на ветке
+# `str | None` дали бы по ошибке на каждую ветку объединения, в том числе «Input should be None».
+Title = Annotated[str, AfterValidator(_clean_title)]
+ShortTitle = Annotated[str | None, AfterValidator(_clean_short_title)]
 
 
 class EpisodeCreate(StrictModel):
@@ -72,8 +91,8 @@ class EpisodeCreate(StrictModel):
 class EpisodePatch(StrictModel):
     """Переименование. Поля нет в теле — не меняется; `short_title: null` — сбросить."""
 
-    # null отклоняется валидатором ниже, поэтому в схеме (и в TS) его нет.
-    title: Title | SkipJsonSchema[None] = None
+    # Явный null отклоняет `_clean_title`, поэтому в схеме (и в TS) его нет.
+    title: Annotated[str | SkipJsonSchema[None], AfterValidator(_clean_title)] = None
     short_title: ShortTitle = None
 
     @model_validator(mode="before")
@@ -81,17 +100,13 @@ class EpisodePatch(StrictModel):
     def _no_frozen_fields(cls, data: Any) -> Any:
         frozen = [key for key in FROZEN_FIELDS if isinstance(data, dict) and key in data]
         if frozen:
-            raise ValueError(
-                f"Поля {', '.join(frozen)} через PATCH не меняются — уберите их из запроса. "
-                "Id, канал и происхождение задаются при создании, стадию и статус меняет пайплайн."
+            raise PydanticCustomError(
+                "frozen_fields",
+                "Поля {fields} через PATCH не меняются — уберите их из запроса. Id, канал и "
+                "происхождение задаются при создании, стадию и статус меняет пайплайн.",
+                {"fields": ", ".join(frozen)},
             )
         return data
-
-    @model_validator(mode="after")
-    def _title_not_null(self) -> "EpisodePatch":
-        if "title" in self.model_fields_set and self.title is None:
-            raise ValueError("Название не может быть пустым — пришлите текст или уберите поле.")
-        return self
 
 
 class Episode(StrictModel):
