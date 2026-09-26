@@ -4,6 +4,7 @@
 файлов выпуска, журнала расходов и очереди, в БД не хранится. Контракт — `docs/episodes.md`.
 """
 
+import datetime as dt
 import logging
 import re
 import sqlite3
@@ -20,6 +21,7 @@ from app.jobs.queue import active_jobs
 from app.models.director import EPISODE_ID_PATTERN, Channel, Director, StrictModel
 from app.models.episode_summary import EpisodeSummary, current_jobs, summarize
 from app.models.project import Project, empty_project
+from app.slots import schedule
 from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
@@ -47,6 +49,21 @@ _START_STAGE: dict[EpisodeOrigin, EpisodeStage] = {
 # статус — дело пайплайна.
 FROZEN_FIELDS = ("id", "channel", "origin", "stage", "status")
 _ORDER = " ORDER BY slot_date IS NULL, slot_date, created_at, rowid"
+NEXT_FREE = "next_free"
+_MONTHS = (
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
 
 
 def _clean_title(value: str | None) -> str:
@@ -73,10 +90,25 @@ def _clean_short_title(value: str | None) -> str | None:
     return short or None
 
 
+def _clean_slot(value: str | None) -> str | None:
+    """`next_free`, дата `ГГГГ-ММ-ДД` (приводится к ISO) или null — без слота."""
+    if value is None or value == NEXT_FREE:
+        return value
+    try:
+        return dt.date.fromisoformat(value).isoformat()
+    except ValueError:
+        raise PydanticCustomError(
+            "slot_invalid",
+            "Слот «{value}» не понят: пришлите next_free, дату ГГГГ-ММ-ДД или null.",
+            {"value": value},
+        ) from None
+
+
 # Проверка — одной функцией после разбора типа, с русским текстом. Ограничения на ветке
 # `str | None` дали бы по ошибке на каждую ветку объединения, в том числе «Input should be None».
 Title = Annotated[str, AfterValidator(_clean_title)]
 ShortTitle = Annotated[str | None, AfterValidator(_clean_short_title)]
+SlotChoice = Annotated[str | None, AfterValidator(_clean_slot)]
 
 
 class EpisodeCreate(StrictModel):
@@ -86,6 +118,8 @@ class EpisodeCreate(StrictModel):
     title: Title = DEFAULT_TITLE
     short_title: ShortTitle = None
     origin: EpisodeOrigin = "blank"
+    # Слот публикации: ближайший свободный с сегодняшнего, конкретная дата или без слота.
+    slot: SlotChoice = NEXT_FREE
 
 
 class EpisodePatch(StrictModel):
@@ -138,6 +172,71 @@ def require_episode(db: sqlite3.Connection, episode_id: str) -> Episode:
     return episode
 
 
+# --- слоты -------------------------------------------------------------------------------------
+
+
+def human_date(day: dt.date) -> str:
+    """«23 сентября» — дата в тексте ошибки."""
+    return f"{day.day} {_MONTHS[day.month - 1]}"
+
+
+def load_schedule(paths: StudioPaths) -> tuple[schedule.Schedule, dt.date]:
+    """Расписание и «сегодня»; битый `schedule.json` — 500 с тем, что исправить."""
+    now = schedule.today()
+    try:
+        return schedule.load_schedule(paths, now), now
+    except schedule.ScheduleError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def require_free_slot(
+    db: sqlite3.Connection, sched: schedule.Schedule, day: dt.date, episode_id: str | None
+) -> None:
+    """Дата — из расписания (иначе 422 с ближайшими слотами) и не занята другим выпуском (409)."""
+    if not schedule.is_slot(sched, day):
+        nearest = schedule.nearest_slots(sched, day)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": f"{human_date(day)} — не день публикации. Ближайшие слоты: "
+                + ", ".join(human_date(d) for d in nearest)
+                + ".",
+                "nearest": [d.isoformat() for d in nearest],
+            },
+        )
+    row = db.execute(
+        "SELECT id, title FROM episodes WHERE slot_date = ?", (day.isoformat(),)
+    ).fetchone()
+    if row is not None and row["id"] != episode_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Слот {human_date(day)} занят выпуском «{row['title']}» ({row['id']}); снимите "
+            "его со слота или выберите другой.",
+        )
+
+
+def next_free_slot(db: sqlite3.Connection, sched: schedule.Schedule, now: dt.date) -> dt.date:
+    """Первый слот начиная с сегодняшнего, в котором нет выпуска."""
+    rows = db.execute(
+        "SELECT slot_date FROM episodes WHERE slot_date >= ?", (now.isoformat(),)
+    ).fetchall()
+    taken = {row["slot_date"] for row in rows}
+    day = schedule.slot_on_or_after(sched, now)
+    while day.isoformat() in taken:
+        day += dt.timedelta(days=sched.every_days)
+    return day
+
+
+def _choose_slot(db: sqlite3.Connection, paths: StudioPaths, choice: str | None) -> str | None:
+    if choice is None:
+        return None
+    sched, now = load_schedule(paths)
+    if choice == NEXT_FREE:
+        return next_free_slot(db, sched, now).isoformat()
+    require_free_slot(db, sched, dt.date.fromisoformat(choice), None)
+    return choice
+
+
 # --- создание ----------------------------------------------------------------------------------
 
 
@@ -173,8 +272,9 @@ def _require_free(
 
 
 def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCreate) -> str:
-    """Выбор id, дерево выпуска и строка в БД — одна транзакция `BEGIN IMMEDIATE`: второй
-    писатель (другое соединение или процесс) ждёт коммита первого и видит занятый номер."""
+    """Выбор id и слота, дерево выпуска и строка в БД — одна транзакция `BEGIN IMMEDIATE`:
+    второй писатель (другое соединение или процесс) ждёт коммита первого и видит занятые номер
+    и слот."""
     db.execute("BEGIN IMMEDIATE")
     try:
         if body.id is None:
@@ -182,6 +282,7 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
         else:
             episode_id = body.id
             _require_free(db, paths, body.channel, episode_id)
+        slot_date = _choose_slot(db, paths, body.slot)
 
         for directory in paths.episode_tree(body.channel, episode_id):
             directory.mkdir(parents=True, exist_ok=True)
@@ -192,8 +293,8 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
 
         now = now_iso()
         db.execute(
-            "INSERT INTO episodes (id, channel, title, short_title, origin, stage,"
-            " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO episodes (id, channel, title, short_title, origin, stage, slot_date,"
+            " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 episode_id,
                 body.channel,
@@ -201,6 +302,7 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
                 body.short_title,
                 body.origin,
                 _START_STAGE[body.origin],
+                slot_date,
                 now,
                 now,
             ),

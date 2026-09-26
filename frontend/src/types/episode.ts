@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/episode.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:d0b31aa7b597161416d739bccaa922b3c17bffc40dc4459cc3ddd734f82b3b98
+ * @generated sha256:3ef57334e814b7c9d61194718173635da8f3eea517816ba22123b612489ba565
  */
 export interface Episode {
   id: string
@@ -22,6 +22,7 @@ export interface EpisodeCreate {
   title?: string
   short_title?: string | null
   origin?: 'backlog' | 'reference' | 'blank'
+  slot?: string | null
 }
 
 /**

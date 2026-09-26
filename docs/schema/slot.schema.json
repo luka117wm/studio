@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/slot",
+  "title": "slot",
+  "description": "Модели API Studio, группа «slot». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Slot": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "weekday": {
+          "title": "Weekday",
+          "type": "integer"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "enum": [
+                "cursus",
+                "otto"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Channel"
+        },
+        "state": {
+          "enum": [
+            "published",
+            "missed",
+            "today",
+            "filled",
+            "empty"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "risk": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SlotRisk"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "date",
+        "weekday",
+        "episode_id",
+        "channel",
+        "state",
+        "risk"
+      ],
+      "title": "Slot",
+      "type": "object"
+    },
+    "SlotAssign": {
+      "additionalProperties": false,
+      "description": "Тело `PUT /api/episodes/{id}/slot`: дата слота или null — снять со слота.",
+      "properties": {
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Date"
+        }
+      },
+      "required": [
+        "date"
+      ],
+      "title": "SlotAssign",
+      "type": "object"
+    },
+    "SlotRisk": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "warning",
+            "failed"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "script_not_ready",
+            "shots_incomplete",
+            "shots_failed",
+            "not_exported"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "reason"
+      ],
+      "title": "SlotRisk",
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+# Пресеты формата выпуска (решение 5 устава M3): подпись в диалоге «Новый выпуск», смета выпуска,
+# позже — промпт сценария (M4). Меняется здесь, код не трогается; правила — docs/slots.md, раздел
+# «Пресеты формата». Проверка при старте: оба формата каналов, min ≤ target ≤ max, иначе бэкенд
+# не стартует. Цен здесь нет — только объёмы; цены — config/pricing.yaml.
+
+formats:
+  # Cursus: рассказчик во втором лице проходит все ранги.
+  every_rank:
+    label: every rank
+    hint: Рассказчик во втором лице
+    minutes: {min: 18, target: 20, max: 25}
+    sections: 8
+    shots: 100
+    words_per_minute: 150
+
+  # Otto's Timeline: ведущий-персонаж, сутки в одной эпохе.
+  host:
+    label: сутки в эпохе
+    hint: Отто в кадре
+    minutes: {min: 6, target: 7, max: 10}
+    sections: 5
+    shots: 40
+    words_per_minute: 150
+
+# Объём запросов сметы выпуска (GET /api/formats): слова VO = target × words_per_minute.
+estimate:
+  # Символов голоса на слово VO — с пробелом и пунктуацией.
+  voice_chars_per_word: 6
+  # Вход сценария: системный промпт, бриф, выжимка канона и источников.
+  script_input_tokens: 8000
+  # Выход сценария на слово VO: текст VO плюс промпты кадров, движение, звук и разметка director.json.
+  script_output_tokens_per_word: 6

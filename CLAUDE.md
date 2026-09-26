@@ -23,6 +23,7 @@
 | `design/Studio - *.dc.html` | артборды, только чтение | по указанию task-файла |
 | `docs/director_schema.md`, `docs/director.schema.json`, `docs/project_schema.md` | контракты director.json и project.json | этап с планом, импортом или project.json |
 | `docs/episodes.md` | выпуск: стадия, статус, происхождение, формат id, API и сводка карточки | этап с выпусками, доской или слотами |
+| `docs/slots.md`, `config/formats.yaml` | расписание и состояния слотов, назначение; пресеты формата и смета выпуска | этап со слотами, диалогом «Новый выпуск» или сметой |
 | `docs/schema/*.schema.json` | JSON Schema моделей API — источник `frontend/src/types/`; генерируется, не править | не читать — типы в `frontend/src/types/` |
 | `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |

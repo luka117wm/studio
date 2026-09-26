@@ -154,6 +154,18 @@
           ],
           "title": "Origin",
           "type": "string"
+        },
+        "slot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "next_free",
+          "title": "Slot"
         }
       },
       "required": [

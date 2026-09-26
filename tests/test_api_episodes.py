@@ -305,7 +305,7 @@ def test_patch_unknown_episode_is_404(seeded: TestClient) -> None:
 
 def test_list_orders_by_slot_then_created(seeded: TestClient, paths: StudioPaths) -> None:
     for channel in ("cursus", "otto", "cursus"):
-        seeded.post("/api/episodes", json={"channel": channel})
+        seeded.post("/api/episodes", json={"channel": channel, "slot": None})
     conn = connect(paths.db_path)
     try:
         conn.execute("UPDATE episodes SET slot_date = '2026-10-01' WHERE id = 'c02'")

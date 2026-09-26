@@ -14,6 +14,7 @@ from app.jobs.events import EventBus
 from app.jobs.handlers import builtin_handlers
 from app.jobs.worker import HandlerSpec, JobPool
 from app.log import configure_logging
+from app.models.formats import load_formats
 from app.providers.gateway import build_gateway
 from app.settings import Settings
 from app.storage.db import migrate
@@ -50,8 +51,10 @@ def create_app(
     app = FastAPI(title="Studio", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.paths = StudioPaths(settings.studio_data_dir)
-    # Ошибка config/providers.yaml или config/pricing.yaml — ConfigError: бэкенд не стартует.
+    # Ошибка config/providers.yaml, pricing.yaml или formats.yaml — ConfigError: бэкенд не стартует.
     app.state.gateway = build_gateway(settings, app.state.paths)
+    # Пресеты формата (`config/formats.yaml`) — тоже проверка при старте.
+    app.state.formats = load_formats(settings.config_dir / "formats.yaml")
     app.state.bus = EventBus()
     app.state.jobs = JobPool(
         app.state.paths.db_path,

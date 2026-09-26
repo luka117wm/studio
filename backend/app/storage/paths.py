@@ -39,6 +39,11 @@ class StudioPaths:
     def projects_root(self) -> Path:
         return self.root / "projects"
 
+    @property
+    def schedule_path(self) -> Path:
+        """Расписание публикаций, одно на оба канала (`docs/slots.md`)."""
+        return self.root / "schedule.json"
+
     # --- канал: data/channels/<channel>/{profile.json, oauth/, canon/} -------------------------
 
     def channel_dir(self, channel: str) -> Path:

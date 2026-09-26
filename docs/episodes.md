@@ -15,7 +15,7 @@
 | `origin` | `backlog \| reference \| blank` | откуда выпуск: из бэклога идей, по референсу, с нуля; задаётся при создании |
 | `stage` | `idea \| script \| generate \| edit \| export \| publish` | где выпуск в пайплайне (шесть этапов рельса) |
 | `status` | `queued \| generating \| warning \| ready \| failed \| published` | здоровье выпуска на его стадии |
-| `slot_date` | `YYYY-MM-DD` \| `null` | слот публикации; назначение — M3.2 |
+| `slot_date` | `YYYY-MM-DD` \| `null` | слот публикации; в слоте один выпуск (уникальный индекс); правила — `docs/slots.md` |
 | `created_at`, `updated_at` | ISO 8601 UTC, секунды | `updated_at` растёт при каждой правке |
 
 Ответы API — `EpisodeListItem` = `Episode` + `summary` (ниже): так отвечают список, `GET /api/episodes/{id}`,
@@ -72,8 +72,9 @@
 ### `POST /api/episodes` → 201 `EpisodeListItem`
 
 Тело `EpisodeCreate`: `channel` (обязательно), `id`, `title` (по умолчанию «Новый выпуск»), `short_title`,
-`origin` (по умолчанию `blank`). Ошибки: 404 — канала нет (`python -m app.tools.seed`), 409 — id или каталог
-заняты, 422 — поля.
+`origin` (по умолчанию `blank`), `slot` (по умолчанию `next_free` — ближайший свободный слот с сегодняшнего;
+дата `YYYY-MM-DD` или `null`, правила — `docs/slots.md`). Ошибки: 404 — канала нет (`python -m app.tools.seed`),
+409 — id, каталог или слот заняты, 422 — поля или дата не из расписания.
 
 ### `GET /api/episodes/{id}` → `EpisodeListItem`; 404 — выпуска нет.
 
@@ -83,7 +84,7 @@
 строка) — сброс. `updated_at` ставит сервер. Ошибки:
 - 422 — пустое название, `title: null`, длиннее лимита;
 - 422 с текстом «через PATCH не меняются» — `id`, `channel`, `origin`, `stage`, `status`;
-- 422 — любое другое лишнее поле (`slot_date` меняет M3.2 своим эндпоинтом);
+- 422 — любое другое лишнее поле (`slot_date` меняет `PUT /api/episodes/{id}/slot`, `docs/slots.md`);
 - 404 — выпуска нет.
 
 Текст 422 показывается пользователю: одна ошибка на поле в `detail[].msg`, по-русски, «что случилось и что сделать».
