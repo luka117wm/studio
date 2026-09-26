@@ -35,6 +35,15 @@
           "default": null,
           "title": "Short Title"
         },
+        "origin": {
+          "enum": [
+            "backlog",
+            "reference",
+            "blank"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
         "stage": {
           "enum": [
             "idea",
@@ -85,6 +94,7 @@
         "channel",
         "title",
         "short_title",
+        "origin",
         "stage",
         "status",
         "slot_date",
@@ -97,8 +107,109 @@
     "EpisodeCreate": {
       "additionalProperties": false,
       "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
         "id": {
-          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "title": {
+          "default": "Новый выпуск",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "short_title": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Title"
+        },
+        "origin": {
+          "default": "blank",
+          "enum": [
+            "backlog",
+            "reference",
+            "blank"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "title": "EpisodeCreate",
+      "type": "object"
+    },
+    "EpisodeJob": {
+      "additionalProperties": false,
+      "description": "Джоб, который сейчас занят выпуском.",
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "progress": {
+          "title": "Progress",
+          "type": "number"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Message"
+        }
+      },
+      "required": [
+        "kind",
+        "status",
+        "progress",
+        "message"
+      ],
+      "title": "EpisodeJob",
+      "type": "object"
+    },
+    "EpisodeListItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
           "title": "Id",
           "type": "string"
         },
@@ -111,7 +222,6 @@
           "type": "string"
         },
         "title": {
-          "minLength": 1,
           "title": "Title",
           "type": "string"
         },
@@ -126,14 +236,190 @@
           ],
           "default": null,
           "title": "Short Title"
+        },
+        "origin": {
+          "enum": [
+            "backlog",
+            "reference",
+            "blank"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "stage": {
+          "enum": [
+            "idea",
+            "script",
+            "generate",
+            "edit",
+            "export",
+            "publish"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "generating",
+            "warning",
+            "ready",
+            "failed",
+            "published"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "slot_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slot Date"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/EpisodeSummary"
         }
       },
       "required": [
         "id",
         "channel",
-        "title"
+        "title",
+        "short_title",
+        "origin",
+        "stage",
+        "status",
+        "slot_date",
+        "created_at",
+        "updated_at",
+        "summary"
       ],
-      "title": "EpisodeCreate",
+      "title": "EpisodeListItem",
+      "type": "object"
+    },
+    "EpisodePatch": {
+      "additionalProperties": false,
+      "description": "Переименование. Поля нет в теле — не меняется; `short_title: null` — сбросить.",
+      "properties": {
+        "title": {
+          "default": null,
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "short_title": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Short Title"
+        }
+      },
+      "title": "EpisodePatch",
+      "type": "object"
+    },
+    "EpisodeSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "shots_total": {
+          "title": "Shots Total",
+          "type": "integer"
+        },
+        "shots_done": {
+          "title": "Shots Done",
+          "type": "integer"
+        },
+        "shots_failed": {
+          "title": "Shots Failed",
+          "type": "integer"
+        },
+        "shots_stale": {
+          "title": "Shots Stale",
+          "type": "integer"
+        },
+        "shots_generating": {
+          "title": "Shots Generating",
+          "type": "integer"
+        },
+        "vo_words": {
+          "title": "Vo Words",
+          "type": "integer"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Duration S"
+        },
+        "duration_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "voice",
+                "estimate",
+                "target"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Duration Source"
+        },
+        "spent_usd_micro": {
+          "title": "Spent Usd Micro",
+          "type": "integer"
+        },
+        "job": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpisodeJob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "shots_total",
+        "shots_done",
+        "shots_failed",
+        "shots_stale",
+        "shots_generating",
+        "vo_words",
+        "duration_s",
+        "duration_source",
+        "spent_usd_micro",
+        "job"
+      ],
+      "title": "EpisodeSummary",
       "type": "object"
     }
   }

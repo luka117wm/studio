@@ -434,11 +434,34 @@ lucide-react, vitest, Playwright, oxlint. Папка прототипов пер
 standard — одна строка в `providers.yaml`). У 5.5 мышление не отключается — учесть в M4. Vitest однажды дал 2 падения, в 11 повторах (и под нагрузкой) не воспроизвелось; имена не
 сохранились — при повторе сохранить вывод.
 
+### 19. M3.1 — Бэкенд выпусков: создание, правка, сводка для карточки (2026-09-26, ветка `m3-episodes`)
+
+- Миграция `004_episodes.sql`: `episodes.origin` (`backlog | reference | blank`, по умолчанию `blank`), индекс
+  `episodes(channel, stage)`. Контракт выпуска — новый `docs/episodes.md` (строка в карте `CLAUDE.md`).
+- `POST /api/episodes` без `id` и `title`: id `c01`/`o01` — максимум среди `c\d+` по всей таблице (id глобален) плюс
+  один, номер с каталогом-сиротой пропускается; выбор и вставка — одна транзакция `BEGIN IMMEDIATE` (L-021).
+  Название — «Новый выпуск»; стадия: `backlog` → `idea`, остальные → `script`.
+- `PATCH /api/episodes/{id}`: `title` (1…200 после `strip`, `null` — 422), `short_title` (≤ 40, пустая строка и
+  `null` — сброс); `id/channel/origin/stage/status` — 422 «через PATCH не меняются».
+- Сводка — `models/episode_summary.py`, чистые `summarize` и `current_jobs`: кадры по статусам без `removed`, слова
+  VO, длительность `voice → estimate (150 слов/мин) → target`, расход `charged + estimated`, джоб (`running` важнее
+  `queued`). Список, `GET /{id}`, `POST`, `PATCH` отдают `EpisodeListItem`; журнал и джобы — запросом на список
+  (`ledger.spent_by_episode`, `queue.active_jobs`), битый `project.json` одного выпуска список не роняет.
+- Решения сверх задания: `EpisodeJob.status` (карточке надо отличать очередь от работы); `voice` только если у
+  каждого кадра тайминг `voice`/`locked`; все ответы выпуска — одна форма `EpisodeListItem`.
+- Вне списка «Создать» (согласовано): `cost/ledger.py`, `jobs/queue.py` — по функции; `frontend/scripts/typegen.mjs`
+  — починен баг M2.7: снимались поля с именем `title` (`Episode.title`, `Section.title`, `Source.title`, L-020),
+  тест в `types.test.ts`.
+- Проверки: pytest 179, ruff, mypy, `typegen:check`, vitest 212, oxlint, `build` — зелёные. Тест гонки падает с
+  обычным `BEGIN` — проверено и откачено.
+- Хвосты: колонка доски в `docs/episodes.md` — словами, сверить с артбордом 1 в M3.5; `ruff format --check .` ругается
+  на код в `docs/jobs.md` (с M2.5, не правил).
+
 ## Дальше
 
 Модуль **M3 — Выпуски и календарь слотов** составлен 2026-09-26: устав `docs/tasks/M3.md` (восемь решений модуля,
-приёмка) и этапы `M3.1`–`M3.7`. Следующий этап — **M3.1 Бэкенд выпусков** (`docs/tasks/M3.1.md`). Ветка `m3-episodes`
-от `main` после слияния PR #1 (пока открыт — от `m2-backend`).
+приёмка) и этапы `M3.1`–`M3.7`. M3.1 закрыт (раздел 19). Следующий этап — **M3.2 Слоты публикации и пресеты
+формата** (`docs/tasks/M3.2.md`). Ветка `m3-episodes`.
 
 Решения при составлении:
 - хвост `ProjectPatch` → M4: переименование живёт в `episodes`, а не в `project.json`;

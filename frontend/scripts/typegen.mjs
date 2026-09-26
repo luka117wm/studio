@@ -47,13 +47,20 @@ export function loadSchemas() {
 
 /** Заголовки `title` у полей pydantic ставит всем подряд; json-schema-to-typescript делает из них
  *  отдельные именованные типы (Status, Kind…), которые сталкиваются между моделями. Оставляем
- *  `title` только у определений — это имена типов. */
+ *  `title` только у определений — это имена типов. Ключи `properties` — имена полей, а не
+ *  заголовки: поле `title` (Episode.title, Section.title) остаётся на месте. */
 function stripFieldTitles(node) {
   if (Array.isArray(node)) return node.map(stripFieldTitles)
   if (node === null || typeof node !== 'object') return node
   const out = {}
   for (const [key, value] of Object.entries(node)) {
-    if (key !== 'title') out[key] = stripFieldTitles(value)
+    if (key === 'properties') {
+      out[key] = Object.fromEntries(
+        Object.entries(value).map(([name, field]) => [name, stripFieldTitles(field)]),
+      )
+    } else if (key !== 'title') {
+      out[key] = stripFieldTitles(value)
+    }
   }
   return out
 }

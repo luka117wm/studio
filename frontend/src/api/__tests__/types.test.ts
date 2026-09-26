@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, expectTypeOf, test } from 'vitest'
 import type { Director } from '@/types/director'
+import type { Episode, EpisodePatch } from '@/types/episode'
 import type { JobEventData } from '@/types/job'
 import {
   bodyHash,
@@ -49,5 +50,11 @@ describe('src/types', () => {
     expectTypeOf<JobEventData['status']>().toEqualTypeOf<
       'queued' | 'running' | 'done' | 'failed' | 'cancelled'
     >()
+  })
+
+  test('поле с именем title не теряется при снятии заголовков', () => {
+    expectTypeOf<Episode['title']>().toEqualTypeOf<string>()
+    expectTypeOf<EpisodePatch['title']>().toEqualTypeOf<string | undefined>()
+    expectTypeOf<Director['sections'][number]['title']>().toEqualTypeOf<string>()
   })
 })

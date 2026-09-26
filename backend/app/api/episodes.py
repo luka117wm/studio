@@ -1,29 +1,97 @@
-"""Выпуски: строка в `episodes` + дерево `data/projects/<channel>/<episode>/` с `project.json`."""
+"""Выпуски: строка в `episodes` + дерево `data/projects/<channel>/<episode>/` с `project.json`.
 
+Ответы несут сводку для карточки доски (`models/episode_summary.py`): она считается при чтении из
+файлов выпуска, журнала расходов и очереди, в БД не хранится. Контракт — `docs/episodes.md`.
+"""
+
+import logging
+import re
 import sqlite3
-from typing import Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import Field
+from pydantic import BeforeValidator, Field, StringConstraints, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from app.api.deps import DbDep, PathsDep
-from app.models.director import EPISODE_ID_PATTERN, Channel, StrictModel
-from app.models.project import empty_project
-from app.storage.atomic import write_json_atomic
+from app.cost.ledger import spent_by_episode
+from app.jobs.queue import active_jobs
+from app.models.director import EPISODE_ID_PATTERN, Channel, Director, StrictModel
+from app.models.episode_summary import EpisodeSummary, current_jobs, summarize
+from app.models.project import Project, empty_project
+from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import now_iso
+from app.storage.paths import StudioPaths
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["episodes"])
 
-# Этап доски и состояние — как в оболочке (`frontend/src/mocks/fixtures.ts`); уточняются в M3.
+# Где выпуск в пайплайне: те же шесть этапов, что на рельсе. Меняют действия пайплайна
+# («Утвердить план» → `generate` …); в M3 стадию ставит только создание выпуска.
 EpisodeStage = Literal["idea", "script", "generate", "edit", "export", "publish"]
+# Здоровье выпуска на его стадии. Колонку доски из стадии и статуса вычисляет фронт.
 EpisodeStatus = Literal["queued", "generating", "warning", "ready", "failed", "published"]
+# Откуда выпуск: из бэклога идей, по референсу, с нуля. Факт создания, не меняется.
+EpisodeOrigin = Literal["backlog", "reference", "blank"]
+
+DEFAULT_TITLE = "Новый выпуск"
+TITLE_MAX = 200
+SHORT_TITLE_MAX = 40
+_START_STAGE: dict[EpisodeOrigin, EpisodeStage] = {
+    "backlog": "idea",
+    "reference": "script",
+    "blank": "script",
+}
+# PATCH их не меняет: id и канал — имя каталога, происхождение — факт создания, стадия и
+# статус — дело пайплайна.
+FROZEN_FIELDS = ("id", "channel", "origin", "stage", "status")
+_ORDER = " ORDER BY slot_date IS NULL, slot_date, created_at, rowid"
+
+
+def _blank_to_none(value: object) -> object:
+    return (value.strip() or None) if isinstance(value, str) else value
+
+
+Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=TITLE_MAX)]
+# Короткое имя для ячейки слота; пустая строка — то же, что null.
+ShortTitle = Annotated[
+    Annotated[str, StringConstraints(max_length=SHORT_TITLE_MAX)] | None,
+    BeforeValidator(_blank_to_none),
+]
 
 
 class EpisodeCreate(StrictModel):
-    id: str = Field(pattern=EPISODE_ID_PATTERN)
     channel: Channel
-    title: str = Field(min_length=1)
-    short_title: str | None = None
+    # Без id сервер выдаёт следующий номер: `c01`, `o05`.
+    id: str | None = Field(default=None, pattern=EPISODE_ID_PATTERN)
+    title: Title = DEFAULT_TITLE
+    short_title: ShortTitle = None
+    origin: EpisodeOrigin = "blank"
+
+
+class EpisodePatch(StrictModel):
+    """Переименование. Поля нет в теле — не меняется; `short_title: null` — сбросить."""
+
+    # null отклоняется валидатором ниже, поэтому в схеме (и в TS) его нет.
+    title: Title | SkipJsonSchema[None] = None
+    short_title: ShortTitle = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_frozen_fields(cls, data: Any) -> Any:
+        frozen = [key for key in FROZEN_FIELDS if isinstance(data, dict) and key in data]
+        if frozen:
+            raise ValueError(
+                f"Поля {', '.join(frozen)} через PATCH не меняются — уберите их из запроса. "
+                "Id, канал и происхождение задаются при создании, стадию и статус меняет пайплайн."
+            )
+        return data
+
+    @model_validator(mode="after")
+    def _title_not_null(self) -> "EpisodePatch":
+        if "title" in self.model_fields_set and self.title is None:
+            raise ValueError("Название не может быть пустым — пришлите текст или уберите поле.")
+        return self
 
 
 class Episode(StrictModel):
@@ -31,11 +99,16 @@ class Episode(StrictModel):
     channel: Channel
     title: str
     short_title: str | None = None
+    origin: EpisodeOrigin
     stage: EpisodeStage
     status: EpisodeStatus
     slot_date: str | None = None
     created_at: str
     updated_at: str
+
+
+class EpisodeListItem(Episode):
+    summary: EpisodeSummary
 
 
 def find_episode(db: sqlite3.Connection, episode_id: str) -> Episode | None:
@@ -50,48 +123,165 @@ def require_episode(db: sqlite3.Connection, episode_id: str) -> Episode:
     return episode
 
 
-@router.get("/episodes")
-async def list_episodes(db: DbDep, channel: Channel | None = None) -> list[Episode]:
-    if channel is None:
-        rows = db.execute("SELECT * FROM episodes ORDER BY rowid").fetchall()
-    else:
-        rows = db.execute(
-            "SELECT * FROM episodes WHERE channel = ? ORDER BY rowid", (channel,)
-        ).fetchall()
-    return [Episode.model_validate(dict(row)) for row in rows]
+# --- создание ----------------------------------------------------------------------------------
 
 
-@router.post("/episodes", status_code=201)
-async def create_episode(body: EpisodeCreate, paths: PathsDep, db: DbDep) -> Episode:
-    if db.execute("SELECT 1 FROM channels WHERE id = ?", (body.channel,)).fetchone() is None:
+def next_episode_id(db: sqlite3.Connection, paths: StudioPaths, channel: Channel) -> str:
+    """`{инициал канала}{NN}`: наибольший номер среди id вида `c\\d+` плюс один. Id выпуска
+    глобален, поэтому номер ищется по всей таблице; номер, занятый каталогом без строки в БД
+    (след аварии), пропускается."""
+    prefix = channel[0]
+    numbered = re.compile(rf"{prefix}(\d+)")
+    rows = db.execute("SELECT id FROM episodes WHERE id LIKE ?", (f"{prefix}%",)).fetchall()
+    matches = [numbered.fullmatch(row["id"]) for row in rows]
+    number = max((int(m.group(1)) for m in matches if m), default=0) + 1
+    while paths.episode_dir(channel, f"{prefix}{number:02d}").exists():
+        number += 1
+    return f"{prefix}{number:02d}"
+
+
+def _require_free(
+    db: sqlite3.Connection, paths: StudioPaths, channel: Channel, episode_id: str
+) -> None:
+    if find_episode(db, episode_id) is not None:
         raise HTTPException(
-            status_code=404,
-            detail=f"Канал «{body.channel}» не найден. Создайте каналы: python -m app.tools.seed",
+            status_code=409,
+            detail=f"Выпуск «{episode_id}» уже существует. Выберите другой id или не указывайте "
+            "его — сервер выдаст следующий номер.",
         )
-    if find_episode(db, body.id) is not None:
-        raise HTTPException(status_code=409, detail=f"Выпуск «{body.id}» уже существует.")
-    episode_dir = paths.episode_dir(body.channel, body.id)
+    episode_dir = paths.episode_dir(channel, episode_id)
     if episode_dir.exists():
         raise HTTPException(
             status_code=409,
             detail=f"Каталог {episode_dir} уже есть на диске. Уберите его или выберите другой id.",
         )
 
-    for directory in paths.episode_tree(body.channel, body.id):
-        directory.mkdir(parents=True, exist_ok=True)
-    project = empty_project(body.channel, body.id)
-    write_json_atomic(paths.project_path(body.channel, body.id), project.model_dump(mode="json"))
 
-    now = now_iso()
-    db.execute(
-        "INSERT INTO episodes (id, channel, title, short_title, created_at, updated_at)"
-        " VALUES (?, ?, ?, ?, ?, ?)",
-        (body.id, body.channel, body.title, body.short_title, now, now),
-    )
-    db.commit()
-    return require_episode(db, body.id)
+def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCreate) -> str:
+    """Выбор id, дерево выпуска и строка в БД — одна транзакция `BEGIN IMMEDIATE`: второй
+    писатель (другое соединение или процесс) ждёт коммита первого и видит занятый номер."""
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        if body.id is None:
+            episode_id = next_episode_id(db, paths, body.channel)
+        else:
+            episode_id = body.id
+            _require_free(db, paths, body.channel, episode_id)
+
+        for directory in paths.episode_tree(body.channel, episode_id):
+            directory.mkdir(parents=True, exist_ok=True)
+        project = empty_project(body.channel, episode_id)
+        write_json_atomic(
+            paths.project_path(body.channel, episode_id), project.model_dump(mode="json")
+        )
+
+        now = now_iso()
+        db.execute(
+            "INSERT INTO episodes (id, channel, title, short_title, origin, stage,"
+            " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                episode_id,
+                body.channel,
+                body.title,
+                body.short_title,
+                body.origin,
+                _START_STAGE[body.origin],
+                now,
+                now,
+            ),
+        )
+        db.commit()
+    except BaseException:
+        db.rollback()
+        raise
+    return episode_id
+
+
+# --- сводка ------------------------------------------------------------------------------------
+
+
+def _load_sources(paths: StudioPaths, episode: Episode) -> tuple[Project | None, Director | None]:
+    """project.json и текущая версия плана. Битый или пропавший файл одного выпуска не роняет
+    доску: предупреждение в лог, сводка — без него."""
+    try:
+        project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    except (OSError, ValueError) as exc:
+        log.warning("episode %s: project.json unreadable: %s", episode.id, exc)
+        return None, None
+    if project.director_version is None:
+        return project, None
+    version = int(project.director_version[1:])
+    try:
+        path = paths.director_version_path(episode.channel, episode.id, version)
+        return project, Director.model_validate(read_json(path))
+    except (OSError, ValueError) as exc:
+        log.warning("episode %s: director %s unreadable: %s", episode.id, version, exc)
+        return project, None
+
+
+def with_summaries(
+    db: sqlite3.Connection,
+    paths: StudioPaths,
+    episodes: list[Episode],
+    episode_id: str | None = None,
+) -> list[EpisodeListItem]:
+    """Журнал и джобы — запросом на весь список (или на один выпуск), файлы — по разу на выпуск."""
+    spent = spent_by_episode(db, episode_id)
+    jobs = current_jobs(active_jobs(db, episode_id))
+    items: list[EpisodeListItem] = []
+    for episode in episodes:
+        project, director = _load_sources(paths, episode)
+        summary = summarize(project, director, spent.get(episode.id, 0), jobs.get(episode.id))
+        items.append(EpisodeListItem.model_validate({**episode.model_dump(), "summary": summary}))
+    return items
+
+
+def episode_item(db: sqlite3.Connection, paths: StudioPaths, episode_id: str) -> EpisodeListItem:
+    episode = require_episode(db, episode_id)
+    return with_summaries(db, paths, [episode], episode.id)[0]
+
+
+# --- роутер ------------------------------------------------------------------------------------
+
+
+@router.get("/episodes")
+async def list_episodes(
+    db: DbDep, paths: PathsDep, channel: Channel | None = None
+) -> list[EpisodeListItem]:
+    """Без `channel` — оба канала. Порядок: по дате слота, без слота — в конце по созданию."""
+    if channel is None:
+        rows = db.execute("SELECT * FROM episodes" + _ORDER).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT * FROM episodes WHERE channel = ?" + _ORDER, (channel,)
+        ).fetchall()
+    return with_summaries(db, paths, [Episode.model_validate(dict(row)) for row in rows])
+
+
+@router.post("/episodes", status_code=201)
+async def create_episode(body: EpisodeCreate, paths: PathsDep, db: DbDep) -> EpisodeListItem:
+    if db.execute("SELECT 1 FROM channels WHERE id = ?", (body.channel,)).fetchone() is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Канал «{body.channel}» не найден. Создайте каналы: python -m app.tools.seed",
+        )
+    episode_id = insert_episode(db, paths, body)
+    return episode_item(db, paths, episode_id)
 
 
 @router.get("/episodes/{episode_id}")
-async def get_episode(episode_id: str, db: DbDep) -> Episode:
-    return require_episode(db, episode_id)
+async def get_episode(episode_id: str, paths: PathsDep, db: DbDep) -> EpisodeListItem:
+    return episode_item(db, paths, episode_id)
+
+
+@router.patch("/episodes/{episode_id}")
+async def patch_episode(
+    episode_id: str, body: EpisodePatch, paths: PathsDep, db: DbDep
+) -> EpisodeListItem:
+    episode = require_episode(db, episode_id)
+    changes: dict[str, Any] = {field: getattr(body, field) for field in body.model_fields_set}
+    changes["updated_at"] = now_iso()
+    assignments = ", ".join(f"{column} = ?" for column in changes)
+    db.execute(f"UPDATE episodes SET {assignments} WHERE id = ?", (*changes.values(), episode.id))
+    db.commit()
+    return episode_item(db, paths, episode.id)
