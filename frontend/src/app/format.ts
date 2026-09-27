@@ -56,3 +56,10 @@ export function formatSlotDate(iso: string, options: { long?: boolean } = {}): s
   if (!day || !name) return iso
   return `${day} ${name}`
 }
+
+/** Время по часам машины: `2026-09-26T09:41:00+00:00` → «12:41» (МСК). Для «Сохранено ЧЧ:ММ». */
+export function formatClock(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}

@@ -31,6 +31,8 @@ export interface RequestOptions {
   /** Отмена вызывающим (TanStack Query): пробрасывается как AbortError, не как ApiError */
   signal?: AbortSignal
   timeoutMs?: number
+  /** Запрос переживает закрытие вкладки (запись автосохранения при уходе со страницы) */
+  keepalive?: boolean
 }
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT'
@@ -91,7 +93,7 @@ async function request<T>(
   body: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { query, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options
+  const { query, signal, timeoutMs = DEFAULT_TIMEOUT_MS, keepalive } = options
   const controller = new AbortController()
   let timedOut = false
   const timer = setTimeout(() => {
@@ -113,6 +115,7 @@ async function request<T>(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
+      keepalive,
     })
     payload = await readBody(response)
   } catch (error) {

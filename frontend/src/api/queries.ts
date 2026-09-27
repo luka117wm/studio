@@ -163,7 +163,9 @@ export function useCreateEpisode() {
 export function usePatchEpisode(id: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (body: EpisodePatch) => api.patch<EpisodeListItem>(`/episodes/${segment(id)}`, body),
+    // keepalive: запись автосохранения при закрытии вкладки долетает до бэкенда
+    mutationFn: (body: EpisodePatch) =>
+      api.patch<EpisodeListItem>(`/episodes/${segment(id)}`, body, { keepalive: true }),
     onSuccess: (episode) => storeEpisode(client, episode, false),
   })
 }
@@ -174,6 +176,17 @@ export function useSetSlot(id: string) {
     mutationFn: (body: SlotAssign) => api.put<EpisodeListItem>(`/episodes/${segment(id)}/slot`, body),
     onSuccess: (episode) => storeEpisode(client, episode, true),
   })
+}
+
+/** Название выпуска в кэше сразу, до ответа сервера: и сам выпуск, и его строка в списках. Идущие запросы этих
+ *  данных отменяются — иначе ответ, взятый до переименования, вернул бы старое название. */
+export function renameInCache(client: QueryClient, id: string, title: string): void {
+  void client.cancelQueries({ queryKey: qk.episode(id) })
+  void client.cancelQueries({ queryKey: qk.episodeLists })
+  client.setQueryData<EpisodeListItem>(qk.episode(id), (episode) => episode && { ...episode, title })
+  client.setQueriesData<EpisodeListItem[]>({ queryKey: qk.episodeLists }, (list) =>
+    list?.map((episode) => (episode.id === id ? { ...episode, title } : episode)),
+  )
 }
 
 // --- доступность бэкенда -----------------------------------------------------------------------

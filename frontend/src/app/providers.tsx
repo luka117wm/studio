@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { startLive } from '../api/live'
 import { createQueryClient } from '../api/queryClient'
 import { useUiStore } from '../store/uiStore'
+import { AutosaveGuard } from './AutosaveGuard'
 import { ToastStack } from '../ui'
 
 function LiveUpdates() {
@@ -25,6 +26,7 @@ export function Providers({ children, client }: { children: ReactNode; client?: 
   return (
     <QueryClientProvider client={own}>
       <LiveUpdates />
+      <AutosaveGuard />
       {children}
       <Toasts />
     </QueryClientProvider>
