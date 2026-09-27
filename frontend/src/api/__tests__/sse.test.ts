@@ -2,54 +2,8 @@
 // Подписка на /api/events на фейковом EventSource: разбор событий, курсор, переподключение, отписка.
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { JobEventData } from '@/types/job'
-import { RECONNECT_MIN_MS, subscribe, type JobEvent, type StreamState } from '../sse'
-
-type Listener = (event: MessageEvent<string>) => void
-
-class FakeEventSource {
-  static instances: FakeEventSource[] = []
-  readonly url: string
-  readyState = 0
-  onopen: ((event: Event) => void) | null = null
-  onerror: ((event: Event) => void) | null = null
-  private listeners = new Map<string, Listener[]>()
-
-  constructor(url: string) {
-    this.url = url
-    FakeEventSource.instances.push(this)
-  }
-
-  static last(): FakeEventSource {
-    const source = FakeEventSource.instances.at(-1)
-    if (!source) throw new Error('no EventSource')
-    return source
-  }
-
-  addEventListener(type: string, listener: Listener) {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener])
-  }
-
-  close() {
-    this.readyState = 2
-  }
-
-  open() {
-    this.readyState = 1
-    this.onopen?.(new Event('open'))
-  }
-
-  /** Обрыв: `closed` — EventSource сдался (бэкенд лежал при подключении), иначе браузер переподключается сам */
-  fail(closed: boolean) {
-    this.readyState = closed ? 2 : 0
-    this.onerror?.(new Event('error'))
-  }
-
-  emit(type: string, data: unknown, id?: number) {
-    const text = typeof data === 'string' ? data : JSON.stringify(data)
-    const event = new MessageEvent(type, { data: text, lastEventId: id === undefined ? '' : String(id) })
-    for (const listener of this.listeners.get(type) ?? []) listener(event)
-  }
-}
+import { RECONNECT_MIN_MS, SILENCE_LIMIT_MS, subscribe, type JobEvent, type StreamState } from '../sse'
+import { FakeEventSource } from './fakes'
 
 const job = (status: JobEventData['status'], progress = 0): JobEventData => ({
   job_id: 'j1',
@@ -145,6 +99,30 @@ describe('subscribe', () => {
     expect(FakeEventSource.instances).toHaveLength(1)
     expect(states).toEqual(['connecting', 'reconnecting'])
     stop()
+  })
+
+  test('поток молчит дольше лимита (прокси не передал обрыв) — переподключение с курсором', () => {
+    const states: StreamState[] = []
+    const stop = subscribe(() => {}, { lastEventId: 7, onState: (state) => states.push(state) })
+    const source = FakeEventSource.last()
+    source.open()
+    // heartbeat и события держат поток живым
+    vi.advanceTimersByTime(SILENCE_LIMIT_MS - 1_000)
+    source.emit('heartbeat', { ts: 'x' })
+    vi.advanceTimersByTime(SILENCE_LIMIT_MS - 1_000)
+    source.emit('job.progress', job('running', 0.5), 8)
+    vi.advanceTimersByTime(SILENCE_LIMIT_MS - 1_000)
+    expect(FakeEventSource.instances).toHaveLength(1)
+
+    vi.advanceTimersByTime(1_000) // тишина: ни heartbeat, ни событий
+    expect(source.readyState).toBe(2)
+    expect(states.at(-1)).toBe('reconnecting')
+    vi.advanceTimersByTime(RECONNECT_MIN_MS)
+    expect(FakeEventSource.instances).toHaveLength(2)
+    expect(FakeEventSource.last().url).toBe('/api/events?last_event_id=8')
+    stop()
+    vi.advanceTimersByTime(SILENCE_LIMIT_MS * 2)
+    expect(FakeEventSource.instances).toHaveLength(2) // после отписки сторож молчит
   })
 
   test('отписка закрывает поток и отменяет переподключение', () => {

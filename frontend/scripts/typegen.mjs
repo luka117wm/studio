@@ -1,5 +1,5 @@
 // Типы фронта из Pydantic: `app.tools.gen_schema` → JSON Schema → json-schema-to-typescript → src/types/*.ts.
-// Источник правды — модели бэкенда; `src/types/` руками не правится (кроме fixtures.ts до M3).
+// Источник правды — модели бэкенда; `src/types/` руками не правится.
 // Режимы: --write — записать схемы (docs/director.schema.json, docs/schema/) и типы (src/types/);
 //         --check — сгенерировать в памяти и упасть, если файлы на диске разошлись. Дерево не трогается,
 //         поэтому проверка честна и на незакоммиченном коде (приём tokens:check).
@@ -14,8 +14,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 export const REPO = resolve(here, '../..')
 export const TYPES_DIR = resolve(here, '../src/types')
 export const REGENERATE = 'pnpm -C frontend typegen'
-/** Файлы src/types, которые пишутся руками (временные типы оболочки, уходят в M3). */
-export const MANUAL = new Set(['fixtures.ts'])
 const HASH_MARK = '@generated sha256:'
 
 const COMPILE_OPTIONS = {
@@ -124,7 +122,7 @@ export async function generate(schemas = loadSchemas()) {
 function obsolete(files) {
   if (!existsSync(TYPES_DIR)) return []
   return readdirSync(TYPES_DIR)
-    .filter((name) => name.endsWith('.ts') && !MANUAL.has(name))
+    .filter((name) => name.endsWith('.ts'))
     .map((name) => join(TYPES_DIR, name))
     .filter((path) => !files.has(path) && parseGenerated(readFileSync(path, 'utf8')) !== null)
 }

@@ -3,7 +3,8 @@ import { Image, Palette } from 'lucide-react'
 import { useState } from 'react'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { channelById, estimates } from '../../mocks/fixtures'
+import { useChannelName } from '../../api/queries'
+import { estimates } from '../../mocks/placeholders'
 import { useUiStore } from '../../store/uiStore'
 import { EmptyState, SegmentedControl } from '../../ui'
 
@@ -12,13 +13,13 @@ type Layer = 'style' | 'periods' | 'characters'
 /* Экран 12: слои канона — переключатель в заголовке (артборд 12), слева панели нет,
    справа — опорные кадры стиля (320 по layout.md; в артборде 480 — см. docs/visual_review.md). */
 export function CanonScreen(_props: { params: RouteParams }) {
-  const channel = channelById(useUiStore((s) => s.channel))
+  const channelName = useChannelName(useUiStore((s) => s.channel))
   const [layer, setLayer] = useState<Layer>('style')
   return (
     <ScreenLayout
       header={{
         title: 'Канон',
-        note: `${channel.name} · уровень канала, не выпуска`,
+        note: `${channelName} · уровень канала, не выпуска`,
         actions: (
           <SegmentedControl
             ariaLabel="Слой канона"

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-// src/types/ — только генерация из Pydantic (`pnpm typegen`), кроме временного fixtures.ts:
+// src/types/ — только генерация из Pydantic (`pnpm typegen`):
 //  1. у каждого файла шапка typegen, и sha256 тела сходится с ней — ручную правку видно сразу;
 //  2. набор файлов совпадает со схемами в docs/ — ни лишних, ни пропавших.
 // Устаревание относительно моделей ловит `pnpm typegen:check` (нужен Python, поэтому не здесь).
@@ -11,7 +11,6 @@ import type { Episode, EpisodePatch } from '@/types/episode'
 import type { JobEventData } from '@/types/job'
 import {
   bodyHash,
-  MANUAL,
   parseGenerated,
   REPO,
   targetOf,
@@ -20,7 +19,7 @@ import {
 
 const typeFiles = () =>
   readdirSync(TYPES_DIR)
-    .filter((name) => name.endsWith('.ts') && !MANUAL.has(name))
+    .filter((name) => name.endsWith('.ts'))
     .map((name) => join(TYPES_DIR, name))
 
 const schemaSources = () => [

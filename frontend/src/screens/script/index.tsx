@@ -1,10 +1,11 @@
 /* Экран 3 «Сценарий и план»: лист 760 по центру + инспектор 320; на 2560 — колонка раскадровки 320. Содержимое — M4. */
 import { FileText, Image, LayoutGrid } from 'lucide-react'
 import { EpisodeScreen } from '../../app/EpisodeScreen'
+import { formatEpisodeDuration } from '../../app/format'
 import { PanelHeader } from '../../app/PanelHeader'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/fixtures'
+import { estimates } from '../../mocks/placeholders'
 import { EmptyState } from '../../ui'
 
 export function ScriptScreen({ params }: { params: RouteParams }) {
@@ -12,7 +13,7 @@ export function ScriptScreen({ params }: { params: RouteParams }) {
     <EpisodeScreen params={params}>
       {(episode) => (
         <ScreenLayout
-          header={{ title: 'Сценарий и план', note: `${episode.words.toLocaleString('ru-RU')} слов · ${episode.shots} кадра · ${episode.duration}` }}
+          header={{ title: 'Сценарий и план', note: `${episode.summary.vo_words.toLocaleString('ru-RU')} слов · ${episode.summary.shots_total} кадра · ${formatEpisodeDuration(episode.summary) ?? 'длина не задана'}` }}
           right={{
             title: 'Кадр',
             icon: Image,
@@ -26,7 +27,7 @@ export function ScriptScreen({ params }: { params: RouteParams }) {
               <EmptyState
                 icon={FileText}
                 title="Сценария пока нет"
-                description={`Три режима: свой текст, структура референса, генерация из идеи. Целевая длина — ${episode.duration}.`}
+                description={`Три режима: свой текст, структура референса, генерация из идеи. Целевая длина — ${formatEpisodeDuration(episode.summary) ?? 'не задана'}.`}
                 primary={{ label: 'Написать сценарий', price: estimates.scriptUsd, onClick: () => {} }}
                 secondary={{ label: 'Вставить свой', onClick: () => {} }}
               />

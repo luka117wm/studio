@@ -1,14 +1,15 @@
 /* Рельс этапов 56px: шесть этапов открытого выпуска. Все кликабельны; недоступные — для просмотра.
-   todo — иконка text-disabled и полый маркер · active — заливка accent · done — сплошной маркер · error — квадрат failed. */
+   Состояние этапа — из стадии и статуса выпуска (`stageStates`); заливка accent — у этапа открытого экрана.
+   todo — иконка text-disabled и полый маркер, done — сплошной маркер, error — квадрат failed. */
 import { Clapperboard, FileText, Lightbulb, Sparkles, Upload, Play } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useEpisode } from '../api/queries'
 import { useUiStore } from '../store/uiStore'
 import { cn } from '../ui'
-import { episodeById } from '../mocks/fixtures'
-import type { StageId, StageState } from '../types/fixtures'
 import { Link } from './Link'
 import { navigate, useRoute } from './navigation'
-import { paths } from './routes'
+import { paths, type StageId } from './routes'
+import { stageStates, type StageState } from './stages'
 import { useHotkeySet } from './useHotkey'
 
 const STAGES: { id: StageId; label: string; icon: LucideIcon }[] = [
@@ -29,7 +30,7 @@ const STATE_LABEL: Record<StageState, string> = {
 
 export function StageRail() {
   const episodeId = useUiStore((s) => s.episodeId)
-  const episode = episodeById(episodeId)
+  const episode = useEpisode(episodeId).data
   const route = useRoute()
   // ⌘1…⌘6 — переход по этапам открытого выпуска (layout.md); рельс смонтирован только при открытом выпуске
   useHotkeySet(
@@ -47,11 +48,12 @@ export function StageRail() {
   )
   if (!episode) return null
   const current = route?.route.stage ?? null
+  const states = stageStates(episode)
 
   return (
     <nav aria-label="Этапы выпуска" className="flex w-shell-stage-rail shrink-0 flex-col items-center gap-1 border-r border-line bg-panel py-2">
       {STAGES.map(({ id, label, icon: Icon }) => {
-        const state = episode.stages[id]
+        const state = states[id]
         const active = id === current
         return (
           <Link

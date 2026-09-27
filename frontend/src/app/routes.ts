@@ -1,6 +1,9 @@
 /* Таблица маршрутов: экран → шаблон пути → заголовок вкладки → этап рельса.
    Экраны 1–10 и 12 артбордов; артборд 11 («Прототип и передача») — служебный, маршрута нет. */
-import type { StageId } from '../types/fixtures'
+import type { Episode } from '@/types/episode'
+
+/** Этап рельса = стадия выпуска */
+export type StageId = Episode['stage']
 
 export type ScreenId =
   | 'episodes'

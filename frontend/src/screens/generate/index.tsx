@@ -4,7 +4,7 @@ import { EpisodeScreen } from '../../app/EpisodeScreen'
 import { navigate } from '../../app/navigation'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import { paths, type RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/fixtures'
+import { estimates } from '../../mocks/placeholders'
 import { EmptyState } from '../../ui'
 
 export function GenerateScreen({ params }: { params: RouteParams }) {
@@ -12,7 +12,7 @@ export function GenerateScreen({ params }: { params: RouteParams }) {
     <EpisodeScreen params={params}>
       {(episode) => (
         <ScreenLayout
-          header={{ title: 'Генерация', note: `${episode.shots} кадров · ${episode.period?.label ?? 'период не выбран'}` }}
+          header={{ title: 'Генерация', note: `${episode.summary.shots_total} кадров · период не выбран` }}
           strip={{
             title: 'Очереди генерации',
             children: (
@@ -25,7 +25,6 @@ export function GenerateScreen({ params }: { params: RouteParams }) {
           left={{
             kind: 'library',
             title: 'Канон',
-            note: episode.period?.label,
             icon: Palette,
             collapsible: true,
             children: (
@@ -49,7 +48,7 @@ export function GenerateScreen({ params }: { params: RouteParams }) {
               icon={Sparkles}
               title="Кадры не сгенерированы"
               description="Пакетная генерация запускается только после утверждения плана. Один кадр не удался — пачка продолжается."
-              primary={{ label: `Сгенерировать ${episode.shots} кадра`, price: estimates.shotsUsd, onClick: () => {} }}
+              primary={{ label: `Сгенерировать ${episode.summary.shots_total} кадра`, price: estimates.shotsUsd, onClick: () => {} }}
               hint={`Бюджет выпуска учитывается до постановки в очередь`}
             />
           </div>

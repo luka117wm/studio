@@ -2,7 +2,6 @@
 export declare const REPO: string
 export declare const TYPES_DIR: string
 export declare const REGENERATE: string
-export declare const MANUAL: Set<string>
 export declare function targetOf(source: string): string
 export declare function loadSchemas(): Record<string, string>
 export declare function bodyHash(body: string): string

@@ -1,9 +1,10 @@
 /* Экран 8 «Публикация»: метаданные 380 + обложка и загрузка. Содержимое — M10. */
 import { FileText, Image, Upload } from 'lucide-react'
 import { EpisodeScreen } from '../../app/EpisodeScreen'
+import { formatSlotDate } from '../../app/format'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/fixtures'
+import { estimates } from '../../mocks/placeholders'
 import { EmptyState } from '../../ui'
 
 export function PublishScreen({ params }: { params: RouteParams }) {
@@ -11,7 +12,7 @@ export function PublishScreen({ params }: { params: RouteParams }) {
     <EpisodeScreen params={params}>
       {(episode) => (
         <ScreenLayout
-          header={{ title: 'Публикация', note: episode.slot ? `слот ${episode.slot}` : 'слот не назначен' }}
+          header={{ title: 'Публикация', note: episode.slot_date ? `слот ${formatSlotDate(episode.slot_date)}` : 'слот не назначен' }}
           left={{
             kind: 'metadata',
             title: 'Метаданные',

@@ -1,20 +1,17 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, cleanup, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { useUiStore } from '../../store/uiStore'
-import { AppShell } from '../AppShell'
 import { formatKeys, isEditable, matches, parseCombo, register, resetRegistry, setPlatform } from '../keyboard'
-import { Providers } from '../providers'
+import { renderApp } from './harness'
 
 const INITIAL = { channel: 'cursus' as const, episodeId: null, collapsed: { left: false, right: false }, toasts: [], helpOpen: false }
 
-function renderAt(path: string) {
-  window.history.replaceState(null, '', path)
-  return render(
-    <Providers>
-      <AppShell />
-    </Providers>,
-  )
+/** Оболочка на моках API; экран выпуска ждёт загрузки выпуска — до неё нет рельса и сочетаний этапов */
+async function renderAt(path: string) {
+  const result = renderApp(path)
+  if (/^\/episodes\/[^/]+\//.test(path)) await screen.findByRole('navigation', { name: 'Этапы выпуска' })
+  return result
 }
 
 const key = (init: KeyboardEventInit) => new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
@@ -24,7 +21,11 @@ beforeEach(() => {
   resetRegistry()
   setPlatform('other')
 })
-afterEach(() => resetRegistry())
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  resetRegistry()
+})
 
 describe('реестр', () => {
   test('Mod — Ctrl на Windows и ⌘ на Mac, цифры по code, «?» по key', () => {
@@ -75,7 +76,7 @@ describe('реестр', () => {
 
 describe('оболочка', () => {
   test('«?» открывает помощь, список — из реестра, «?» и Esc закрывают с возвратом фокуса', async () => {
-    renderAt('/episodes/pirate/edit')
+    await renderAt('/episodes/pirate/edit')
     const unregister = register({
       id: 'test-only',
       keys: 'Mod+E',
@@ -106,7 +107,7 @@ describe('оболочка', () => {
   })
 
   test('в открытом диалоге глобальные сочетания не срабатывают', async () => {
-    renderAt('/episodes/pirate/edit')
+    await renderAt('/episodes/pirate/edit')
     act(() => useUiStore.getState().setHelpOpen(true))
     expect(screen.getByRole('dialog')).toBeTruthy()
     await userEvent.keyboard('{Control>}1{/Control}')
@@ -116,7 +117,7 @@ describe('оболочка', () => {
   })
 
   test('в текстовом поле «?» игнорируется', async () => {
-    renderAt('/episodes')
+    await renderAt('/episodes')
     const search = screen.getByRole('searchbox', { name: 'Поиск по выпускам' })
     await userEvent.type(search, 'a?')
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -124,13 +125,13 @@ describe('оболочка', () => {
   })
 
   test('⌘1…⌘6 переводят по этапам при открытом выпуске и молчат без него', async () => {
-    renderAt('/episodes')
+    await renderAt('/episodes')
     await userEvent.keyboard('{Control>}2{/Control}')
     expect(window.location.pathname).toBe('/episodes')
 
     act(() => window.history.pushState(null, '', '/episodes/pirate/edit'))
     act(() => window.dispatchEvent(new PopStateEvent('popstate')))
-    expect(screen.getByRole('navigation', { name: 'Этапы выпуска' })).toBeTruthy()
+    expect(await screen.findByRole('navigation', { name: 'Этапы выпуска' })).toBeTruthy()
     await userEvent.keyboard('{Control>}2{/Control}')
     expect(window.location.pathname).toBe('/episodes/pirate/script')
     await userEvent.keyboard('{Control>}6{/Control}')
@@ -140,13 +141,13 @@ describe('оболочка', () => {
   })
 
   test('⌥3 сворачивает инспектор на монтаже и ничего не делает на «Выпусках»', async () => {
-    const { unmount } = renderAt('/episodes')
+    const { unmount } = await renderAt('/episodes')
     await userEvent.keyboard('{Alt>}3{/Alt}')
     expect(useUiStore.getState().collapsed.right).toBe(false)
     unmount()
     resetRegistry()
 
-    renderAt('/episodes/pirate/edit')
+    await renderAt('/episodes/pirate/edit')
     await userEvent.keyboard('{Alt>}3{/Alt}')
     expect(useUiStore.getState().collapsed.right).toBe(true)
     expect(screen.getByRole('complementary', { name: 'Инспектор' }).getAttribute('data-collapsed')).toBe('true')
@@ -158,7 +159,7 @@ describe('оболочка', () => {
   })
 
   test('skip-link первым в обходе и фокусирует рабочую область', async () => {
-    renderAt('/episodes/pirate/edit')
+    await renderAt('/episodes/pirate/edit')
     await userEvent.tab()
     const skip = screen.getByRole('link', { name: 'Перейти к рабочей области' })
     expect(document.activeElement).toBe(skip)
@@ -167,7 +168,7 @@ describe('оболочка', () => {
   })
 
   test('Tab обходит зоны в визуальном порядке', async () => {
-    renderAt('/episodes/pirate/edit')
+    await renderAt('/episodes/pirate/edit')
     const zoneOf = (el: Element | null): string => {
       if (!el) return 'none'
       if (el.closest('a[href="#main"]')) return 'skip'
