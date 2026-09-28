@@ -1,45 +1,60 @@
-/* Экран 1 «Выпуски»: заголовок 52 с поиском и фильтром, полоса слотов, доска по стадиям.
-   До доски (M3.5) и полосы слотов (M3.6) — данные API простым списком: пусто → пустое состояние. */
-import { Film, Search } from 'lucide-react'
+/* Экран 1 «Выпуски»: заголовок 52 со счётчиком, поиском и фильтром канала, полоса слотов, доска по стадиям.
+   Список берётся по обоим каналам: фильтр канала (= `uiStore.channel`) и поиск режут его здесь, а счётчик считает
+   видимые из всех — «3 из 9», как в артборде. Полоса слотов и диалог «Новый выпуск» — M3.6. */
+import { Film, Plus, Search, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
 import { QueryError } from '../../app/BackendState'
-import { useEpisodes, useSlots } from '../../api/queries'
+import { useSwitchChannel } from '../../app/useChannel'
+import { useEpisodes, useSlots, type ChannelScope } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
-import { EmptyState, Input, SegmentedControl, Skeleton } from '../../ui'
-
-type Filter = 'all' | 'active' | 'ready'
+import { Button, EmptyState, Input, SegmentedControl, Tooltip } from '../../ui'
+import { Board } from './Board'
+import { countLabel, matchesQuery } from './board'
 
 export function EpisodesScreen(_props: { params: RouteParams }) {
   const channel = useUiStore((s) => s.channel)
+  const switchChannel = useSwitchChannel()
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
-  const episodes = useEpisodes(channel)
+  const episodes = useEpisodes('all')
   const slots = useSlots()
   const free = slots.data?.filter((s) => s.state === 'empty').length ?? 0
+
+  const all = episodes.data ?? null
+  const inChannel = all?.filter((e) => channel === 'all' || e.channel === channel) ?? null
+  const visible = inChannel?.filter((e) => matchesQuery(e, query)) ?? null
+  const empty = inChannel !== null && inChannel.length === 0
 
   return (
     <ScreenLayout
       header={{
         title: 'Выпуски',
-        note: episodes.data ? `${episodes.data.length} в ${channel === 'all' ? 'обоих каналах' : 'канале'}` : undefined,
+        note: all && visible ? countLabel(visible.length, all) : undefined,
         actions: (
           <>
             <span className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-2 size-icon -translate-y-1/2 text-muted" strokeWidth={1.5} aria-hidden />
               <Input value={query} onChange={setQuery} placeholder="Поиск по выпускам" ariaLabel="Поиск по выпускам" type="search" className="w-57 [&_input]:pl-7" />
             </span>
-            <SegmentedControl
-              ariaLabel="Фильтр выпусков"
-              value={filter}
-              onChange={setFilter}
+            <SegmentedControl<ChannelScope>
+              ariaLabel="Фильтр канала"
+              value={channel}
+              onChange={switchChannel}
               options={[
                 { value: 'all', label: 'Все' },
-                { value: 'active', label: 'В работе' },
-                { value: 'ready', label: 'Готовые' },
+                { value: 'cursus', label: 'Cursus' },
+                { value: 'otto', label: 'Otto' },
               ]}
             />
+            {/* Пустая доска несёт свою primary — на экране она одна (design/CLAUDE.md) */}
+            {!empty && (
+              <Tooltip content="Диалог нового выпуска ещё не подключён">
+                <Button variant="primary" icon={Plus} disabled>
+                  Новый выпуск
+                </Button>
+              </Tooltip>
+            )}
           </>
         ),
       }}
@@ -55,12 +70,10 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
           )}
         </div>
       </section>
-      <section aria-label="Доска выпусков" className="flex min-h-0 flex-1 flex-col px-4 pb-3">
+      <section aria-label="Доска выпусков" className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-3">
         {episodes.error ? (
           <QueryError error={episodes.error} />
-        ) : !episodes.data ? (
-          <Skeleton variant="text" lines={4} className="w-110" />
-        ) : episodes.data.length === 0 ? (
+        ) : empty ? (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
               icon={Film}
@@ -69,14 +82,17 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
               primary={{ label: 'Новый выпуск', onClick: () => {} }}
             />
           </div>
+        ) : visible !== null && visible.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center">
+            <EmptyState
+              icon={SearchX}
+              title={`Ничего не найдено по «${query.trim()}»`}
+              description="Поиск идёт по названию и короткому имени выпуска."
+              secondary={{ label: 'Сбросить поиск', onClick: () => setQuery('') }}
+            />
+          </div>
         ) : (
-          <ul className="flex flex-col">
-            {episodes.data.map((episode) => (
-              <li key={episode.id} className="flex h-8 items-center border-b border-row-border text-13 text-ink">
-                {episode.title}
-              </li>
-            ))}
-          </ul>
+          <Board episodes={visible} />
         )}
       </section>
     </ScreenLayout>

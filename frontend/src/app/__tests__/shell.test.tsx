@@ -182,7 +182,7 @@ describe('живые обновления', () => {
     await waitFor(() => expect(status.textContent).toContain('Готово'))
     await waitFor(() => {
       const urls = stub.fetch.mock.calls.slice(before).map(([url]) => String(url))
-      expect(urls).toEqual(expect.arrayContaining(['/api/episodes?channel=cursus', '/api/slots']))
+      expect(urls).toEqual(expect.arrayContaining(['/api/episodes', '/api/slots']))
     })
   })
 

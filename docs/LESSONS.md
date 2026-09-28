@@ -18,6 +18,17 @@
 
 ---
 
+## L-025 · M3.5 · 2026-09-28 · тесты текстов и ролей
+**Симптом:** `findByText('Сценарий 2\u00a0140 / ~3\u00a0000 слов')` не находит строку, которая видна в выводе DOM.
+Отдельно: тест доски падал в двух полных прогонах из пяти — `findByRole` не дождался карточки за 1 с; в одиночку
+файл зелёный.
+**Причина:** Testing Library нормализует текст узла (`\s+` → пробел, неразрывный тоже), а строку запроса — нет.
+Ролевой запрос с `name` по полному DOM оболочки при параллельных воркерах vitest занимает сотни миллисекунд.
+**Правило:** в запросах Testing Library — обычные пробелы, `\u00a0` — только в сравнении значений (`toEqual`
+результата функции). Ожидание первого рендера экрана в оболочке — с явным `timeout` (2–3 с), флак проверяется
+несколькими полными прогонами, а не одним файлом.
+**Закреплено:** `screens/episodes/__tests__/episodes.test.tsx` (`card`), `board.test.ts` (`formatCount`).
+
 ## L-024 · M3.3 · 2026-09-26 · тесты с кэшем запросов
 **Симптом:** после `act(() => source.emit(...))` статус-строка ещё старая; после теста — необработанные
 `ReferenceError: EventSource is not defined`.
@@ -70,17 +81,6 @@ json-schema-to-typescript молча пропускает поле из `require
 только «файлы не устарели», но и типовым тестом на поле-ловушку.
 **Закреплено:** `frontend/scripts/typegen.mjs::stripFieldTitles`, `src/api/__tests__/types.test.ts` (`tsc -b` в сборке).
 
-## L-019 · M2.7 · 2026-09-25 · typegen
-**Симптом:** в первых сгенерированных типах поля ответа со значением по умолчанию вышли необязательными
-(`cost_usd_micro?`, `JobSummary.total?`), хотя сервер отдаёт их всегда; `title` каждого поля json-schema-to-typescript
-превращал в отдельный именованный тип (`Status`, `Kind`…), и они сталкивались между моделями.
-**Причина:** pydantic в режиме serialization делает поле с умолчанием обязательным только с флагом
-`json_schema_serialization_defaults_required`; json-schema-to-typescript делает именованным типом любую подсхему с
-`title`. И ещё: `$id` внутри `$defs` меняет базовый URI подсхемы — ссылки `#/$defs/…` в ней ломаются.
-**Правило:** ответы API выгружаются генератором `ApiJsonSchema` (все поля обязательны), тела запросов — в режиме
-validation; `title` остаётся только у определений; `$id` — на файл, не на модель.
-**Закреплено:** `tools/gen_schema.py`, `frontend/scripts/typegen.mjs`, `tests/test_gen_schema.py`.
-
 ## L-015 · M2.4 · 2026-09-21 · stale
 **Симптом:** задание M2.4 перечисляло VO среди изменений, а приёмка требовала «ровно 2 кадра stale» при фикстуре с
 двумя изменёнными кадрами и одним изменённым VO — либо три stale, либо VO не stale.
@@ -127,6 +127,7 @@ validation; `title` остаётся только у определений; `$i
 ---
 
 ## Архив
+- L-019 · M2.7 · typegen: поля с умолчанием в ответах обязательны (`ApiJsonSchema`), `title` — только у определений, `$id` — на файл → `tools/gen_schema.py`, `frontend/scripts/typegen.mjs`, `tests/test_gen_schema.py`.
 - L-018 · M2.6 · ошибки провайдеров: смысл — в теле ответа, не в статусе; перевод через `status_error()`, сеть SDK → `TransientError` → `providers/gemini.py`, `providers/elevenlabs.py`, `tests/test_providers.py`.
 - L-017 · M2.6 · логи в тестах: `create_app` пересобирает хендлеры (`dictConfig`) и снимает caplog — логи проверять до фабрики → `tests/test_cost.py`.
 - L-016 · M2.5 · SSE и uvicorn: открытый поток вешает остановку — `--timeout-graceful-shutdown` в `run.sh`, живой uvicorn в тестах SSE → `run.sh`, `tests/test_sse.py`, `docs/jobs.md`.
