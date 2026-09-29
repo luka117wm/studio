@@ -106,6 +106,17 @@ describe('оболочка', () => {
     unregister()
   })
 
+  test('группы в окне помощи — в постоянном порядке, а не в порядке регистрации', async () => {
+    // Экран выпуска монтируется после загрузки — его сочетания регистрируются позже «Помощи» оболочки
+    await renderAt('/episodes/pirate/edit')
+    const unregister = register({ id: 'test-late', keys: 'Mod+E', scope: 'screen', group: 'Тестовая группа', description: 'Позднее', handler: () => {} })
+    await userEvent.click(screen.getByRole('button', { name: 'Горячие клавиши (?)' }))
+    const dialog = screen.getByRole('dialog', { name: 'Горячие клавиши' })
+    const groups = within(dialog).getAllByRole('region').map((section) => section.getAttribute('aria-label'))
+    expect(groups).toEqual(['Этапы', 'Панели', 'Помощь', 'Тестовая группа'])
+    unregister()
+  })
+
   test('в открытом диалоге глобальные сочетания не срабатывают', async () => {
     await renderAt('/episodes/pirate/edit')
     act(() => useUiStore.getState().setHelpOpen(true))
