@@ -10,6 +10,8 @@ import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
 export const TODAY = '2026-09-11'
+/** «Сейчас» артборда — 12:41 по Москве: время записи в ответах мока, отсюда «Сохранено 12:41» в шапке */
+export const NOW = `${TODAY}T09:41:00+00:00`
 type ChannelId = ChannelProfile['id']
 
 const money = (usd_micro: number): Money => ({ usd_micro, usd: formatUsd(usd_micro) })
@@ -460,8 +462,8 @@ export function createMockApi() {
         stage: request.origin === 'backlog' ? 'idea' : 'script',
         status: 'queued',
         slot_date: slot,
-        created_at: `${TODAY}T10:00:00+00:00`,
-        updated_at: `${TODAY}T10:00:00+00:00`,
+        created_at: NOW,
+        updated_at: NOW,
         summary: summary({}),
       }
       state.push(episode)
@@ -472,14 +474,14 @@ export function createMockApi() {
       if (!episode) return fail(404, `Выпуск «${parts[1]}» не найден.`)
       if (method === 'GET' && parts.length === 2) return ok(episode)
       if (method === 'PATCH' && parts.length === 2) {
-        Object.assign(episode, body as EpisodePatch, { updated_at: `${TODAY}T10:05:00+00:00` })
+        Object.assign(episode, body as EpisodePatch, { updated_at: NOW })
         return ok(episode)
       }
       if (method === 'PUT' && parts[2] === 'slot') {
         const { date } = body as SlotAssign
         const refusal = date === null ? null : slotRefusal(episode.id, date)
         if (refusal) return refusal
-        if (episode.slot_date !== date) Object.assign(episode, { slot_date: date, updated_at: `${TODAY}T10:05:00+00:00` })
+        if (episode.slot_date !== date) Object.assign(episode, { slot_date: date, updated_at: NOW })
         return ok(episode)
       }
     }

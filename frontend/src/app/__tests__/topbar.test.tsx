@@ -3,7 +3,7 @@ import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { stubApi } from '../../api/__tests__/fakes'
-import { createMockApi } from '../../mocks/api'
+import { NOW, createMockApi } from '../../mocks/api'
 import { useUiStore } from '../../store/uiStore'
 import { autosaver } from '../autosave'
 import { formatClock } from '../format'
@@ -112,7 +112,7 @@ describe('переименование', () => {
     expect((init as RequestInit).keepalive).toBe(true)
     await waitFor(() =>
       expect(screen.getByTestId('save-indicator').textContent).toBe(
-        `Сохранено ${formatClock('2026-09-11T10:05:00+00:00')}`,
+        `Сохранено ${formatClock(NOW)}`,
       ),
     )
   })
