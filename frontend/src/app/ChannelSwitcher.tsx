@@ -12,12 +12,13 @@ import { useSwitchChannel } from './useChannel'
 
 const ALL_CHANNELS = 'Все каналы'
 
+/** 18×18, радиус 2 — как в артборде 1 (переключатель 109px в режиме канала) */
 function Avatar({ scope }: { scope: ChannelScope }) {
   const look = channelLook(scope)
   return (
     <span
       aria-hidden
-      className={cn('flex size-5 shrink-0 items-center justify-center rounded-control text-11 font-semibold', look.avatarClass)}
+      className={cn('flex size-4.5 shrink-0 items-center justify-center rounded-clip text-11 font-semibold', look.avatarClass)}
     >
       {look.initial}
     </span>
