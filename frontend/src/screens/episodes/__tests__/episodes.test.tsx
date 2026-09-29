@@ -110,12 +110,6 @@ describe('доска', () => {
     expect(window.location.pathname).toBe('/ideas')
     expect(useUiStore.getState()).toMatchObject({ channel: 'cursus', episodeId: 'arsenal' })
   })
-
-  test('«Новый выпуск» в заголовке пока выключен', async () => {
-    renderApp('/episodes')
-    await card('Pirate Ship: Powder Monkey to Captain, Монтаж')
-    expect(screen.getByRole('button', { name: 'Новый выпуск' }).hasAttribute('disabled')).toBe(true)
-  })
 })
 
 describe('живые данные', () => {

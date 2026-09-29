@@ -113,7 +113,8 @@ export function cardMeta(item: EpisodeListItem, context: CardContext): CardMeta 
   }
 }
 
-const STATUS_TONE: Record<EpisodeStatus, MetaTone> = {
+/** Тон строки «что сейчас» по статусу выпуска — он же у заметки слота без риска (`slotText.ts`) */
+export const STATUS_TONE: Record<EpisodeStatus, MetaTone> = {
   queued: 'muted',
   generating: 'generating',
   warning: 'warning',
@@ -131,7 +132,8 @@ function scriptText(words: number, target: number | null): string {
 }
 
 const WORDS = ['слово', 'слова', 'слов'] as const
-const failedShots = (n: number) =>
+/** «кадр не удался», «кадра не удались», «кадров не удались» — после числа */
+export const failedShots = (n: number) =>
   `${plural(n, ['кадр', 'кадра', 'кадров'])} не ${plural(n, ['удался', 'удались', 'удались'])}`
 
 /** 1 кадр, 2 кадра, 5 кадров, 11 кадров, 21 кадр */

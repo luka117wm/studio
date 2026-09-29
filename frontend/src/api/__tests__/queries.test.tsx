@@ -104,8 +104,8 @@ describe('мутации', () => {
     const { wrapper, urls, stub } = setup()
     await mounted(wrapper)
     const before = urls().length
-    const { result } = renderHook(() => useSetSlot('janissary'), { wrapper })
-    const episode = await act(() => result.current.mutateAsync({ date: '2026-09-23' }))
+    const { result } = renderHook(() => useSetSlot(), { wrapper })
+    const episode = await act(() => result.current.mutateAsync({ id: 'janissary', channel: 'cursus', date: '2026-09-23' }))
     expect(episode.slot_date).toBe('2026-09-23')
     const [, init] = stub.fetch.mock.calls[before] ?? []
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ date: '2026-09-23' })

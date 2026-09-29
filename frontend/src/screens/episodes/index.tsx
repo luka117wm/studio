@@ -1,25 +1,26 @@
-/* Экран 1 «Выпуски»: заголовок 52 со счётчиком, поиском и фильтром канала, полоса слотов, доска по стадиям.
-   Список берётся по обоим каналам: фильтр канала (= `uiStore.channel`) и поиск режут его здесь, а счётчик считает
-   видимые из всех — «3 из 9», как в артборде. Полоса слотов и диалог «Новый выпуск» — M3.6. */
+/* Экран 1 «Выпуски»: заголовок 52 со счётчиком, поиском и фильтром канала, полоса слотов, доска по стадиям,
+   диалог «Новый выпуск». Список берётся по обоим каналам: фильтр канала (= `uiStore.channel`) и поиск режут его здесь,
+   а счётчик считает видимые из всех — «3 из 9», как в артборде. Полоса приглушает чужой канал, а не прячет. */
 import { Film, Plus, Search, SearchX } from 'lucide-react'
 import { useState } from 'react'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
 import { QueryError } from '../../app/BackendState'
 import { useSwitchChannel } from '../../app/useChannel'
-import { useEpisodes, useSlots, type ChannelScope } from '../../api/queries'
+import { useEpisodes, type ChannelScope } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
-import { Button, EmptyState, Input, SegmentedControl, Tooltip } from '../../ui'
+import { Button, EmptyState, Input, SegmentedControl } from '../../ui'
 import { Board } from './Board'
 import { countLabel, matchesQuery } from './board'
+import { NewEpisodeDialog } from './NewEpisodeDialog'
+import { SlotStrip } from './SlotStrip'
 
 export function EpisodesScreen(_props: { params: RouteParams }) {
   const channel = useUiStore((s) => s.channel)
   const switchChannel = useSwitchChannel()
   const [query, setQuery] = useState('')
+  const [creating, setCreating] = useState(false)
   const episodes = useEpisodes('all')
-  const slots = useSlots()
-  const free = slots.data?.filter((s) => s.state === 'empty').length ?? 0
 
   const all = episodes.data ?? null
   const inChannel = all?.filter((e) => channel === 'all' || e.channel === channel) ?? null
@@ -49,27 +50,15 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
             />
             {/* Пустая доска несёт свою primary — на экране она одна (design/CLAUDE.md) */}
             {!empty && (
-              <Tooltip content="Диалог нового выпуска ещё не подключён">
-                <Button variant="primary" icon={Plus} disabled>
-                  Новый выпуск
-                </Button>
-              </Tooltip>
+              <Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>
+                Новый выпуск
+              </Button>
             )}
           </>
         ),
       }}
     >
-      <section aria-label="Слоты публикации" className="flex flex-col gap-2 px-4 pt-3 pb-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-12 font-medium text-muted">Слоты публикации, раз в два дня</span>
-          <span className="h-px flex-1 bg-line" />
-          {slots.data && (
-            <span className="text-12 text-muted">
-              {slots.data.length} слотов, {free} свободных
-            </span>
-          )}
-        </div>
-      </section>
+      <SlotStrip channel={channel} episodes={all} />
       <section aria-label="Доска выпусков" className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-3">
         {episodes.error ? (
           <QueryError error={episodes.error} />
@@ -79,7 +68,7 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
               icon={Film}
               title="Выпусков пока нет"
               description="Доска по стадиям: идея, сценарий, генерация, монтаж, готов, опубликован. Создайте первый выпуск — из идеи или с чистого листа."
-              primary={{ label: 'Новый выпуск', onClick: () => {} }}
+              primary={{ label: 'Новый выпуск', onClick: () => setCreating(true) }}
             />
           </div>
         ) : visible !== null && visible.length === 0 ? (
@@ -95,6 +84,7 @@ export function EpisodesScreen(_props: { params: RouteParams }) {
           <Board episodes={visible} />
         )}
       </section>
+      {creating && <NewEpisodeDialog onClose={() => setCreating(false)} />}
     </ScreenLayout>
   )
 }

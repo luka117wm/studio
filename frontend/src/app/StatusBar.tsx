@@ -1,11 +1,12 @@
 /* Статус-строка 24px: слева — что происходит сейчас (первый идущий джоб из потока SSE, глиф штриховки и процент),
-   в середине — ближайший слот с риском, справа — 2–3 горячие клавиши из реестра (записи с hint, включённые сейчас). */
+   в середине — ближайший слот с риском тем же текстом, что в ячейке полосы (`slotText.ts`), справа — 2–3 горячие
+   клавиши из реестра (записи с hint, включённые сейчас). */
 import type { EpisodeListItem } from '@/types/episode'
 import { useEpisodes, useJobs, useSlots } from '../api/queries'
 import { KeyHint, StatusGlyph } from '../ui'
-import { formatSlotDate } from './format'
 import { formatKeys, isEnabled } from './keyboard'
-import { RISK_REASON, jobKindLabel } from './labels'
+import { slotRiskLine } from '../screens/episodes/slotText'
+import { jobKindLabel } from './labels'
 import { useRegisteredHotkeys } from './useHotkey'
 
 const MAX_HINTS = 3
@@ -32,13 +33,9 @@ function Process({ episodes }: { episodes: EpisodeListItem[] | undefined }) {
 
 function SlotRisk({ episodes }: { episodes: EpisodeListItem[] | undefined }) {
   const slots = useSlots()
-  const risky = slots.data?.find((slot) => slot.risk !== null && slot.state !== 'missed')
-  if (!risky?.risk) return null
-  return (
-    <span className={risky.risk.level === 'failed' ? 'truncate text-failed-text' : 'truncate text-warning'}>
-      Слот {formatSlotDate(risky.date, { long: true })}, {nameOf(episodes, risky.episode_id)}: {RISK_REASON[risky.risk.reason]}
-    </span>
-  )
+  const line = slots.data ? slotRiskLine(slots.data, episodes) : null
+  if (!line) return null
+  return <span className={line.level === 'failed' ? 'truncate text-failed-text' : 'truncate text-warning'}>{line.text}</span>
 }
 
 export function StatusBar() {

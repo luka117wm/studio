@@ -143,7 +143,7 @@ describe('оболочка', () => {
     const status = screen.getByRole('status')
     await waitFor(() => expect(status.textContent).toContain('Генерация кадров: Medieval Monastery, 78 из 104'))
     expect(status.textContent).toContain('75%')
-    await waitFor(() => expect(status.textContent).toContain('Слот 13 сентября, Pirate Ship: экспорт не запускался'))
+    await waitFor(() => expect(status.textContent).toContain('Следующий слот 13 сентября, Pirate Ship: экспорт не запускался'))
     expect(status.textContent).toContain('горячие клавиши')
     act(() => useUiStore.getState().pushToast({ id: 't1', message: 'Перерисовано', status: 'ready' }))
     expect(screen.getAllByRole('status').some((el) => el.textContent?.startsWith('Перерисовано'))).toBe(true)

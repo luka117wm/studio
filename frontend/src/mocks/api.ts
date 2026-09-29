@@ -7,7 +7,7 @@ import type { CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { JobList } from '@/types/job'
 import type { Slot, SlotAssign } from '@/types/slot'
-import { formatUsd } from '../app/format'
+import { formatSlotDate, formatUsd } from '../app/format'
 
 export const TODAY = '2026-09-11'
 type ChannelId = ChannelProfile['id']
@@ -367,7 +367,16 @@ export interface MockResponse {
 }
 
 const ok = (body: unknown, status = 200): MockResponse => ({ status, body })
-const fail = (status: number, detail: string): MockResponse => ({ status, body: { detail } })
+const fail = (status: number, detail: string | Record<string, unknown>): MockResponse => ({ status, body: { detail } })
+
+/** Расписание артборда: слот раз в два дня от 5 сентября (`docs/slots.md`, «Расписание») */
+const ANCHOR = '2026-09-05'
+const EVERY_DAYS = 2
+const DAY_MS = 86_400_000
+
+const dayNumber = (iso: string) => Math.round(Date.parse(`${iso}T00:00:00Z`) / DAY_MS)
+const isoOf = (day: number) => new Date(day * DAY_MS).toISOString().slice(0, 10)
+const isSlotDate = (iso: string) => (dayNumber(iso) - dayNumber(ANCHOR)) % EVERY_DAYS === 0
 
 /** Бэкенд в памяти: запрос → ответ по контенту артборда. Запись (создание, правка, слот) меняет копию выпусков,
  *  поэтому тест видит результат своей мутации. Общий для vitest (`stubApi`) и e2e (`page.route`). */
@@ -377,6 +386,49 @@ export function createMockApi() {
 
   const one = (id: string) => state.find((e) => e.id === id)
 
+  /** Окно артборда поверх текущих выпусков: занятость — по `slot_date`, состояние — по правилам бэкенда
+   *  (`docs/slots.md`, «Состояние»). Риск шаблона остаётся, только пока в слоте тот же выпуск. */
+  function currentSlots(): Slot[] {
+    return slots.map((template) => {
+      const episode = state.find((e) => e.slot_date === template.date)
+      if (episode?.id === template.episode_id) return template
+      const slotState: Slot['state'] =
+        episode?.status === 'published'
+          ? 'published'
+          : template.date === TODAY
+            ? 'today'
+            : template.date < TODAY
+              ? 'missed'
+              : episode
+                ? 'filled'
+                : 'empty'
+      return { ...template, episode_id: episode?.id ?? null, channel: episode?.channel ?? null, state: slotState, risk: null }
+    })
+  }
+
+  /** Проверки даты слота как у бэкенда: вне расписания — 422 с ближайшими, занят другим — 409 */
+  function slotRefusal(id: string | null, date: string): MockResponse | null {
+    if (!isSlotDate(date)) {
+      const day = dayNumber(date)
+      const before = day - ((day - dayNumber(ANCHOR)) % EVERY_DAYS + EVERY_DAYS) % EVERY_DAYS
+      const nearest = [before - EVERY_DAYS, before, before + EVERY_DAYS, before + 2 * EVERY_DAYS].map(isoOf)
+      return fail(422, { message: `${date} — не день слота: слоты раз в ${EVERY_DAYS} дня.`, nearest })
+    }
+    const holder = state.find((e) => e.slot_date === date && e.id !== id)
+    if (!holder) return null
+    return fail(
+      409,
+      `Слот ${formatSlotDate(date, { long: true })} занят выпуском «${holder.title}» (${holder.id}); снимите его со слота или выберите другой.`,
+    )
+  }
+
+  /** Первый слот начиная с сегодняшнего, в котором нет выпуска */
+  function nextFree(): string {
+    let day = dayNumber(TODAY)
+    while (!isSlotDate(isoOf(day)) || state.some((e) => e.slot_date === isoOf(day))) day += 1
+    return isoOf(day)
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -385,7 +437,7 @@ export function createMockApi() {
 
     if (method === 'GET' && path === '/channels') return ok(channels)
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
-    if (method === 'GET' && path === '/slots') return ok(slots)
+    if (method === 'GET' && path === '/slots') return ok(currentSlots())
     if (method === 'GET' && path === '/jobs') return ok(jobs)
     if (method === 'GET' && path === '/cost/summary') {
       return channel && costSummaries[channel] ? ok(costSummaries[channel]) : fail(422, 'Неизвестный канал.')
@@ -395,6 +447,9 @@ export function createMockApi() {
     }
     if (method === 'POST' && path === '/episodes') {
       const request = body as EpisodeCreate
+      const slot = request.slot === null ? null : request.slot && request.slot !== 'next_free' ? request.slot : nextFree()
+      const refusal = slot === null ? null : slotRefusal(null, slot)
+      if (refusal) return refusal
       created += 1
       const episode: EpisodeListItem = {
         id: request.id ?? `${request.channel[0]}${String(10 + created).padStart(2, '0')}`,
@@ -404,7 +459,7 @@ export function createMockApi() {
         origin: request.origin ?? 'blank',
         stage: request.origin === 'backlog' ? 'idea' : 'script',
         status: 'queued',
-        slot_date: request.slot === null ? null : request.slot && request.slot !== 'next_free' ? request.slot : '2026-09-23',
+        slot_date: slot,
         created_at: `${TODAY}T10:00:00+00:00`,
         updated_at: `${TODAY}T10:00:00+00:00`,
         summary: summary({}),
@@ -421,7 +476,10 @@ export function createMockApi() {
         return ok(episode)
       }
       if (method === 'PUT' && parts[2] === 'slot') {
-        episode.slot_date = (body as SlotAssign).date
+        const { date } = body as SlotAssign
+        const refusal = date === null ? null : slotRefusal(episode.id, date)
+        if (refusal) return refusal
+        if (episode.slot_date !== date) Object.assign(episode, { slot_date: date, updated_at: `${TODAY}T10:05:00+00:00` })
         return ok(episode)
       }
     }

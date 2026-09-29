@@ -170,12 +170,51 @@ export function usePatchEpisode(id: string) {
   })
 }
 
-export function useSetSlot(id: string) {
+/** Назначение выпуска в слот (`date`) или снятие со слота (`date: null`) */
+export interface SlotChange extends SlotAssign {
+  id: string
+  channel: ChannelId
+}
+
+/** Снимок кэша до оптимистичной записи — для отката */
+type CacheSnapshot = [readonly unknown[], unknown][]
+
+/** Оптимистично: ячейка и `slot_date` в кэше меняются до ответа, отказ (409, 422) возвращает снимок. Догадка
+ *  о состоянии ячейки (пустой ↔ занят) живёт до перезапроса слотов — дальше состояние и риск снова от бэкенда. */
+export function useSetSlot() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (body: SlotAssign) => api.put<EpisodeListItem>(`/episodes/${segment(id)}/slot`, body),
-    onSuccess: (episode) => storeEpisode(client, episode, true),
+    mutationFn: ({ id, date }: SlotChange) => api.put<EpisodeListItem>(`/episodes/${segment(id)}/slot`, { date }),
+    onMutate: async (change): Promise<CacheSnapshot> => {
+      const keys = [qk.slots, qk.episodeLists, qk.episode(change.id)]
+      await Promise.all(keys.map((queryKey) => client.cancelQueries({ queryKey })))
+      const snapshot = keys.flatMap((queryKey) => client.getQueriesData({ queryKey }))
+      client.setQueryData<Slot[]>(qk.slots, (slots) => slots?.map((slot) => moveInSlot(slot, change)))
+      client.setQueriesData<EpisodeListItem[]>({ queryKey: qk.episodeLists }, (list) =>
+        list?.map((episode) => (episode.id === change.id ? { ...episode, slot_date: change.date } : episode)),
+      )
+      client.setQueryData<EpisodeListItem>(qk.episode(change.id), (episode) => episode && { ...episode, slot_date: change.date })
+      return snapshot
+    },
+    onError: (_error, _change, snapshot) => {
+      for (const [queryKey, data] of snapshot ?? []) client.setQueryData(queryKey, data)
+    },
+    onSuccess: (episode) => client.setQueryData(qk.episode(episode.id), episode),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: qk.episodeLists })
+      void client.invalidateQueries({ queryKey: qk.slots })
+    },
   })
+}
+
+function moveInSlot(slot: Slot, { id, channel, date }: SlotChange): Slot {
+  if (slot.date === date) {
+    return { ...slot, episode_id: id, channel, state: slot.state === 'empty' ? 'filled' : slot.state, risk: null }
+  }
+  if (slot.episode_id === id) {
+    return { ...slot, episode_id: null, channel: null, state: slot.state === 'filled' ? 'empty' : slot.state, risk: null }
+  }
+  return slot
 }
 
 /** Название выпуска в кэше сразу, до ответа сервера: и сам выпуск, и его строка в списках. Идущие запросы этих
