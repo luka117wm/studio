@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PanelHeader } from '../../app/PanelHeader'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { channelById } from '../../mocks/fixtures'
+import { useChannelName, useChannels } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
 import { EmptyState, cn } from '../../ui'
 
@@ -13,8 +13,9 @@ type Section = (typeof SECTIONS)[number]
 
 export function SettingsScreen(_props: { params: RouteParams }) {
   const [section, setSection] = useState<Section>('Провайдеры')
-  const channel = channelById(useUiStore((s) => s.channel))
-  const quota = channel.voiceQuota
+  const scope = useUiStore((s) => s.channel)
+  const channelName = useChannelName(scope)
+  const limit = useChannels().data?.find((c) => c.id === scope)?.voice_quota.limit_chars
   return (
     <ScreenLayout
       left={{
@@ -40,7 +41,7 @@ export function SettingsScreen(_props: { params: RouteParams }) {
     >
       <PanelHeader
         title={section}
-        note={`${channel.name} · ElevenLabs ${quota.usedChars.toLocaleString('ru-RU')} из ${quota.limitChars.toLocaleString('ru-RU')} символов`}
+        note={limit === undefined ? channelName : `${channelName} · ElevenLabs до ${limit.toLocaleString('ru-RU')} символов`}
       />
       <div className="flex min-h-0 flex-1 items-center justify-center p-4">
         <EmptyState

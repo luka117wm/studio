@@ -5,8 +5,9 @@ import type { ReactNode } from 'react'
 import { EpisodeScreen } from '../../app/EpisodeScreen'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/fixtures'
-import type { Episode } from '../../types/fixtures'
+import type { EpisodeListItem } from '@/types/episode'
+import { formatEpisodeDuration } from '../../app/format'
+import { estimates } from '../../mocks/placeholders'
 import { EmptyState } from '../../ui'
 
 const TRACKS = ['Субтитры', 'Кадры', 'Голос', 'SFX', 'Музыка']
@@ -15,7 +16,7 @@ export function EditLayout({
   episode,
   inspector,
 }: {
-  episode: Episode
+  episode: EpisodeListItem
   inspector: { title: string; note?: string; icon: LucideIcon; children: ReactNode }
 }) {
   return (
@@ -51,11 +52,11 @@ export function EditLayout({
         <EmptyState
           icon={Mic}
           title="Голос не записан"
-          description={`Голос — мастер-дорожка: длительность каждого кадра равна его реплике. ${episode.words.toLocaleString('ru-RU')} слов сценария.`}
+          description={`Голос — мастер-дорожка: длительность каждого кадра равна его реплике. ${episode.summary.vo_words.toLocaleString('ru-RU')} слов сценария.`}
           primary={{ label: 'Озвучить', price: estimates.voiceUsd, onClick: () => {} }}
         />
       </div>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-t border-line bg-strip px-3 text-12 text-muted">00:00:00 · 00:00 из {episode.duration}</div>
+      <div className="flex h-11 shrink-0 items-center gap-2 border-t border-line bg-strip px-3 text-12 text-muted">00:00:00 · 00:00 из {formatEpisodeDuration(episode.summary) ?? '—'}</div>
     </ScreenLayout>
   )
 }

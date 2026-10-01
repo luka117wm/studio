@@ -114,6 +114,20 @@ describe('api', () => {
     expect(error.message).toBe('Бэкенд недоступен. Запустите ./run.sh и повторите.')
   })
 
+  test.each([502, 503, 504])('прокси без бэкенда (%i, пустой text/plain) — status 0, как нет сети', async (status) => {
+    mockFetch(async () => new Response('', { status, headers: { 'Content-Type': 'text/plain' } }))
+    const error = await failure(api.get('/health'))
+    expect(error.status).toBe(0)
+    expect(error.message).toBe('Бэкенд недоступен. Запустите ./run.sh и повторите.')
+  })
+
+  test('502 с JSON detail — ответ бэкенда, не шлюза: статус и текст сохраняются', async () => {
+    mockFetch(async () => json(502, { detail: 'Провайдер не ответил — повторите позже.' }))
+    const error = await failure(api.get('/health'))
+    expect(error.status).toBe(502)
+    expect(error.message).toBe('Провайдер не ответил — повторите позже.')
+  })
+
   test('таймаут — status 0, запрос прерван', async () => {
     vi.useFakeTimers()
     let aborted = false

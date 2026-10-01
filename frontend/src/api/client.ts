@@ -5,6 +5,10 @@ import type { BudgetRefusal } from '@/types/cost'
 
 export const API_BASE = '/api'
 export const DEFAULT_TIMEOUT_MS = 15_000
+export const BACKEND_DOWN_MESSAGE = 'Бэкенд недоступен. Запустите ./run.sh и повторите.'
+/** Ответ шлюза, а не бэкенда: прокси Vite при остановленном uvicorn отвечает 502 с пустым text/plain (L-023).
+ *  Свои ошибки бэкенд всегда отдаёт JSON с `detail`, поэтому 502/503/504 без JSON — «ответа бэкенда не было». */
+const GATEWAY_STATUSES: ReadonlySet<number> = new Set([502, 503, 504])
 
 /** Ошибка запроса к бэкенду. `status` 0 — ответа не было (бэкенд не запущен, таймаут). */
 export class ApiError extends Error {
@@ -27,9 +31,11 @@ export interface RequestOptions {
   /** Отмена вызывающим (TanStack Query): пробрасывается как AbortError, не как ApiError */
   signal?: AbortSignal
   timeoutMs?: number
+  /** Запрос переживает закрытие вкладки (запись автосохранения при уходе со страницы) */
+  keepalive?: boolean
 }
 
-type Method = 'GET' | 'POST' | 'PATCH'
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT'
 
 function buildUrl(path: string, query: Query = {}): string {
   if (!path.startsWith('/')) throw new Error(`api path must start with "/": ${path}`)
@@ -87,7 +93,7 @@ async function request<T>(
   body: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { query, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options
+  const { query, signal, timeoutMs = DEFAULT_TIMEOUT_MS, keepalive } = options
   const controller = new AbortController()
   let timedOut = false
   const timer = setTimeout(() => {
@@ -109,6 +115,7 @@ async function request<T>(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
+      keepalive,
     })
     payload = await readBody(response)
   } catch (error) {
@@ -119,13 +126,14 @@ async function request<T>(
       )
     }
     if (signal?.aborted) throw error
-    throw new ApiError(0, 'Бэкенд недоступен. Запустите ./run.sh и повторите.')
+    throw new ApiError(0, BACKEND_DOWN_MESSAGE)
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', cancel)
   }
 
   if (!response.ok) {
+    if (GATEWAY_STATUSES.has(response.status) && !isRecord(payload)) throw new ApiError(0, BACKEND_DOWN_MESSAGE)
     const detail = isRecord(payload) ? (payload.detail ?? null) : payload
     throw new ApiError(response.status, errorMessage(response.status, payload), detail)
   }
@@ -145,4 +153,6 @@ export const api = {
     request<T>('POST', path, body, options),
   patch: <T>(path: string, body: unknown, options?: RequestOptions) =>
     request<T>('PATCH', path, body, options),
+  put: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    request<T>('PUT', path, body, options),
 }

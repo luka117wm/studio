@@ -19,8 +19,10 @@ from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
 from app.api.cost import CostSummary, LedgerPage
-from app.api.episodes import Episode, EpisodeCreate
+from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
+from app.api.formats import FormatPreview
 from app.api.jobs import JobCreate, JobList
+from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
@@ -45,8 +47,14 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
     ],
-    "channel": [(ChannelProfile, "serialization")],
-    "episode": [(Episode, "serialization"), (EpisodeCreate, "validation")],
+    "channel": [(ChannelProfile, "serialization"), (FormatPreview, "serialization")],
+    "episode": [
+        (Episode, "serialization"),
+        (EpisodeListItem, "serialization"),
+        (EpisodeCreate, "validation"),
+        (EpisodePatch, "validation"),
+    ],
+    "slot": [(Slot, "serialization"), (SlotAssign, "validation")],
     "job": [
         (Job, "serialization"),
         (JobList, "serialization"),

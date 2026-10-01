@@ -2,6 +2,8 @@
    Порядок Tab совпадает с визуальным: skip-link → верхняя панель → рельс → левая панель → рабочая зона →
    правая колонка → нижняя панель. Кольцо фокуса — глобальное из base.css. */
 import type { MouseEvent } from 'react'
+import { useBackendDown } from '../api/queries'
+import { BackendState } from './BackendState'
 import { KeyboardHelp } from './KeyboardHelp'
 import { Router } from './router'
 import { StageRail } from './StageRail'
@@ -13,6 +15,8 @@ const MAIN_ID = 'main'
 
 export function AppShell() {
   useKeyboardDispatcher()
+  // Бэкенд недоступен — ошибка на месте рабочей области; шапка и статус-строка остаются
+  const down = useBackendDown()
   // Skip-link фокусирует рабочую область напрямую, без hash-навигации (роутер живёт на pathname)
   const skipToMain = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault()
@@ -31,7 +35,7 @@ export function AppShell() {
       <div className="flex min-h-0 flex-1">
         <StageRail />
         <main id={MAIN_ID} tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col outline-none">
-          <Router />
+          {down ? <BackendState /> : <Router />}
         </main>
       </div>
       <StatusBar />

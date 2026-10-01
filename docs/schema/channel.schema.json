@@ -72,6 +72,229 @@
       "title": "ChannelProfile",
       "type": "object"
     },
+    "Cost": {
+      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "Cost",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "EpisodeEstimate": {
+      "additionalProperties": false,
+      "description": "Смета выпуска: цена этапа на маршруте профиля по умолчанию и итог, микродоллары.",
+      "properties": {
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/Cost"
+          },
+          "title": "Stages",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stages",
+        "usd_micro"
+      ],
+      "title": "EpisodeEstimate",
+      "type": "object"
+    },
+    "FormatMinutes": {
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Min",
+          "type": "integer"
+        },
+        "target": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Target",
+          "type": "integer"
+        },
+        "max": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Max",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "min",
+        "target",
+        "max"
+      ],
+      "title": "FormatMinutes",
+      "type": "object"
+    },
+    "FormatPreset": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "hint": {
+          "minLength": 1,
+          "title": "Hint",
+          "type": "string"
+        },
+        "minutes": {
+          "$ref": "#/$defs/FormatMinutes"
+        },
+        "sections": {
+          "minimum": 1,
+          "title": "Sections",
+          "type": "integer"
+        },
+        "shots": {
+          "minimum": 1,
+          "title": "Shots",
+          "type": "integer"
+        },
+        "words_per_minute": {
+          "minimum": 1,
+          "title": "Words Per Minute",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "label",
+        "hint",
+        "minutes",
+        "sections",
+        "shots",
+        "words_per_minute"
+      ],
+      "title": "FormatPreset",
+      "type": "object"
+    },
+    "FormatPreview": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "every_rank",
+            "host"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "preset": {
+          "$ref": "#/$defs/FormatPreset"
+        },
+        "estimate": {
+          "$ref": "#/$defs/EpisodeEstimate"
+        },
+        "stale_pricing": {
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "channel",
+        "format",
+        "preset",
+        "estimate",
+        "stale_pricing"
+      ],
+      "title": "FormatPreview",
+      "type": "object"
+    },
     "VoiceQuota": {
       "additionalProperties": false,
       "properties": {

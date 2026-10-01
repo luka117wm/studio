@@ -316,6 +316,16 @@ def get_job_by_key(conn: sqlite3.Connection, idempotency_key: str) -> Job | None
     return _one(conn, "SELECT * FROM jobs WHERE idempotency_key = ?", (idempotency_key,))
 
 
+def active_jobs(conn: sqlite3.Connection, episode_id: str | None = None) -> list[Job]:
+    """`queued` и `running` джобы выпусков в порядке постановки — одним запросом на список."""
+    where = " AND episode_id = ?" if episode_id is not None else " AND episode_id IS NOT NULL"
+    params = (episode_id,) if episode_id is not None else ()
+    rows = conn.execute(
+        f"SELECT * FROM jobs WHERE status IN ('queued', 'running'){where} ORDER BY rowid", params
+    ).fetchall()
+    return [Job.from_row(row) for row in rows]
+
+
 def list_jobs(
     conn: sqlite3.Connection,
     *,

@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/director.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:4612593385a24fe49bd12e193f70760da243d2cfb5b210d36bc520b8ac9bbab8
+ * @generated sha256:d2a75467b427620efb2810ed65335c6b27611b402dffe3d3db9cad3719803590
  */
 export interface AnimateSpec {
   recommended?: boolean
@@ -99,6 +99,7 @@ export interface PublishMeta {
 
 export interface Section {
   id: string
+  title: string
   chapter?: boolean
   vo_direction?: string | null
 }
@@ -123,6 +124,7 @@ export interface Shot {
 }
 
 export interface Source {
+  title: string
   url: string
 }
 

@@ -1,9 +1,18 @@
-/* Провайдеры приложения. TanStack Query подключён без единого запроса — чтобы на M2 не переписывать дерево.
+/* Провайдеры приложения: кэш запросов TanStack Query и живые обновления из SSE (`api/live.ts`).
    Тема одна, тёмная (color-scheme в base.css), провайдер темы не нужен. Тосты — из стора оболочки. */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { QueryClientProvider, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useEffect, useState, type ReactNode } from 'react'
+import { startLive } from '../api/live'
+import { createQueryClient } from '../api/queryClient'
 import { useUiStore } from '../store/uiStore'
+import { AutosaveGuard } from './AutosaveGuard'
 import { ToastStack } from '../ui'
+
+function LiveUpdates() {
+  const client = useQueryClient()
+  useEffect(() => startLive(client), [client])
+  return null
+}
 
 function Toasts() {
   const toasts = useUiStore((s) => s.toasts)
@@ -11,12 +20,13 @@ function Toasts() {
   return <ToastStack toasts={toasts} onDismiss={dismissToast} />
 }
 
-export function Providers({ children }: { children: ReactNode }) {
-  const [client] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }),
-  )
+/** `client` — для тестов: свой кэш на тест, без повторов по времени */
+export function Providers({ children, client }: { children: ReactNode; client?: QueryClient }) {
+  const [own] = useState(() => client ?? createQueryClient())
   return (
-    <QueryClientProvider client={client}>
+    <QueryClientProvider client={own}>
+      <LiveUpdates />
+      <AutosaveGuard />
       {children}
       <Toasts />
     </QueryClientProvider>

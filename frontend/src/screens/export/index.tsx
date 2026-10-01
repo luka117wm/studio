@@ -1,6 +1,7 @@
 /* Экран 7 «Экспорт»: пресеты 320 + очередь рендера; лог 420 — кнопкой поверх правой части, на 2560 третьей колонкой. Содержимое — M9. */
 import { Clapperboard, SlidersHorizontal, Terminal } from 'lucide-react'
 import { EpisodeScreen } from '../../app/EpisodeScreen'
+import { formatEpisodeDuration } from '../../app/format'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
 import { EmptyState } from '../../ui'
@@ -10,7 +11,7 @@ export function ExportScreen({ params }: { params: RouteParams }) {
     <EpisodeScreen params={params}>
       {(episode) => (
         <ScreenLayout
-          header={{ title: 'Экспорт', note: `${episode.duration} · 1920×1080` }}
+          header={{ title: 'Экспорт', note: `${formatEpisodeDuration(episode.summary) ?? 'длительность неизвестна'} · 1920×1080` }}
           left={{
             kind: 'presets',
             title: 'Пресеты',

@@ -3,6 +3,9 @@
 // лежал при подключении, ответ не 200) больше не пытается — тогда новый EventSource с
 // `?last_event_id=` последнего события, паузы 1, 2, 4 … 30 с. Heartbeat держит соединение и не
 // сдвигает курсор; повтор события на стыке снимка и потока отбрасывается по id.
+// Сторож: прокси Vite не передаёт браузеру обрыв начатого потока, когда uvicorn умирает, — поток
+// «открыт», но молчит (L-023). Нет ни heartbeat, ни события дольше `SILENCE_LIMIT_MS` — поток мёртв,
+// переподключаемся.
 import type { JobEventData } from '@/types/job'
 
 export const EVENTS_URL = '/api/events'
@@ -34,6 +37,8 @@ export interface SubscribeOptions {
 
 export const RECONNECT_MIN_MS = 1_000
 export const RECONNECT_MAX_MS = 30_000
+/** Два пропущенных heartbeat (бэкенд шлёт раз в `sse_heartbeat_s` = 15 с) и запас на задержку */
+export const SILENCE_LIMIT_MS = 35_000
 const CLOSED = 2 // EventSource.CLOSED
 
 /** Подписка на события джобов. Возвращает отписку: закрывает поток и отменяет переподключение. */
@@ -45,11 +50,26 @@ export function subscribe(
   let cursor = options.lastEventId ?? null
   let source: EventSource | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
+  let watchdog: ReturnType<typeof setTimeout> | null = null
   let delay = RECONNECT_MIN_MS
   let stopped = false
 
+  const stopWatchdog = () => {
+    if (watchdog !== null) clearTimeout(watchdog)
+    watchdog = null
+  }
+  /** Поток жив, пока что-то приходит: открытие, heartbeat, событие */
+  const alive = () => {
+    stopWatchdog()
+    watchdog = setTimeout(() => {
+      watchdog = null
+      if (!stopped) reconnect()
+    }, SILENCE_LIMIT_MS)
+  }
+
   const handle = (type: JobEventType, event: MessageEvent<string>) => {
     if (stopped) return // событие, уже стоявшее в очереди браузера, после отписки не доставляем
+    alive()
     const id = Number(event.lastEventId)
     if (!Number.isInteger(id) || id <= 0) return
     if (cursor !== null && id <= cursor) return
@@ -64,6 +84,7 @@ export function subscribe(
   }
 
   const reconnect = () => {
+    stopWatchdog()
     source?.close()
     source = null
     onState?.('reconnecting')
@@ -82,6 +103,7 @@ export function subscribe(
     onState?.('connecting')
     current.onopen = () => {
       delay = RECONNECT_MIN_MS
+      alive()
       onState?.('open')
     }
     current.onerror = () => {
@@ -92,12 +114,16 @@ export function subscribe(
     for (const type of JOB_EVENT_TYPES) {
       current.addEventListener(type, (event) => handle(type, event))
     }
+    current.addEventListener('heartbeat', () => {
+      if (!stopped && source === current) alive()
+    })
   }
 
   connect()
   return () => {
     if (stopped) return
     stopped = true
+    stopWatchdog()
     if (timer !== null) clearTimeout(timer)
     source?.close()
     source = null

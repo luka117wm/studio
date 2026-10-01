@@ -63,6 +63,15 @@ export function KeyboardHelp() {
   )
 }
 
+/* Порядок групп постоянный (эталон M1.6): экран выпуска монтируется после загрузки данных, и порядок регистрации
+   зависел бы от того, был ли выпуск в кэше. Группы вне списка — после известных, в порядке регистрации. */
+const GROUP_ORDER = ['Этапы', 'Панели', 'Помощь']
+
+const groupRank = (group: string) => {
+  const index = GROUP_ORDER.indexOf(group)
+  return index === -1 ? GROUP_ORDER.length : index
+}
+
 function groupHotkeys(hotkeys: Hotkey[]): [string, Hotkey[]][] {
   const map = new Map<string, Hotkey[]>()
   for (const h of hotkeys) {
@@ -70,5 +79,5 @@ function groupHotkeys(hotkeys: Hotkey[]): [string, Hotkey[]][] {
     if (list) list.push(h)
     else map.set(h.group, [h])
   }
-  return Array.from(map.entries())
+  return Array.from(map.entries()).sort(([a], [b]) => groupRank(a) - groupRank(b))
 }

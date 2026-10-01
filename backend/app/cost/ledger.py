@@ -159,6 +159,19 @@ def spent_by_stage(conn: sqlite3.Connection, channel: str, start: str, end: str)
     return {row["stage"]: int(row["total"]) for row in rows}
 
 
+def spent_by_episode(conn: sqlite3.Connection, episode_id: str | None = None) -> dict[str, int]:
+    """Потраченное (`charged` + резерв) по выпускам за всё время — одним запросом на список."""
+    statuses = ", ".join("?" * len(SPENT_STATUSES))
+    where = "episode_id = ?" if episode_id is not None else "episode_id IS NOT NULL"
+    params = (episode_id,) if episode_id is not None else ()
+    rows = conn.execute(
+        "SELECT episode_id, SUM(cost_micro_usd) AS total FROM cost_ledger"
+        f" WHERE {where} AND status IN ({statuses}) GROUP BY episode_id",
+        (*params, *SPENT_STATUSES),
+    ).fetchall()
+    return {row["episode_id"]: int(row["total"]) for row in rows}
+
+
 def list_rows(
     conn: sqlite3.Connection,
     *,

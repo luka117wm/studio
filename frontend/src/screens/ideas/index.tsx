@@ -2,7 +2,7 @@
 import { Lightbulb, Radar, Sprout } from 'lucide-react'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import type { RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/fixtures'
+import { estimates } from '../../mocks/placeholders'
 import { EmptyState } from '../../ui'
 
 /* Экран 2: семена ниши 300 слева, выбросы радара в центре, идеи из кластеров 340 справа (артборд 2). */
