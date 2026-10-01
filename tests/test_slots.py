@@ -263,12 +263,15 @@ def test_assign_move_repeat_and_clear(seeded: TestClient, monkeypatch: pytest.Mo
 # --- слот при создании ---------------------------------------------------------------------------
 
 
-def test_create_takes_next_free_slot_from_today(seeded: TestClient) -> None:
-    assert create(seeded)["slot_date"] == "2026-09-11"  # сегодняшний — тоже свободный
-    assert create(seeded, slot="2026-09-15")["slot_date"] == "2026-09-15"
+def test_create_takes_next_free_slot_after_today(seeded: TestClient) -> None:
+    # Сегодняшний (11-е) свободен, но не берётся: новый выпуск в нём сразу в риске `failed`.
     assert create(seeded)["slot_date"] == "2026-09-13"
-    assert create(seeded, channel="otto")["slot_date"] == "2026-09-17"  # полоса общая
+    assert create(seeded, slot="2026-09-17")["slot_date"] == "2026-09-17"
+    assert create(seeded)["slot_date"] == "2026-09-15"
+    assert create(seeded, channel="otto")["slot_date"] == "2026-09-19"  # полоса общая
     assert create(seeded, slot=None)["slot_date"] is None
+    # Вручную сегодняшний назначается.
+    assert create(seeded, slot="2026-09-11")["slot_date"] == "2026-09-11"
 
 
 def test_create_with_bad_slot_leaves_nothing(seeded: TestClient, paths: StudioPaths) -> None:
@@ -317,7 +320,7 @@ def test_parallel_creates_get_distinct_slots(
 
     assert errors == []
     slots = sorted(e["slot_date"] for e in seeded.get("/api/episodes").json())
-    assert slots == ["2026-09-11", "2026-09-13"]
+    assert slots == ["2026-09-13", "2026-09-15"]
 
 
 def test_db_refuses_two_episodes_in_one_slot(seeded: TestClient, paths: StudioPaths) -> None:

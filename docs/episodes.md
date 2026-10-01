@@ -72,7 +72,7 @@
 ### `POST /api/episodes` → 201 `EpisodeListItem`
 
 Тело `EpisodeCreate`: `channel` (обязательно), `id`, `title` (по умолчанию «Новый выпуск»), `short_title`,
-`origin` (по умолчанию `blank`), `slot` (по умолчанию `next_free` — ближайший свободный слот с сегодняшнего;
+`origin` (по умолчанию `blank`), `slot` (по умолчанию `next_free` — ближайший свободный слот после сегодняшнего;
 дата `YYYY-MM-DD` или `null`, правила — `docs/slots.md`). Ошибки: 404 — канала нет (`python -m app.tools.seed`),
 409 — id, каталог или слот заняты, 422 — поля или дата не из расписания.
 

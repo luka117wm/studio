@@ -424,9 +424,9 @@ export function createMockApi() {
     )
   }
 
-  /** Первый слот начиная с сегодняшнего, в котором нет выпуска */
+  /** Первый слот строго после сегодняшнего, в котором нет выпуска (как `next_free_slot` бэкенда) */
   function nextFree(): string {
-    let day = dayNumber(TODAY)
+    let day = dayNumber(TODAY) + 1
     while (!isSlotDate(isoOf(day)) || state.some((e) => e.slot_date === isoOf(day))) day += 1
     return isoOf(day)
   }

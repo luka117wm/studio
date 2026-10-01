@@ -118,7 +118,7 @@ class EpisodeCreate(StrictModel):
     title: Title = DEFAULT_TITLE
     short_title: ShortTitle = None
     origin: EpisodeOrigin = "blank"
-    # Слот публикации: ближайший свободный с сегодняшнего, конкретная дата или без слота.
+    # Слот публикации: ближайший свободный после сегодняшнего, конкретная дата или без слота.
     slot: SlotChoice = NEXT_FREE
 
 
@@ -216,12 +216,17 @@ def require_free_slot(
 
 
 def next_free_slot(db: sqlite3.Connection, sched: schedule.Schedule, now: dt.date) -> dt.date:
-    """Первый слот начиная с сегодняшнего, в котором нет выпуска."""
+    """Первый слот строго после сегодняшнего, в котором нет выпуска.
+
+    Сегодняшний не берётся: новый выпуск в нём сразу получил бы риск `failed`. Вручную
+    (`PUT …/slot`) его назначить можно.
+    """
+    tomorrow = now + dt.timedelta(days=1)
     rows = db.execute(
-        "SELECT slot_date FROM episodes WHERE slot_date >= ?", (now.isoformat(),)
+        "SELECT slot_date FROM episodes WHERE slot_date >= ?", (tomorrow.isoformat(),)
     ).fetchall()
     taken = {row["slot_date"] for row in rows}
-    day = schedule.slot_on_or_after(sched, now)
+    day = schedule.slot_on_or_after(sched, tomorrow)
     while day.isoformat() in taken:
         day += dt.timedelta(days=sched.every_days)
     return day
