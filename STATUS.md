@@ -682,17 +682,47 @@ standard — одна строка в `providers.yaml`). У 5.5 мышление
   кроме подвала оверлея клавиш (M11).
 - Проверки: vitest 383, oxlint, `tsc -b`, `build`, `tokens:check`, e2e 47 — три прогона подряд.
 
+### 29. M4.1 — Мост: промпты, разбор ответа, журнал обменов, заявка (2026-10-02, ветка `m4-script-bridge`)
+
+- `pipeline/bridge/`:
+  - `prompts.py` — шаблоны `backend/app/prompts/<id>.md`: front-matter `id`, `version`, `task`, `model_hint`;
+    `id` = имя файла; рендер `{{name}}` строгий (нехватка и лишний ключ — ошибка с именами) и в один проход;
+    `RenderedPrompt` с sha256; проверка при старте — `ConfigError`;
+  - `extract.py` — `extract_json`: блок ```json → блок ``` с `{` → первый сбалансированный объект; обрыв —
+    номер строки, синтаксис — строка и столбец исходного ответа, причины `json` по-русски; NaN и не-объект —
+    ошибка, ничего не чинится;
+  - `runs.py` + `006_bridge.sql` — журнал `bridge_runs`; `errors.py` — `BridgeAnswerError` → 422 `BridgeError`.
+- API: `GET /api/bridge/settings`, `GET /api/bridge/runs?episode_id=&task=&limit=`. `plan_source: bridge` в
+  `providers.yaml`, неизвестное значение — ошибка старта.
+- Заявка — `project.json → brief` (`EpisodeBrief`). PATCH проекта отдаёт `msg` по-русски для лишнего и
+  обязательного поля, литерала и типа строки.
+- Решения:
+  - модель заявки — `EpisodeBrief`, а не `Brief`: `Brief` уже есть в `director.py` (что вернул чат);
+  - повторный ответ на закрытый обмен — новая строка с тем же промптом;
+  - API недоступен и с ключом («подключается отдельным этапом»), `plan_source` в ответе — действующий;
+  - каталога `backend/app/prompts/` нет — 0 шаблонов, первый появится в M4.2.
+- Документы: новый `docs/bridge.md` (строка в карте `CLAUDE.md`), `brief` в `project_schema.md`, `plan_source` в
+  `providers.md`; typegen — `types/bridge.ts`, `EpisodeBrief` в `types/project.ts`.
+- Проверки: pytest 276, из них тесты моста 63 (prompts 20, extract 26, api 17), ruff, mypy, `typegen:check`, `tsc -b`. Живая
+  проверка на временном `STUDIO_DATA_DIR`: оба `curl` из задания, 422 по-русски, мёрдж заявки, журнал через API,
+  0 строк `cost_ledger`.
+- Хвосты:
+  - `tests/fixtures/config/formats.yaml` после `pull` оказался текстом вместо симлинка (L-029). Починено с согласия
+    пользователя: `core.symlinks=true` в `.git/config`, `git checkout` файла; pytest — 276 зелёных;
+  - неизвестная `task` в `/api/bridge/runs` — 422 с английским текстом FastAPI: запрос шлёт фронт, не человек.
+
 ## Дальше
 
 Модуль **M3** закрыт 2026-09-29, хвосты — 2026-10-01, правки handoff — 2026-10-02 (разделы 19–28), тег `m3`.
+M4.1 — 2026-10-02 (раздел 29).
 
 **M4 — Идеи, сценарий и план через мост** составлен 2026-10-02: `docs/tasks/M4.md`, двенадцать этапов
 `M4.1`…`M4.12`, ~44 ч. Ключа Anthropic нет — с Claude только мост через чат; Claude API и радар трендов YouTube
 вынесены в roadmap «когда появятся ключи». Ветка `m4-script-bridge` (от `handoff-fixes`, пока PR #3 открыт; после
 слияния — перебазировать на `main`).
 
-1. **Следующая сессия — `M4.1`** (мост: промпты, разбор ответа, журнал обменов, заявка), стартовая фраза — в
-   `docs/tasks/M4.md`.
+1. **M4.1 закрыт** (раздел 29). **Следующая сессия — `M4.2`** (план через мост: части, `canon_ref` и `voice` из
+   кода, импорт), стартовая фраза — в `docs/tasks/M4.md`. Первый настоящий шаблон — `backend/app/prompts/plan.md`.
 2. Входы M4 из хвостов M2–M3 вошли в устав: `ProjectPatch` (M4.3), «Из бэклога идей» (M4.9), вкладки ⌘⇧1…⌘⇧3 и
    дубль сочетания в `keyboard.register()` (M4.4), смета пресета при мосте (M4.6). К API-сессии: кэш ответов LLM,
    мышление Opus 5.5, ключ `ANTHROPIC_API_KEY`.

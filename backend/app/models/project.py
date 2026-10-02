@@ -14,7 +14,14 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
-from app.models.director import EPISODE_ID_PATTERN, SHOT_ID_PATTERN, Channel, StrictModel
+from app.models.director import (
+    EPISODE_ID_PATTERN,
+    SHOT_ID_PATTERN,
+    Channel,
+    ReferenceMode,
+    Source,
+    StrictModel,
+)
 from app.storage.db import now_iso
 
 PROJECT_SCHEMA_VERSION = "studio.project/1"
@@ -73,6 +80,21 @@ class Timing(StrictModel):
     source: TimingSource
 
 
+class EpisodeBrief(StrictModel):
+    """Заявка выпуска — вход промпта плана (устав M4, решение 5). Заполняется на экране 3 или
+    из идеи / референса. Что вернул чат — `director.brief`, это другая модель."""
+
+    idea: str = ""
+    angle: str = ""
+    hook_promise: str = ""
+    notes: str = ""
+    sources: list[Source] = []
+    # Откуда заявка: идея бэклога (M4.8) или референс (M4.10); null — заполнена руками.
+    idea_id: str | None = None
+    reference_id: str | None = None
+    reference_mode: ReferenceMode = "none"
+
+
 class Project(StrictModel):
     model_config = ConfigDict(
         extra="forbid", validate_by_name=True, validate_by_alias=True, serialize_by_alias=True
@@ -81,6 +103,8 @@ class Project(StrictModel):
     schema_version: Literal["studio.project/1"] = Field(alias="schema")
     episode_id: str = Field(pattern=EPISODE_ID_PATTERN)
     channel: Channel
+    # Заявка выпуска; null — ещё не заполнена.
+    brief: EpisodeBrief | None = None
     director_version: str | None = Field(default=None, pattern=DIRECTOR_VERSION_PATTERN)
     # Все импортированные версии плана; файлы — `director/vNNN.json`, неизменяемые.
     director_versions: dict[str, DirectorVersionInfo] = {}

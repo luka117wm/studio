@@ -15,6 +15,7 @@
 | `schema` | `"studio.project/1"` | версия контракта |
 | `episode_id` | `^[a-z0-9][a-z0-9-]*$` | совпадает с именем каталога и `meta.episode_id` плана |
 | `channel` | `cursus \| otto` | канал |
+| `brief` | `EpisodeBrief` \| `null` | заявка выпуска — вход промпта плана; `null` — ещё не заполнена (M4.1) |
 | `director_version` | `vNNN` \| `null` | текущая версия плана; `null` — план ещё не импортирован |
 | `director_versions` | `{vNNN: DirectorVersionInfo}` | индекс всех импортированных версий (файлы — `director/vNNN.json`) |
 | `shots` | `{shot_id: ShotState}` | состояние и ручные правки кадров |
@@ -25,6 +26,27 @@
 
 Лишние поля запрещены. `schema`, `episode_id`, `channel` задаются при создании выпуска; PATCH с другими
 значениями — 422.
+
+## `brief` — EpisodeBrief
+
+Заявка выпуска (устав M4, решение 5): с чем выпуск идёт в чат за планом. Заполняется на экране 3 или из идеи
+бэклога и референса и подставляется в промпт плана (`docs/bridge.md`). Её не путать с `director.brief` — это то, что
+вернул чат.
+
+| Поле | Тип | По умолчанию | Описание |
+|---|---|---|---|
+| `idea` | string | `""` | идея выпуска |
+| `angle` | string | `""` | угол подачи |
+| `hook_promise` | string | `""` | обещание хука — что зритель узнает |
+| `notes` | string | `""` | заметки автора для чата |
+| `sources` | `[{title, url}]` | `[]` | источники; лишние поля у источника запрещены |
+| `idea_id` | string \| `null` | `null` | идея бэклога, из которой выпуск создан (M4.8) |
+| `reference_id` | string \| `null` | `null` | референс, по которому выпуск создан (M4.10) |
+| `reference_mode` | `none \| structure_clone \| own_version` | `none` | режим референса (принцип 11) |
+
+Строки могут быть пустыми. Пустой проект — `brief: null`. Первый PATCH с `brief` создаёт заявку: недостающие поля
+получают значения по умолчанию. Дальше заявка правится по общему правилу мёрджа: `{"brief": {"angle": "…"}}` не
+трогает остальные поля, `sources` заменяется целиком, `{"brief": null}` сбрасывает заявку. Лишнее поле — 422.
 
 ## `shots{}` — ShotState
 
@@ -75,7 +97,9 @@
 Тело `PATCH /api/projects/{episode_id}` — произвольный JSON-объект. Словари сливаются рекурсивно, всё остальное
 (скаляры, списки, `null`) заменяется. Поэтому коллекции в файле — объекты с ключом-идентификатором, а не массивы:
 правка одного кадра — `{"shots": {"s007": {"duration_locked": true}}}` — не трогает остальные. Результат
-проверяется целиком как `Project`; при ошибке — 422, файл не меняется. `updated_at` клиента игнорируется.
+проверяется целиком как `Project`; при ошибке — 422, файл не меняется. `detail` — список ошибок pydantic; у
+частых правок `msg` по-русски: «Лишнее поле brief.title — уберите его из запроса.», «Нет обязательного поля
+brief.sources[0].url.», недопустимое значение с перечнем допустимых, «… должно быть строкой». `updated_at` клиента игнорируется.
 Дебаунс автосохранения (800 мс) — на фронте; бэкенд пишет сразу.
 
 Импорт новой версии плана (M2.4) идёт мимо PATCH: `merge_into_project` меняет в `shots` только `status` и
@@ -88,6 +112,10 @@
   "schema": "studio.project/1",
   "episode_id": "c07-pirate-ship",
   "channel": "cursus",
+  "brief": { "idea": "Every rank on a pirate ship", "angle": "Ranks through a powder monkey's eyes",
+             "hook_promise": "From powder monkey to captain in twenty minutes", "notes": "",
+             "sources": [{ "title": "Pirate articles of 1720", "url": "https://example.org/articles" }],
+             "idea_id": null, "reference_id": null, "reference_mode": "none" },
   "director_version": "v002",
   "director_versions": {
     "v001": { "version": "v001", "hash": "sha256:2f78…", "imported_at": "2026-09-20T18:02:11+00:00",

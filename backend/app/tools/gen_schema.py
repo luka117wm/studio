@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
+from app.api.bridge import BridgeSettings
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
@@ -28,7 +29,8 @@ from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
 from app.models.channel import ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
-from app.models.project import DirectorVersionInfo, Project
+from app.models.project import DirectorVersionInfo, EpisodeBrief, Project
+from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.director_import import ImportResult
 from app.providers.base import Cost, KeyStatus
 from app.settings import REPO_ROOT
@@ -44,6 +46,7 @@ Mode = Literal["validation", "serialization"]
 API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
     "project": [
         (Project, "serialization"),
+        (EpisodeBrief, "serialization"),
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
     ],
@@ -69,6 +72,11 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (BudgetRefusal, "serialization"),
     ],
     "provider": [(KeyStatus, "serialization")],
+    "bridge": [
+        (BridgeSettings, "serialization"),
+        (BridgeRun, "serialization"),
+        (BridgeError, "serialization"),
+    ],
 }
 
 log = logging.getLogger(__name__)

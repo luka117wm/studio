@@ -5,6 +5,11 @@
 
 default_profile: standard
 
+# Откуда план, идеи и разбор референса: bridge — мост через чат (промпт копируется в claude.ai,
+# ответ вставляется в приложение), api — Anthropic API. Без ANTHROPIC_API_KEY api недоступен, и
+# работает мост. Правила — docs/bridge.md.
+plan_source: bridge
+
 # CLAUDE.md, «Чего не делать»: API этих моделей закрываются осенью 2026. Шаблоны fnmatch без
 # учёта регистра; модель из каталога, попавшая под шаблон, — ошибка старта.
 forbidden_models:

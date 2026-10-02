@@ -129,6 +129,86 @@
       "title": "DirectorVersionInfo",
       "type": "object"
     },
+    "EpisodeBrief": {
+      "additionalProperties": false,
+      "description": "Заявка выпуска — вход промпта плана (устав M4, решение 5). Заполняется на экране 3 или\nиз идеи / референса. Что вернул чат — `director.brief`, это другая модель.",
+      "properties": {
+        "idea": {
+          "default": "",
+          "title": "Idea",
+          "type": "string"
+        },
+        "angle": {
+          "default": "",
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "default": "",
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "idea_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Id"
+        },
+        "reference_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Id"
+        },
+        "reference_mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "structure_clone",
+            "own_version"
+          ],
+          "title": "Reference Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "idea",
+        "angle",
+        "hook_promise",
+        "notes",
+        "sources",
+        "idea_id",
+        "reference_id",
+        "reference_mode"
+      ],
+      "title": "EpisodeBrief",
+      "type": "object"
+    },
     "ImportResult": {
       "additionalProperties": false,
       "properties": {
@@ -191,6 +271,17 @@
           ],
           "title": "Channel",
           "type": "string"
+        },
+        "brief": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpisodeBrief"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "director_version": {
           "anyOf": [
@@ -255,6 +346,7 @@
         "schema",
         "episode_id",
         "channel",
+        "brief",
         "director_version",
         "director_versions",
         "shots",
@@ -406,6 +498,25 @@
         "stale_reasons"
       ],
       "title": "ShotState",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Source",
       "type": "object"
     },
     "Timing": {

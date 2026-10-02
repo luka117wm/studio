@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:1df59a3570ab1c47803a63dff2114086604551783d9629aca808ff96ba0c337d
+ * @generated sha256:ffefe2bdadb110fd53cd59d8fe166d1e63b471548d76ef72bbf0f942a06a1fbb
  */
 export interface Asset {
   id: string
@@ -27,6 +27,21 @@ export interface DirectorVersionInfo {
   removed: number
 }
 
+/**
+ * Заявка выпуска — вход промпта плана (устав M4, решение 5). Заполняется на экране 3 или
+ * из идеи / референса. Что вернул чат — `director.brief`, это другая модель.
+ */
+export interface EpisodeBrief {
+  idea: string
+  angle: string
+  hook_promise: string
+  notes: string
+  sources: Source[]
+  idea_id: string | null
+  reference_id: string | null
+  reference_mode: 'none' | 'structure_clone' | 'own_version'
+}
+
 export interface ImportResult {
   version: string
   created: boolean
@@ -40,6 +55,7 @@ export interface Project {
   schema: 'studio.project/1'
   episode_id: string
   channel: 'cursus' | 'otto'
+  brief: EpisodeBrief | null
   director_version: string | null
   director_versions: {
     [k: string]: DirectorVersionInfo
@@ -81,6 +97,11 @@ export interface ShotState {
     [k: string]: unknown
   } | null
   stale_reasons: string[]
+}
+
+export interface Source {
+  title: string
+  url: string
 }
 
 export interface Timing {

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api import (
+    bridge,
     channels,
     cost,
     director,
@@ -26,3 +27,4 @@ api_router.include_router(director.router)
 api_router.include_router(jobs.router)
 api_router.include_router(cost.router)
 api_router.include_router(providers.router)
+api_router.include_router(bridge.router)
