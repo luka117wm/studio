@@ -45,6 +45,7 @@
   --status-warning: #EE9B00;       /* фигура: треугольник; и текст */
   --status-failed: #BB3E03;        /* фигура: квадрат с крестом */
   --status-failed-text: #F08C5D;   /* текст ошибки */
+  --status-published: #6F86B5;     /* фигура: сплошная точка; колонка и глиф «Опубликован» */
 
   /* Фоны карточек состояний */
   --surface-warning: #1A1206;
@@ -92,6 +93,12 @@
   --shell-inspector: 320px;
   --shell-library: 280px;
   --shell-settings-nav: 224px;
+  --shell-metadata: 380px;   /* Метаданные (Публикация) */
+  --shell-presets: 320px;    /* Пресеты (Экспорт) */
+  --shell-log: 420px;        /* Панель лога (Экспорт) */
+  --shell-seeds: 300px;      /* Семена ниши (Идеи) */
+  --shell-clusters: 340px;   /* Идеи из кластеров (Идеи) */
+  --shell-anchors: 480px;    /* Опорные кадры (Канон) */
   --shell-timeline: 260px;
   --shell-timeline-min: 160px;
   --shell-timeline-max: 460px;

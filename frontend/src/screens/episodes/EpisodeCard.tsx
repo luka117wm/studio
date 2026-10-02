@@ -7,8 +7,9 @@ import { formatUsd } from '../../app/format'
 import { navigate } from '../../app/navigation'
 import { paths } from '../../app/routes'
 import { useUiStore } from '../../store/uiStore'
-import { StatusGlyph, cn } from '../../ui'
+import { cn } from '../../ui'
 import { HATCH } from '../../ui/internal/hatch'
+import { EpisodeGlyph } from './EpisodeGlyph'
 import {
   TONE_CLASS,
   boardColumn,
@@ -17,7 +18,6 @@ import {
   cardProgress,
   cardSlot,
   columnLabel,
-  glyphStatus,
   remainingSeconds,
   type ProgressFill,
   type ProgressSample,
@@ -65,7 +65,7 @@ export function EpisodeCard({ episode, today }: EpisodeCardProps) {
             <span className="shrink-0 text-ink">{cardDuration(episode)}</span>
           </span>
         </div>
-        <StatusGlyph status={glyphStatus(episode.status)} label={episode.status === 'published' ? 'Опубликован' : undefined} />
+        <EpisodeGlyph status={episode.status} />
       </div>
       <div className="flex flex-col gap-1">
         <span className={cn('line-clamp-2 text-11', TONE_CLASS[meta.tone])}>{meta.text}</span>

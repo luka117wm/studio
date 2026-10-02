@@ -22,7 +22,8 @@ export interface SegmentedControlProps<T extends string> {
   className?: string
 }
 
-/** Радиогруппа: ←→ переключают, Tab уходит дальше. Активный сегмент — line + text-primary. */
+/** Радиогруппа: ←→ переключают, Tab уходит дальше. Контейнер: отступ 2, зазор 2; сегмент 0 12 (components.md);
+    активный — line + text-primary. */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -53,7 +54,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
       className={cn(
-        'inline-flex rounded-control border border-line bg-raised p-px',
+        'inline-flex gap-0.5 rounded-control border border-line bg-raised p-0.5',
         size === 'sm' ? 'h-control-sm' : 'h-control-md',
         disabled && 'pointer-events-none opacity-50',
         className,
@@ -71,7 +72,7 @@ export function SegmentedControl<T extends string>({
             disabled={disabled}
             onClick={() => onChange(v)}
             className={cn(
-              'inline-flex h-full items-center gap-1 rounded-[3px] px-2 text-12 font-medium whitespace-nowrap',
+              'inline-flex h-full items-center gap-1 rounded-[3px] px-3 text-12 font-medium whitespace-nowrap',
               checked ? 'bg-line text-ink' : 'text-muted hover:text-ink',
             )}
           >

@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=Courier+Prime:wght@400&display=swap" rel="stylesheet">
 <style>
   html, body { margin: 0; padding: 0; background: #000000; }
+  :root { --status-published: #6F86B5; }
   * { box-sizing: border-box; }
   a { color: #94D2BD; text-decoration: none; }
   a:hover { color: #B4E2D2; }
@@ -98,13 +99,14 @@
 
     <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
 
-      <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #26282C;">
-        <div style="display: flex; align-items: baseline; gap: 8px;">
+      <div style="height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid #26282C;">
+        <div style="display: flex; align-items: baseline; gap: 16px;">
           <div style="font-size: 18px; line-height: 24px; font-weight: 600;">Выпуски</div>
           <div style="font-size: 12px; color: #9A9C9F;">{{ countLabel }}</div>
         </div>
         <div style="flex: 1;"></div>
 
+        <div style="display: flex; align-items: center; gap: 8px;">
         <div style="height: 28px; display: flex; align-items: center; gap: 6px; width: 228px; padding: 0 8px; background: #16171A; border: 1px solid {{ searchBorder }}; border-radius: 4px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9C9F" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.6-4.6"></path></svg>
           <input value="{{ q }}" onChange="{{ setQ }}" onFocus="{{ onSearchFocus }}" onBlur="{{ onSearchBlur }}" placeholder="Поиск по выпускам" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #F2F1EE; font-family: inherit; font-size: 13px;">
@@ -112,13 +114,14 @@
 
         <div style="height: 28px; display: flex; padding: 2px; background: #16171A; border: 1px solid #26282C; border-radius: 4px; gap: 2px;">
           <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3">
-            <div onClick="{{ f.pick }}" tabIndex="0" style="{{ f.style }}" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ f.label }}</div>
+            <div onClick="{{ f.pick }}" tabIndex="0" style="{{ f.style }}" style-hover="color: #F2F1EE;" style-focus="outline: 2px solid #94D2BD; outline-offset: 1px;">{{ f.label }}</div>
           </sc-for>
         </div>
 
-        <div onClick="{{ openDialog }}" tabIndex="0" title="Новый выпуск — ⌘N" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">
+        <div onClick="{{ openDialog }}" tabIndex="0" title="Новый выпуск" style="height: 28px; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #94D2BD; color: #000000; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;" style-hover="background: #B4E2D2;" style-active="background: #74BFA7;" style-focus="outline: 2px solid #94D2BD; outline-offset: 2px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
           Новый выпуск
+        </div>
         </div>
       </div>
 
@@ -220,8 +223,7 @@
     <div style="width: 1px; height: 12px; background: #26282C;"></div>
     <div>Следующий слот 13 сентября, Every Rank on a Pirate Ship: нет SFX, экспорт не запускался</div>
     <div style="flex: 1;"></div>
-    <div>⌘K команды</div>
-    <div>⌘N новый выпуск</div>
+    <div>? горячие клавиши</div>
   </div>
 
   <sc-if value="{{ dialog }}" hint-placeholder-val="{{ false }}">
@@ -314,7 +316,7 @@ const COLS = [
   { key: 'gen', label: 'Генерация', mark: '#E9D8A6' },
   { key: 'edit', label: 'Монтаж', mark: '#0A9396' },
   { key: 'ready', label: 'Готов к публикации', mark: '#94D2BD' },
-  { key: 'pub', label: 'Опубликован', mark: '#6F86B5' }
+  { key: 'pub', label: 'Опубликован', mark: 'var(--status-published)' }
 ];
 
 const SLOTS = [
@@ -379,7 +381,7 @@ class Component extends DCLogic {
   glyph(st) {
     const base = 'width: 12px; height: 12px; flex: 0 0 12px; display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 10px; font-weight: 600; margin-top: 2px;';
     if (st === 'ready') return { style: base + ' border-radius: 50%; background: #F2F1EE;', text: '' };
-    if (st === 'pub') return { style: base + ' border-radius: 50%; border: 1.5px solid #6F86B5; background: #6F86B5;', text: '' };
+    if (st === 'pub') return { style: base + ' border-radius: 50%; border: 1.5px solid var(--status-published); background: var(--status-published);', text: '' };
     if (st === 'queued') return { style: base + ' border-radius: 50%; border: 1.5px solid #5C5E62;', text: '' };
     if (st === 'run') return { style: base + ' border-radius: 2px; background: repeating-linear-gradient(45deg, #94D2BD 0 2px, #0C0D0F 2px 4px); animation: hatch 1.2s linear infinite;', text: '' };
     if (st === 'warn') return { style: base + ' width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid #EE9B00;', text: '' };
@@ -453,7 +455,7 @@ class Component extends DCLogic {
     const filters = ['Все каналы', 'Cursus', "Otto's Timeline"].map(f => ({
       label: f === "Otto's Timeline" ? 'Otto' : f === 'Все каналы' ? 'Все' : f,
       pick: () => this.setState({ channel: f }),
-      style: 'display: flex; align-items: center; padding: 0 10px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
+      style: 'display: flex; align-items: center; padding: 0 12px; border-radius: 3px; font-size: 12px; font-weight: 500; cursor: pointer; '
         + (ch === f ? 'background: #26282C; color: #F2F1EE;' : 'color: #9A9C9F;')
     }));
 

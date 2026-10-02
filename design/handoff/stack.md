@@ -49,16 +49,17 @@
 
 ```
 src/
-  app/            AppShell, TopBar, StageRail, StatusBar, routing
-  screens/        episodes, ideas, script, generation, edit, export, publish, settings
-  components/     ui/ (Button, Input, Select, Slider, Toggle, StatusBadge, Toast, Dialog)
-                  domain/ (ShotCard, Timeline, ScriptSheet, PlanTable, RenderQueue, …)
-                  states/ (EmptyState, ProcessCard, ErrorCard, ConflictBar)
-  domain/         episode.ts, plan.ts, timeline.ts, money.ts, timecode.ts
-  providers/      anthropic.ts, gemini.ts, elevenlabs.ts, kling.ts, youtube.ts, gateway.ts
-  queue/          jobQueue.ts (параллельность, пауза, отмена, докачка, повтор по rate limit)
-  styles/         app.css (импорт tokens.css + @theme)
+  app/        AppShell, TopBar, StageRail, StatusBar, роутер, реестр сочетаний, оверлей клавиш
+  ui/         кит по components.md: файл на компонент, index.ts
+  screens/    episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon
+  api/        клиент /api, запросы, подписка SSE
+  store/      uiStore: канал, открытый выпуск, панели, тосты, автосохранение
+  timeline/  preview/  engine/ (motion, renderFrame, subtitles)
+  styles/     tokens.css (копия), theme.css (мост @theme), base.css
+  types/      генерируются из моделей бэкенда
 ```
+
+Провайдеров, очереди джобов и цен во фронте нет — это бэкенд. Фронт ходит только в свой `/api`.
 
 ## Доменные инварианты — в коде, не в UI
 
@@ -75,10 +76,10 @@ type ShotTimingSource = 'voice' | 'locked' | 'estimate';
   (`ask` — диалог, `stop` — блокировка).
 - Изменение плана после генерации помечает кадры `stale` с указанием, что изменилось;
   UI показывает `ConflictBar` до решения.
-- Деньги — целые центы (`number` в центах), форматирование одной функцией
-  `formatUsd`; время — `formatTimecode` (`00:00:00`).
-- Тексты интерфейса — в одном модуле `strings.ru.ts`: одно действие = один ключ,
-  из него и кнопка, и тост («Перерисовать» → «Перерисовано»).
+- Деньги — целые микродоллары (`*_usd_micro`), считает их только бэкенд. На экране — одна функция `formatUsd`;
+  время — `formatTimecode` (`00:00:00`).
+- Подписи доменных значений (стадии, статусы, причины риска, виды джобов) и пары «действие → результат»
+  («Перерисовать» → «Перерисовано») — в одном модуле `app/labels.ts`. Остальные тексты — рядом с экраном.
 
 ## Порядок реализации
 

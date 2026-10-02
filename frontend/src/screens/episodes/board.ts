@@ -4,7 +4,6 @@
 import type { EpisodeListItem } from '@/types/episode'
 import { formatEpisodeDuration, formatSlotDate } from '../../app/format'
 import { jobKindLabel } from '../../app/labels'
-import type { Status } from '../../ui'
 
 export type ColumnId = 'idea' | 'script' | 'generate' | 'edit' | 'ready' | 'published'
 
@@ -21,8 +20,7 @@ export const COLUMNS: readonly Column[] = [
   { id: 'generate', label: 'Генерация', markClass: 'bg-track-shots' },
   { id: 'edit', label: 'Монтаж', markClass: 'bg-track-voice' },
   { id: 'ready', label: 'Готов к публикации', markClass: 'bg-accent' },
-  // В артборде у «Опубликован» свой синий — в tokens.css его нет; до токена status.published в handoff — ready (docs/visual_review.md)
-  { id: 'published', label: 'Опубликован', markClass: 'bg-ready' },
+  { id: 'published', label: 'Опубликован', markClass: 'bg-published' },
 ]
 
 type Stage = EpisodeListItem['stage']
@@ -49,11 +47,6 @@ export function boardColumn({ stage, status }: { stage: Stage; status: EpisodeSt
 }
 
 export const columnLabel = (id: ColumnId): string => COLUMNS.find((c) => c.id === id)?.label ?? id
-
-/** Глиф статуса: у «Опубликован» своего токена нет — сплошная точка ready */
-export function glyphStatus(status: EpisodeStatus): Status {
-  return status === 'published' ? 'ready' : status
-}
 
 // --- строка «что сейчас» -----------------------------------------------------------------------
 
