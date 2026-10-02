@@ -69,7 +69,8 @@ describe('доска', () => {
     const janissary = await card('Ottoman Janissary Corps, Идея')
     expect(janissary.textContent).toContain('слот не назначен')
     const viking = await card('A Viking Winter, Опубликован')
-    expect(within(viking).getByRole('img', { name: 'Опубликован' })).toBeTruthy()
+    // «Опубликован» — свой цвет status-published (handoff), а не ready
+    expect(within(viking).getByRole('img', { name: 'Опубликован' }).firstElementChild?.className).toContain('bg-published')
   })
 
   test('поиск «monastery» оставляет одну карточку и счётчик «1 из 9»', async () => {

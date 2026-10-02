@@ -43,7 +43,7 @@
   --color-track-sfx: var(--track-sfx);
   --color-track-music: var(--track-music);
 
-  /* Статусы: bg-queued / text-queued-text, bg-generating, bg-ready,
+  /* Статусы: bg-queued / text-queued-text, bg-generating, bg-ready, bg-published,
      text-warning, bg-failed / text-failed-text, bg-surface-warning, bg-surface-failed */
   --color-queued: var(--status-queued);
   --color-queued-text: var(--status-queued-text);
@@ -52,6 +52,7 @@
   --color-warning: var(--status-warning);
   --color-failed: var(--status-failed);
   --color-failed-text: var(--status-failed-text);
+  --color-published: var(--status-published);
   --color-surface-warning: var(--surface-warning);
   --color-surface-failed: var(--surface-failed);
   --color-scrim: var(--scrim);
@@ -114,6 +115,12 @@
   --spacing-shell-inspector: var(--shell-inspector);
   --spacing-shell-library: var(--shell-library);
   --spacing-shell-settings-nav: var(--shell-settings-nav);
+  --spacing-shell-metadata: var(--shell-metadata);
+  --spacing-shell-presets: var(--shell-presets);
+  --spacing-shell-log: var(--shell-log);
+  --spacing-shell-seeds: var(--shell-seeds);
+  --spacing-shell-clusters: var(--shell-clusters);
+  --spacing-shell-anchors: var(--shell-anchors);
   --spacing-shell-timeline: var(--shell-timeline);
   --spacing-shell-timeline-min: var(--shell-timeline-min);
   --spacing-shell-timeline-max: var(--shell-timeline-max);

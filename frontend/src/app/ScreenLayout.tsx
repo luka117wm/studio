@@ -38,28 +38,28 @@ export interface ScreenLayoutProps {
   children: ReactNode
 }
 
-/* Ширины: библиотека 280 (→240 <1440), метаданные 380, пресеты 320, навигация настроек 224 фикс.,
-   семена ниши (идеи) 300 — из артборда 2, в layout.md не описано. */
+/* Ширины — токены оболочки из layout.md: библиотека 280 (→240 <1440), метаданные 380, пресеты 320,
+   навигация настроек 224 фикс., семена ниши 300. */
 const LEFT_WIDTH: Record<LeftPanelKind, string> = {
   library: 'w-shell-library max-[1439px]:w-60',
-  metadata: 'w-95',
-  presets: 'w-80',
+  metadata: 'w-shell-metadata',
+  presets: 'w-shell-presets',
   settingsNav: 'w-shell-settings-nav',
-  seeds: 'w-75',
+  seeds: 'w-shell-seeds',
 }
-/* Правая колонка: инспектор 320 (→280 <1440); кластеры идей 340 — из артборда 2, в диапазоне 280–420 layout.md */
+/* Правая колонка: инспектор 320 (→280 <1440), кластеры идей 340 */
 const RIGHT_WIDTH: Record<RightPanelKind, string> = {
   inspector: 'w-shell-inspector max-[1439px]:w-70',
-  clusters: 'w-85',
+  clusters: 'w-shell-clusters',
 }
-const WIDE_WIDTH = { log: 'w-105' } as const
+const WIDE_WIDTH = { log: 'w-shell-log' } as const
 const STRIP = 'w-10'
 
 export function ScreenLayout({ header, strip, left, right, wide, bottom, children }: ScreenLayoutProps) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {header && (
-        <header className="flex h-shell-screen-header shrink-0 items-center gap-3 border-b border-line px-4">
+        <header className="flex h-shell-screen-header shrink-0 items-center gap-4 border-b border-line px-4">
           <h1 className="text-18 font-semibold text-ink">{header.title}</h1>
           {header.note && <span className="text-12 text-muted">{header.note}</span>}
           {header.actions && <div className="ml-auto flex items-center gap-2">{header.actions}</div>}

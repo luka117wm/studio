@@ -6,9 +6,10 @@ import type { Slot } from '@/types/slot'
 import { useSlots, type ChannelScope } from '../../api/queries'
 import { QueryError } from '../../app/BackendState'
 import { formatSlotDate } from '../../app/format'
-import { Skeleton, StatusGlyph, cn } from '../../ui'
+import { Skeleton, cn } from '../../ui'
 import { AssignSlot, SlotActions } from './AssignSlot'
-import { TONE_CLASS, glyphStatus } from './board'
+import { EpisodeGlyph } from './EpisodeGlyph'
+import { TONE_CLASS } from './board'
 import { slotDay, slotNote, weekdayShort, windowMonths } from './slotText'
 
 /** Окно по умолчанию (`docs/slots.md`) — столько скелетонов, пока полоса грузится */
@@ -108,7 +109,7 @@ function SlotCell({ slot, episode, dimmed, candidates, showChannel }: SlotCellPr
           <span className="text-11 text-muted">{weekdayShort(slot.weekday)}</span>
         </span>
         {episode && (
-          <StatusGlyph status={glyphStatus(episode.status)} label={episode.status === 'published' ? 'Опубликован' : undefined} />
+          <EpisodeGlyph status={episode.status} />
         )}
       </div>
       {filled ? (
