@@ -1,4 +1,4 @@
-"""Общие зависимости роутеров: пути, соединение с БД на запрос, пул джобов, gateway провайдеров."""
+"""Общие зависимости роутеров: пути, БД на запрос, пул джобов, gateway, шаблоны промптов моста."""
 
 import sqlite3
 from typing import Annotated
@@ -7,6 +7,7 @@ from fastapi import Depends, Request
 
 from app.jobs.worker import JobPool
 from app.models.formats import FormatsConfig
+from app.pipeline.bridge import PromptLibrary
 from app.providers.gateway import Gateway
 from app.storage.db import get_db
 from app.storage.paths import StudioPaths
@@ -27,6 +28,11 @@ def get_gateway(request: Request) -> Gateway:
     return gateway
 
 
+def get_prompts(request: Request) -> PromptLibrary:
+    prompts: PromptLibrary = request.app.state.prompts
+    return prompts
+
+
 def get_formats(request: Request) -> FormatsConfig:
     formats: FormatsConfig = request.app.state.formats
     return formats
@@ -35,5 +41,6 @@ def get_formats(request: Request) -> FormatsConfig:
 PathsDep = Annotated[StudioPaths, Depends(get_paths)]
 FormatsDep = Annotated[FormatsConfig, Depends(get_formats)]
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
+PromptsDep = Annotated[PromptLibrary, Depends(get_prompts)]
 JobsDep = Annotated[JobPool, Depends(get_jobs)]
 DbDep = Annotated[sqlite3.Connection, Depends(get_db)]

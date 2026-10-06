@@ -6,13 +6,14 @@
 
 Числа бюджетов и квоты — как в оболочке (`frontend/src/mocks/fixtures.ts`), чтобы M3 не спорил
 с макетом; лимитов на выпуск и анимацию в макете нет — значения ниже редактируются в профиле.
+Голос — `unset` с темпом пресета: выбирается в модуле голоса (устав M4, решение 4).
 """
 
 import logging
 import sqlite3
 
 from app.log import configure_logging
-from app.models.channel import Budgets, ChannelProfile, VoiceQuota
+from app.models.channel import Budgets, ChannelProfile, ChannelVoice, VoiceQuota
 from app.settings import Settings
 from app.storage.atomic import write_json_atomic
 from app.storage.db import apply_migrations, connect, now_iso
@@ -27,6 +28,7 @@ PROFILES: tuple[ChannelProfile, ...] = (
         format="every_rank",
         budgets=Budgets(monthly_usd=150, per_episode_usd=15, animation_usd=5),
         voice_quota=VoiceQuota(limit_chars=600_000),
+        voice=ChannelVoice(),
     ),
     ChannelProfile(
         id="otto",
@@ -34,6 +36,7 @@ PROFILES: tuple[ChannelProfile, ...] = (
         format="host",
         budgets=Budgets(monthly_usd=100, per_episode_usd=8, animation_usd=3),
         voice_quota=VoiceQuota(limit_chars=600_000),
+        voice=ChannelVoice(),
     ),
 )
 

@@ -22,9 +22,23 @@ class VoiceQuota(StrictModel):
     limit_chars: int = Field(gt=0)
 
 
+class ChannelVoice(StrictModel):
+    """Голос канала для плана (устав M4, решение 4): код подставляет его в `director.voice`.
+
+    Модель голоса — маршрут `voice` в `config/providers.yaml`, не профиль (принцип 5). Голос
+    выбирается в модуле голоса, до него — `unset`.
+    """
+
+    voice_id: str = Field(default="unset", min_length=1)
+    # Темп закадра; null — темп пресета формата (`config/formats.yaml → words_per_minute`).
+    pace_wpm: int | None = Field(default=None, ge=100, le=200)
+
+
 class ChannelProfile(StrictModel):
     id: Channel
     name: str
     format: EpisodeFormat
     budgets: Budgets
     voice_quota: VoiceQuota
+    # Профили до M4.2 поля не имеют — читаются со значениями по умолчанию.
+    voice: ChannelVoice = ChannelVoice()

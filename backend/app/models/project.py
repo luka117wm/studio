@@ -33,6 +33,8 @@ ShotStatus = Literal["todo", "queued", "generating", "done", "failed", "stale", 
 AssetKind = Literal["image", "voice", "animation", "sfx", "music", "thumbnail", "render"]
 AssetStatus = Literal["ok", "stale", "failed"]
 TimingSource = Literal["voice", "locked", "estimate"]
+# Откуда версия плана (устав M4, решение 6): мост через чат, ручной импорт или правка JSON, API.
+VersionSource = Literal["bridge", "manual", "api"]
 
 _SHOT_ID_RE = re.compile(SHOT_ID_PATTERN)
 
@@ -55,6 +57,8 @@ class DirectorVersionInfo(StrictModel):
     hash: str
     imported_at: str
     parts: int = Field(ge=1)
+    # Записи до M4.2 поля не имеют — читаются как `manual`.
+    source: VersionSource = "manual"
     shots: int = Field(ge=0)
     added: int = Field(ge=0)
     changed: int = Field(ge=0)

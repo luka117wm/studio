@@ -23,6 +23,7 @@ from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
 from app.api.jobs import JobCreate, JobList
+from app.api.plan import PlanAnswer, PlanAnswerResult, PlanParts, PlanPrompt
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
@@ -76,6 +77,12 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (BridgeSettings, "serialization"),
         (BridgeRun, "serialization"),
         (BridgeError, "serialization"),
+    ],
+    "plan": [
+        (PlanPrompt, "serialization"),
+        (PlanAnswer, "validation"),
+        (PlanAnswerResult, "serialization"),
+        (PlanParts, "serialization"),
     ],
 }
 

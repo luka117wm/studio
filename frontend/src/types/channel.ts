@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/channel.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:05ff4c03b84076a933c73125f43f731d42e7392cd14d5968396495209019b922
+ * @generated sha256:ec0e7a0efd32e592bf1c13fae30e32e06489cc5a1d3630ac2cd736f1e555a08e
  */
 /**
  * Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).
@@ -18,6 +18,18 @@ export interface ChannelProfile {
   format: 'every_rank' | 'host'
   budgets: Budgets
   voice_quota: VoiceQuota
+  voice: ChannelVoice
+}
+
+/**
+ * Голос канала для плана (устав M4, решение 4): код подставляет его в `director.voice`.
+ *
+ * Модель голоса — маршрут `voice` в `config/providers.yaml`, не профиль (принцип 5). Голос
+ * выбирается в модуле голоса, до него — `unset`.
+ */
+export interface ChannelVoice {
+  voice_id: string
+  pace_wpm: number | null
 }
 
 /**

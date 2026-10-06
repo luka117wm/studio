@@ -11,6 +11,7 @@ from app.api import (
     formats,
     health,
     jobs,
+    plan,
     projects,
     providers,
     slots,
@@ -24,6 +25,7 @@ api_router.include_router(slots.router)
 api_router.include_router(formats.router)
 api_router.include_router(projects.router)
 api_router.include_router(director.router)
+api_router.include_router(plan.router)
 api_router.include_router(jobs.router)
 api_router.include_router(cost.router)
 api_router.include_router(providers.router)

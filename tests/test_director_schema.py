@@ -168,6 +168,26 @@ def test_duplicate_section_id(pirate: dict[str, Any]) -> None:
     assert errors_of(pirate) == ["раздел r1: id повторяется, ожидалось уникальный id раздела"]
 
 
+def test_fact_shot_id_must_exist(pirate: dict[str, Any]) -> None:
+    pirate["facts"][0]["shot_id"] = "s099"
+    pirate["facts"][1]["shot_id"] = "s003"
+    assert errors_of(pirate) == ["facts[0]: кадр «s099» не найден, ожидалось id кадра этого плана"]
+
+
+def test_fact_shot_id_in_a_part_is_checked_by_assembly(pirate: dict[str, Any]) -> None:
+    # Факт части может ссылаться на кадр другой части — проверяет сборка целого плана (M2.4).
+    pirate["meta"]["parts_total"] = 2
+    pirate["facts"][0]["shot_id"] = "s099"
+    validate_director(pirate)
+
+
+def test_plan_without_fact_shot_id_reads_and_dumps_unchanged(pirate: dict[str, Any]) -> None:
+    # Планы до M4.2: поля нет, и в файл версии оно не попадает — хэш старого плана тот же.
+    director = validate_director(pirate)
+    assert [fact.shot_id for fact in director.facts] == [None, None, None]
+    assert director.model_dump(mode="json", by_alias=True)["facts"] == pirate["facts"]
+
+
 def test_overlay_is_reserved_null(pirate: dict[str, Any]) -> None:
     pirate["shots"][0]["overlay"] = {"text": "x"}
     (error,) = errors_of(pirate)

@@ -23,6 +23,7 @@ export const channels = [
     format: 'every_rank',
     budgets: { monthly_usd: 150, per_episode_usd: 15, animation_usd: 5 },
     voice_quota: { limit_chars: 600_000 },
+    voice: { voice_id: 'unset', pace_wpm: null },
   },
   {
     id: 'otto',
@@ -30,6 +31,7 @@ export const channels = [
     format: 'host',
     budgets: { monthly_usd: 100, per_episode_usd: 8, animation_usd: 3 },
     voice_quota: { limit_chars: 600_000 },
+    voice: { voice_id: 'unset', pace_wpm: null },
   },
 ] satisfies ChannelProfile[]
 

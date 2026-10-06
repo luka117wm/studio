@@ -95,6 +95,16 @@
           "title": "Parts",
           "type": "integer"
         },
+        "source": {
+          "default": "manual",
+          "enum": [
+            "bridge",
+            "manual",
+            "api"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
         "shots": {
           "minimum": 0,
           "title": "Shots",
@@ -121,6 +131,7 @@
         "hash",
         "imported_at",
         "parts",
+        "source",
         "shots",
         "added",
         "changed",

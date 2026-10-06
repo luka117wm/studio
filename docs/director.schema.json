@@ -146,6 +146,19 @@
           ],
           "default": null,
           "title": "Source Url"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "pattern": "^s\\d{3,}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Id"
         }
       },
       "required": [

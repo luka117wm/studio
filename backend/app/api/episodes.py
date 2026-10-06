@@ -29,8 +29,8 @@ from app.storage.paths import StudioPaths
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["episodes"])
 
-# Где выпуск в пайплайне: те же шесть этапов, что на рельсе. Меняют действия пайплайна
-# («Утвердить план» → `generate` …); в M3 стадию ставит только создание выпуска.
+# Где выпуск в пайплайне: те же шесть этапов, что на рельсе. Меняют действия пайплайна: создание,
+# импорт плана (`idea` → `script`, M4.2), «Утвердить план» → `generate` (M4.6) и так далее.
 EpisodeStage = Literal["idea", "script", "generate", "edit", "export", "publish"]
 # Здоровье выпуска на его стадии. Колонку доски из стадии и статуса вычисляет фронт.
 EpisodeStatus = Literal["queued", "generating", "warning", "ready", "failed", "published"]
@@ -163,6 +163,18 @@ class EpisodeListItem(Episode):
 def find_episode(db: sqlite3.Connection, episode_id: str) -> Episode | None:
     row = db.execute("SELECT * FROM episodes WHERE id = ?", (episode_id,)).fetchone()
     return None if row is None else Episode.model_validate(dict(row))
+
+
+def mark_plan_imported(db: sqlite3.Connection, episode_id: str) -> None:
+    """Импорт плана (устав M4, решение 7): стадия `idea` → `script`, другие стадии не трогаются.
+
+    Возврат из `generate` после новой версии — M4.6.
+    """
+    db.execute(
+        "UPDATE episodes SET stage = 'script', updated_at = ? WHERE id = ? AND stage = 'idea'",
+        (now_iso(), episode_id),
+    )
+    db.commit()
 
 
 def require_episode(db: sqlite3.Connection, episode_id: str) -> Episode:

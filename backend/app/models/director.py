@@ -168,6 +168,12 @@ class Fact(StrictModel):
     claim: str
     status: FactStatus
     source_url: str | None = None
+    # Кадр, к которому относится факт (факт-чек на экране 3). Планы до M4.2 поля не имеют; пустое
+    # поле не выгружается — иначе файл версии и хэш старого плана изменились бы (повторный импорт
+    # того же плана создал бы новую версию).
+    shot_id: str | None = Field(
+        default=None, pattern=SHOT_ID_PATTERN, exclude_if=lambda value: value is None
+    )
 
 
 class Director(StrictModel):

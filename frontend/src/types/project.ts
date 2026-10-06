@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:ffefe2bdadb110fd53cd59d8fe166d1e63b471548d76ef72bbf0f942a06a1fbb
+ * @generated sha256:239d415d8db4eac3dfcb9fde37f82a739b7079fc2299f7b3474190c9015bd720
  */
 export interface Asset {
   id: string
@@ -21,6 +21,7 @@ export interface DirectorVersionInfo {
   hash: string
   imported_at: string
   parts: number
+  source: 'bridge' | 'manual' | 'api'
   shots: number
   added: number
   changed: number

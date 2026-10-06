@@ -175,6 +175,15 @@ def check_director(d: "Director") -> list[str]:
                 f"ожидалось один из {_listing(section_ids)}"
             )
 
+    # Факт части может ссылаться на кадр другой части — ссылки проверяет сборка целого плана.
+    if meta.parts_total == 1:
+        shot_ids = {s.id for s in d.shots}
+        for i, fact in enumerate(d.facts):
+            if fact.shot_id is not None and fact.shot_id not in shot_ids:
+                errors.append(
+                    f"facts[{i}]: кадр «{fact.shot_id}» не найден, ожидалось id кадра этого плана"
+                )
+
     return errors
 
 

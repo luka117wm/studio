@@ -60,6 +60,13 @@
         },
         "voice_quota": {
           "$ref": "#/$defs/VoiceQuota"
+        },
+        "voice": {
+          "$ref": "#/$defs/ChannelVoice",
+          "default": {
+            "voice_id": "unset",
+            "pace_wpm": null
+          }
         }
       },
       "required": [
@@ -67,9 +74,42 @@
         "name",
         "format",
         "budgets",
-        "voice_quota"
+        "voice_quota",
+        "voice"
       ],
       "title": "ChannelProfile",
+      "type": "object"
+    },
+    "ChannelVoice": {
+      "additionalProperties": false,
+      "description": "Голос канала для плана (устав M4, решение 4): код подставляет его в `director.voice`.\n\nМодель голоса — маршрут `voice` в `config/providers.yaml`, не профиль (принцип 5). Голос\nвыбирается в модуле голоса, до него — `unset`.",
+      "properties": {
+        "voice_id": {
+          "default": "unset",
+          "minLength": 1,
+          "title": "Voice Id",
+          "type": "string"
+        },
+        "pace_wpm": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pace Wpm"
+        }
+      },
+      "required": [
+        "voice_id",
+        "pace_wpm"
+      ],
+      "title": "ChannelVoice",
       "type": "object"
     },
     "Cost": {

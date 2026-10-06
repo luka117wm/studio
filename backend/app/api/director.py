@@ -1,6 +1,7 @@
 """Импорт версии плана и чтение версий: `director/vNNN.json` неизменяемы, мёрдж — в project.json.
 
-`POST /api/projects/{id}/director` принимает одну часть или план целиком. Части копятся в
+`POST /api/projects/{id}/director` принимает одну часть или план целиком; тот же путь
+(`import_plan`) — у моста через чат (`api/plan.py`). Части копятся в
 `cache/director_parts/` (часть 1 начинает новый набор), неполный набор — 409 с перечнем недостающих;
 после последней части план собирается, проходит валидацию целиком и импортируется как один файл.
 Повторный импорт того же плана (хэш канонического JSON) версию не создаёт.
@@ -8,15 +9,21 @@
 
 import logging
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import DbDep, PathsDep
-from app.api.episodes import Episode, require_episode
-from app.models.director import Director
-from app.models.project import DIRECTOR_VERSION_PATTERN, DirectorVersionInfo, Project
+from app.api.episodes import Episode, mark_plan_imported, require_episode
+from app.models.director import Director, StrictModel
+from app.models.project import (
+    DIRECTOR_VERSION_PATTERN,
+    DirectorVersionInfo,
+    Project,
+    VersionSource,
+)
 from app.models.validators import DirectorValidationError, validate_director
 from app.pipeline.director_import import (
     ImportResult,
@@ -53,12 +60,40 @@ async def import_director(
     except DirectorValidationError as exc:
         raise HTTPException(status_code=422, detail={"errors": exc.errors}) from None
     _check_identity(part, episode)
+    outcome = import_plan(paths, db, episode, part, "manual")
+    if isinstance(outcome, PartsPending):
+        raise HTTPException(status_code=409, detail=outcome.model_dump())
+    return outcome
 
+
+class PartsPending(StrictModel):
+    """Часть легла в набор, набор неполон. Ручной импорт отдаёт это как 409, мост — как успех."""
+
+    received: list[int]
+    missing: list[int]
+    message: str
+
+
+def import_plan(
+    paths: StudioPaths,
+    db: sqlite3.Connection,
+    episode: Episode,
+    director: Director,
+    source: VersionSource,
+) -> ImportResult | PartsPending:
+    """Проверенный план или часть → набор частей или версия `vNNN` + мёрдж в project.json.
+
+    Общий путь ручного импорта (`source: manual`) и моста (`bridge`). Части 2…N без части 1 или
+    с другим `parts_total` — 409, ошибка сборки — 422 (`HTTPException`). Успешный импорт переводит
+    выпуск из стадии `idea` в `script` (устав M4, решение 7).
+    """
     parts = 1
-    director = part
-    if part.meta.parts_total > 1:
-        parts = part.meta.parts_total
-        director = _collect_part(paths, episode, part)
+    if director.meta.parts_total > 1:
+        parts = director.meta.parts_total
+        collected = _collect_part(paths, episode, director)
+        if isinstance(collected, PartsPending):
+            return collected
+        director = collected
 
     project_path = paths.project_path(episode.channel, episode.id)
     project = Project.model_validate(read_json(project_path))
@@ -66,6 +101,7 @@ async def import_director(
     known = next((v for v in project.director_versions.values() if v.hash == digest), None)
 
     if known is not None and known.version == project.director_version:
+        mark_plan_imported(db, episode.id)
         return ImportResult(
             version=known.version, created=False, added=0, changed=0, removed=0, changes=[]
         )
@@ -81,20 +117,38 @@ async def import_director(
 
     previous = _read_version(paths, episode, project.director_version)
     merged, result = merge_into_project(
-        project, previous, director, version, parts=parts, created=created, now=now_iso()
+        project,
+        previous,
+        director,
+        version,
+        parts=parts,
+        created=created,
+        now=now_iso(),
+        source=source,
     )
     write_json_atomic(project_path, merged.model_dump(mode="json"))
     _clear_parts(paths, episode)
+    mark_plan_imported(db, episode.id)
     log.info(
-        "director import %s/%s: %s (+%d ~%d -%d)",
+        "director import %s/%s: %s from %s (+%d ~%d -%d)",
         episode.channel,
         episode.id,
         version,
+        source,
         result.added,
         result.changed,
         result.removed,
     )
     return result
+
+
+def staged_parts(paths: StudioPaths, episode: Episode) -> list[Director]:
+    """Части неполного набора из `cache/director_parts/`, по порядку номеров."""
+    parts_dir = paths.director_parts_dir(episode.channel, episode.id)
+    return [
+        Director.model_validate(read_json(paths.director_part_path(episode.channel, episode.id, n)))
+        for n in _received(parts_dir)
+    ]
 
 
 @router.get("/projects/{episode_id}/director/versions")
@@ -142,8 +196,8 @@ def _check_identity(director: Director, episode: Episode) -> None:
         raise HTTPException(status_code=422, detail={"errors": problems})
 
 
-def _collect_part(paths: StudioPaths, episode: Episode, part: Director) -> Director:
-    """Кладёт часть в набор; возвращает собранный план, когда набор полон, иначе поднимает 409."""
+def _collect_part(paths: StudioPaths, episode: Episode, part: Director) -> Director | PartsPending:
+    """Кладёт часть в набор: собранный план, когда набор полон, иначе — чего не хватает."""
     parts_dir = paths.director_parts_dir(episode.channel, episode.id)
     number, total = part.meta.part, part.meta.parts_total
 
@@ -179,14 +233,11 @@ def _collect_part(paths: StudioPaths, episode: Episode, part: Director) -> Direc
     received = _received(parts_dir)
     missing = [n for n in range(1, total + 1) if n not in received]
     if missing:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "received": received,
-                "missing": missing,
-                "message": f"Получена часть {number} из {total}, не хватает: "
-                + ", ".join(str(n) for n in missing),
-            },
+        return PartsPending(
+            received=received,
+            missing=missing,
+            message=f"Получена часть {number} из {total}, не хватает: "
+            + ", ".join(str(n) for n in missing),
         )
     loaded = [
         Director.model_validate(read_json(paths.director_part_path(episode.channel, episode.id, n)))
