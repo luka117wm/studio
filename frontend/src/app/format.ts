@@ -25,6 +25,13 @@ export function formatDuration(seconds: number, options: { estimate?: boolean } 
   return options.estimate ? `~${clock}` : clock
 }
 
+/** Секунды → таймкод «00:19:48» (design/CLAUDE.md: время — таймкоды 00:00:00). */
+export function formatTimecode(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds))
+  const parts = [Math.floor(total / 3600), Math.floor((total % 3600) / 60), total % 60]
+  return parts.map((n) => String(n).padStart(2, '0')).join(':')
+}
+
 /** Длительность выпуска из сводки: по голосу — точная, иначе оценка; без плана — null. */
 export function formatEpisodeDuration(summary: EpisodeSummary): string | null {
   if (summary.duration_s === null) return null

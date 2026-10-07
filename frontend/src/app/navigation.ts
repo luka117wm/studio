@@ -27,3 +27,16 @@ export function usePathname(): string {
 export function useRoute(): RouteMatch | null {
   return matchRoute(usePathname())
 }
+
+/** Параметр адреса (`?mode=plan`); нет — null. Меняется вместе с переходами и `setSearchParam`. */
+export function useSearchParam(name: string): string | null {
+  return useSyncExternalStore(subscribe, () => new URLSearchParams(window.location.search).get(name))
+}
+
+/** Поставить или убрать (`null`) параметр адреса без новой записи в истории: вид экрана, а не переход. */
+export function setSearchParam(name: string, value: string | null): void {
+  const url = new URL(window.location.href)
+  if (value === null) url.searchParams.delete(name)
+  else url.searchParams.set(name, value)
+  navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true })
+}

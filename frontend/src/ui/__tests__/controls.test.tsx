@@ -10,6 +10,33 @@ import { Slider } from '../Slider'
 import { Toggle } from '../Toggle'
 
 describe('SegmentedControl', () => {
+  test('выключенный сегмент: не выбирается ни кликом, ни стрелкой; подсказка — по фокусу', async () => {
+    const onChange = vi.fn()
+    render(
+      <SegmentedControl
+        ariaLabel="Источник плана"
+        value="bridge"
+        onChange={onChange}
+        options={[
+          { value: 'api', label: 'Claude API', disabled: true, tooltip: 'Нет ключа ANTHROPIC_API_KEY' },
+          { value: 'bridge', label: 'Мост через чат' },
+        ]}
+      />,
+    )
+    const api = screen.getByRole('radio', { name: 'Claude API' })
+    expect(api.getAttribute('aria-disabled')).toBe('true')
+    await userEvent.click(api)
+    expect(onChange).not.toHaveBeenCalled()
+
+    screen.getByRole('radio', { name: 'Мост через чат' }).focus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(onChange).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(api)
+    expect(screen.getByRole('tooltip').textContent).toBe('Нет ключа ANTHROPIC_API_KEY')
+    await userEvent.keyboard('{ArrowRight}')
+    expect(onChange).toHaveBeenCalledWith('bridge')
+  })
+
   function Harness() {
     const [value, setValue] = useState<'a' | 'b' | 'c'>('a')
     return (

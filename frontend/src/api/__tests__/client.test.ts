@@ -2,7 +2,7 @@
 // Клиент /api на замоканном fetch: URL и тело, разбор ответа, ошибки бэкенда как {status, message}.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Episode } from '@/types/episode'
-import { api, ApiError, budgetRefusal } from '../client'
+import { api, ApiError, bridgeError, budgetRefusal } from '../client'
 
 type Handler = (url: string, init: RequestInit) => Promise<Response>
 
@@ -96,6 +96,19 @@ describe('api', () => {
     mockFetch(async () => json(422, { detail: { errors: ['s001: пустой vo', 's002: нет раздела'] } }))
     const error = await failure(api.post('/projects/pirate/director', {}))
     expect(error.message).toBe('s001: пустой vo; s002: нет раздела')
+  })
+
+  test('422 моста: BridgeError в корне тела, без detail', async () => {
+    const body = {
+      message: 'Часть 1 не прошла проверку: 1 ошибка.',
+      hint: 'Попросите чат исправить кадр s003.',
+      errors: [{ path: 's003', message: 'кадр s003: в image.prompt стилевой токен «8k» (render)' }],
+    }
+    mockFetch(async () => json(422, body))
+    const error = await failure(api.post('/projects/c01/plan/answer', { text: '{}' }))
+    expect(error.message).toBe('Часть 1 не прошла проверку: 1 ошибка.')
+    expect(bridgeError(error)).toEqual(body)
+    expect(bridgeError(new ApiError(422, 'x', { errors: ['s001'] }))).toBeNull()
   })
 
   test('ответ без описания — статус и куда смотреть', async () => {

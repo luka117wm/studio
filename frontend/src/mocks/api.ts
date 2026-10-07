@@ -5,7 +5,10 @@
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
+import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
 import type { JobList } from '@/types/job'
+import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt, PlanShot } from '@/types/plan'
+import type { EpisodeBrief, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
@@ -365,6 +368,114 @@ export const jobs = {
 
 // --- маршрутизатор ---------------------------------------------------------------------------
 
+/* ---- Экран 3: заявка, мост, план (M4.4) ---- */
+
+export const bridgeSettings = {
+  plan_source: 'bridge',
+  api: { available: false, reason: 'Нет ключа ANTHROPIC_API_KEY — docs/api_keys.md' },
+} satisfies BridgeSettings
+
+/** Размер части плана (`config/formats.yaml → plan.shots_per_part`) и число частей по пресету канала */
+export const SHOTS_PER_PART = 26
+const PARTS_TOTAL: Record<ChannelId, number> = { cursus: 4, otto: 2 }
+
+export const emptyBrief = {
+  idea: '',
+  angle: '',
+  hook_promise: '',
+  notes: '',
+  sources: [],
+  idea_id: null,
+  reference_id: null,
+  reference_mode: 'none',
+} satisfies EpisodeBrief
+
+/** Заявки артборда: у «Самураев» заполнена (можно копировать промпт), у остальных пусто */
+const briefs: Record<string, EpisodeBrief> = {
+  samurai: {
+    ...emptyBrief,
+    idea: 'Every rank in a samurai household, from page boy to lord',
+    angle: 'One boy climbs the household from the kitchen to the hall',
+    hook_promise: 'From page boy to lord in twenty minutes',
+    sources: [{ title: 'Samurai households, 1600–1868', url: 'https://example.org/samurai' }],
+  },
+}
+
+const SECTIONS = [
+  { id: 'r1', title: 'Powder monkey', chapter: true, vo_direction: 'calm, dry irony' },
+  { id: 'r2', title: 'Gun drill', chapter: true, vo_direction: null },
+  { id: 'r3', title: 'Quartermaster', chapter: true, vo_direction: null },
+  { id: 'r4', title: 'Captain', chapter: true, vo_direction: null },
+]
+
+const VO = [
+  'You are eleven years old, and the first thing you learn on this ship is where the gunpowder lives.',
+  'Your job is to run. Cartridge case in both arms, up the ladder, along the gun deck, and back down.',
+  'The gun goes off eighteen inches from your ear. You will not hear properly again until Thursday.',
+]
+
+/** Кадр плана артборда: VO по кругу из трёх фраз, раздел — по 26 кадров */
+function planShot(n: number): PlanShot {
+  return {
+    id: `s${String(n).padStart(3, '0')}`,
+    section: SECTIONS[Math.min(SECTIONS.length - 1, Math.floor((n - 1) / SHOTS_PER_PART))]?.id ?? 'r1',
+    vo: VO[(n - 1) % VO.length] ?? '',
+    image: { prompt: 'carries a leather cartridge case down the gun deck', period: 'caribbean-1716', appearances: [], shot_size: 'action' },
+    motion: { type: 'push_in', strength: 0.08, ease: 'in_out_cubic' },
+    transition_in: { type: 'cut', duration: 0 },
+    animate: { recommended: false, reason: null, prompt: null, seconds: 4 },
+    sfx: [],
+    overlay: null,
+    status: 'queued',
+    stale_reasons: [],
+    duration_locked: false,
+    prompt_locked: false,
+    overridden: [],
+  }
+}
+
+export function mockPlan(episode: EpisodeListItem, version: string, shots: number): EffectivePlan {
+  return {
+    version,
+    source: 'bridge',
+    approved_version: null,
+    meta: {
+      channel: episode.channel,
+      episode_id: episode.id,
+      working_title: episode.title,
+      format: episode.channel === 'otto' ? 'host' : 'every_rank',
+      language: 'en',
+      target_minutes: episode.channel === 'otto' ? 8 : 20,
+      part: 1,
+      parts_total: 1,
+    },
+    sections: SECTIONS.slice(0, Math.max(1, Math.ceil(shots / SHOTS_PER_PART))),
+    shots: Array.from({ length: shots }, (_, i) => planShot(i + 1)),
+    facts: [],
+  }
+}
+
+/** Ответ со стилевым токеном отклоняется, как бэкендом (docs/bridge.md, «Приём ответа») */
+export const STYLE_TOKEN = 'cinematic lighting'
+
+const styleRefusal = (part: number): BridgeError => ({
+  message: `Часть ${part} не прошла проверку: 1 ошибка.`,
+  hint: 'Попросите чат исправить кадр s003 и прислать часть целиком.',
+  errors: [
+    {
+      path: 's003',
+      message:
+        'кадр s003: в image.prompt стилевой токен «cinematic lighting» (lighting), ожидалось только действие, ' +
+        'композиция и ракурс — стиль задаёт канон',
+    },
+  ],
+})
+
+interface PartsState {
+  received: number[]
+  lastRun: BridgeRun | null
+}
+
 export interface MockResponse {
   status: number
   body: unknown
@@ -387,6 +498,10 @@ const isSlotDate = (iso: string) => (dayNumber(iso) - dayNumber(ANCHOR)) % EVERY
 export function createMockApi() {
   const state: EpisodeListItem[] = structuredClone(episodes)
   let created = 0
+  const projects = new Map<string, Project>()
+  const plans = new Map<string, EffectivePlan>()
+  const partSets = new Map<string, PartsState>()
+  let runs = 0
 
   const one = (id: string) => state.find((e) => e.id === id)
 
@@ -433,6 +548,143 @@ export function createMockApi() {
     return isoOf(day)
   }
 
+  /** project.json выпуска: создаётся при первом обращении, заявка — из `briefs` */
+  function projectOf(episode: EpisodeListItem): Project {
+    let project = projects.get(episode.id)
+    if (!project) {
+      const plan = plansOf(episode)
+      project = {
+        schema: 'studio.project/1',
+        episode_id: episode.id,
+        channel: episode.channel,
+        brief: briefs[episode.id] ? structuredClone(briefs[episode.id]!) : null,
+        director_version: plan?.version ?? null,
+        director_versions: {},
+        shots: {},
+        assets: {},
+        timings: {},
+        cost: {},
+        updated_at: NOW,
+      }
+      projects.set(episode.id, project)
+    }
+    return project
+  }
+
+  /** План в работе у «Пиратов» (стадия «Монтаж») — версия v002 из пяти кадров; у остальных — нет */
+  function plansOf(episode: EpisodeListItem): EffectivePlan | null {
+    if (!plans.has(episode.id) && episode.id === 'pirate') plans.set(episode.id, mockPlan(episode, 'v002', 5))
+    return plans.get(episode.id) ?? null
+  }
+
+  function partsOf(episode: EpisodeListItem): PartsState {
+    let parts = partSets.get(episode.id)
+    if (!parts) {
+      parts = { received: [], lastRun: null }
+      partSets.set(episode.id, parts)
+    }
+    return parts
+  }
+
+  function planParts(episode: EpisodeListItem): PlanParts {
+    const parts = partsOf(episode)
+    const total = PARTS_TOTAL[episode.channel]
+    const missing = Array.from({ length: total }, (_, i) => i + 1).filter((n) => !parts.received.includes(n))
+    return {
+      parts_total: total,
+      shots_per_part: SHOTS_PER_PART,
+      received: [...parts.received],
+      next_part: missing[0] ?? null,
+      last_run: parts.lastRun,
+    }
+  }
+
+  function run(episode: EpisodeListItem, part: number, status: BridgeRun['status'], errors: BridgeRun['errors'] = []): BridgeRun {
+    runs += 1
+    return {
+      id: `run-${runs}`,
+      task: 'plan',
+      channel: episode.channel,
+      episode_id: episode.id,
+      target_id: null,
+      prompt_id: part === 1 ? 'plan_first' : 'plan_next',
+      prompt_version: 1,
+      prompt_hash: `sha256:mock-${part}`,
+      part,
+      parts_total: PARTS_TOTAL[episode.channel],
+      status,
+      errors,
+      created_at: NOW,
+      answered_at: status === 'prompted' ? null : NOW,
+    }
+  }
+
+  function planPrompt(episode: EpisodeListItem, part: number): MockResponse {
+    if (!projectOf(episode).brief?.idea.trim()) {
+      return fail(409, 'Сначала заполните заявку: без идеи чату не из чего писать план.')
+    }
+    const total = PARTS_TOTAL[episode.channel]
+    const parts = partsOf(episode)
+    const missing = Array.from({ length: part - 1 }, (_, i) => i + 1).filter((n) => !parts.received.includes(n))
+    if (part > 1 && missing.length) {
+      return fail(409, `Сначала вставьте ответ на часть ${missing[0]} — промпт части ${part} продолжает её.`)
+    }
+    const first = (part - 1) * SHOTS_PER_PART + 1
+    parts.lastRun = run(episode, part, 'prompted')
+    return ok({
+      text: `Write part ${part} of ${total} of the director plan for episode ${episode.id}.`,
+      prompt_id: part === 1 ? 'plan_first' : 'plan_next',
+      version: 1,
+      run_id: parts.lastRun.id,
+      part,
+      parts_total: total,
+      first_shot: `s${String(first).padStart(3, '0')}`,
+      last_shot: `s${String(first + SHOTS_PER_PART - 1).padStart(3, '0')}`,
+    } satisfies PlanPrompt)
+  }
+
+  /** Ответ чата: часть — открытого обмена или следующая недостающая; на последней — новая версия плана */
+  function planAnswer(episode: EpisodeListItem, text: string): MockResponse {
+    const parts = partsOf(episode)
+    const total = PARTS_TOTAL[episode.channel]
+    const open = parts.lastRun?.status === 'prompted' ? parts.lastRun.part : null
+    const part = open ?? planParts(episode).next_part ?? 1
+    if (text.includes(STYLE_TOKEN)) {
+      const refusal = styleRefusal(part)
+      parts.lastRun = run(episode, part, 'failed', refusal.errors)
+      return { status: 422, body: refusal }
+    }
+    if (part === 1) parts.received = []
+    parts.received = [...new Set([...parts.received, part])].sort((a, b) => a - b)
+    parts.lastRun = run(episode, part, 'applied')
+    const missing = Array.from({ length: total }, (_, i) => i + 1).filter((n) => !parts.received.includes(n))
+    let importResult: PlanAnswerResult['import_result'] = null
+    if (!missing.length) {
+      const number = (plans.get(episode.id) ? Number(plans.get(episode.id)!.version.slice(1)) : 0) + 1
+      const version = `v${String(number).padStart(3, '0')}`
+      const shots = total * SHOTS_PER_PART
+      plans.set(episode.id, mockPlan(episode, version, shots))
+      projectOf(episode).director_version = version
+      Object.assign(episode, {
+        stage: episode.stage === 'idea' ? 'script' : episode.stage,
+        summary: { ...episode.summary, shots_total: shots },
+        updated_at: NOW,
+      })
+      parts.received = []
+      importResult = { version, created: true, added: shots, changed: 0, removed: 0, changes: [] }
+    }
+    return ok({
+      run_id: parts.lastRun.id,
+      part,
+      parts_total: total,
+      shots_in_part: SHOTS_PER_PART,
+      received: importResult ? Array.from({ length: total }, (_, i) => i + 1) : [...parts.received],
+      next_part: missing[0] ?? null,
+      import_result: importResult,
+      warnings: [],
+    } satisfies PlanAnswerResult)
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -443,6 +695,7 @@ export function createMockApi() {
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
     if (method === 'GET' && path === '/slots') return ok(currentSlots())
     if (method === 'GET' && path === '/jobs') return ok(jobs)
+    if (method === 'GET' && path === '/bridge/settings') return ok(bridgeSettings)
     if (method === 'GET' && path === '/cost/summary') {
       return channel && costSummaries[channel] ? ok(costSummaries[channel]) : fail(422, 'Неизвестный канал.')
     }
@@ -487,10 +740,27 @@ export function createMockApi() {
         return ok(episode)
       }
     }
+    if (parts[0] === 'projects' && parts[1]) {
+      const episode = one(decodeURIComponent(parts[1]))
+      if (!episode) return fail(404, `Выпуск «${parts[1]}» не найден.`)
+      const rest = parts.slice(2).join('/')
+      if (method === 'GET' && rest === '') return ok(projectOf(episode))
+      if (method === 'PATCH' && rest === '') {
+        const project = projectOf(episode)
+        const patch = body as { brief?: Partial<EpisodeBrief> | null }
+        if ('brief' in patch) project.brief = patch.brief === null ? null : { ...(project.brief ?? emptyBrief), ...patch.brief }
+        project.updated_at = NOW
+        return ok(project)
+      }
+      if (method === 'GET' && rest === 'plan') return ok(plansOf(episode))
+      if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
+      if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
+      if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
+    }
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
 
-  return { handle, episodes: state }
+  return { handle, episodes: state, projects }
 }
 
 export type MockApi = ReturnType<typeof createMockApi>

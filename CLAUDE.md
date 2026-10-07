@@ -44,7 +44,8 @@
 frontend/src/
   app/            AppShell, router, providers, keyboard (реестр сочетаний), KeyboardHelp
   ui/             кит по components.md: по файлу на компонент, index.ts, cn.ts
-  screens/        episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon
+  screens/        episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon;
+                  bridge — мост через чат, общее экранов 2 и 3 (промпт в буфер, вставка ответа)
   mocks/          fixtures.ts — пиратский выпуск для оболочки (до M2)
   timeline/  preview/
   engine/         motion.ts, renderFrame.ts, subtitles.ts

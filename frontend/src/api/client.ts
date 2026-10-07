@@ -1,6 +1,7 @@
 // Клиент бэкенда: fetch только к `/api`, JSON, таймаут, ошибки в виде {status, message} для UI.
 // Текст ошибки приходит с бэкенда (что случилось и что сделать); клиент пишет свой только когда
 // ответа нет вовсе — сеть или таймаут. Провайдеров и очередей во фронте нет (CLAUDE.md, «Стек»).
+import type { BridgeError } from '@/types/bridge'
 import type { BudgetRefusal } from '@/types/cost'
 
 export const API_BASE = '/api'
@@ -59,10 +60,18 @@ function validationLine(item: unknown): string {
   return loc ? `${loc}: ${text}` : text
 }
 
-/** Текст ошибки из тела ответа FastAPI: `detail` строкой, `detail.message` (409 бюджета),
+/** Описание ошибки в теле ответа: `detail` у ошибок FastAPI, а у ошибки моста (`BridgeError`, docs/bridge.md) —
+ *  само тело, `{message, hint, errors}` в корне. */
+function detailOf(body: unknown): unknown {
+  if (!isRecord(body)) return body
+  if ('detail' in body) return body.detail ?? null
+  return typeof body.message === 'string' ? body : null
+}
+
+/** Текст ошибки из тела ответа: `detail` строкой, `detail.message` (409 бюджета, ошибка моста),
  *  список ошибок валидации (422) или `detail.errors` (импорт плана). */
 export function errorMessage(status: number, body: unknown): string {
-  const detail = isRecord(body) ? body.detail : undefined
+  const detail = isRecord(body) ? detailOf(body) : undefined
   if (typeof detail === 'string' && detail) return detail
   if (Array.isArray(detail) && detail.length) return detail.map(validationLine).join('; ')
   if (isRecord(detail)) {
@@ -134,7 +143,7 @@ async function request<T>(
 
   if (!response.ok) {
     if (GATEWAY_STATUSES.has(response.status) && !isRecord(payload)) throw new ApiError(0, BACKEND_DOWN_MESSAGE)
-    const detail = isRecord(payload) ? (payload.detail ?? null) : payload
+    const detail = detailOf(payload)
     throw new ApiError(response.status, errorMessage(response.status, payload), detail)
   }
   return payload as T
@@ -144,6 +153,14 @@ async function request<T>(
 export function budgetRefusal(error: unknown): BudgetRefusal | null {
   if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
   return error.detail.code === 'budget_exceeded' ? (error.detail as unknown as BudgetRefusal) : null
+}
+
+/** Ответ моста отклонён (422 `BridgeError`: текст, подсказка, ошибки по кадрам); иначе null. */
+export function bridgeError(error: unknown): BridgeError | null {
+  if (!(error instanceof ApiError) || error.status !== 422 || !isRecord(error.detail)) return null
+  const { message, hint, errors } = error.detail
+  if (typeof message !== 'string' || typeof hint !== 'string' || !Array.isArray(errors)) return null
+  return error.detail as unknown as BridgeError
 }
 
 /** Типизированный доступ к `/api`: тип ответа — из `@/types/*` (сгенерированы из Pydantic). */

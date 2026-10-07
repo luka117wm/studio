@@ -3,10 +3,13 @@
 // (`live.ts`), опроса по таймеру нет.
 import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
+import type { BridgeSettings } from '@/types/bridge'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
 import type { Job, JobEventData, JobList } from '@/types/job'
+import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt } from '@/types/plan'
+import type { EpisodeBrief, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { ApiError, api } from './client'
 
@@ -32,6 +35,11 @@ export const qk = {
   slots: ['slots'] as const,
   format: (channel: ChannelId) => ['formats', channel] as const,
   jobs: ['jobs'] as const,
+  bridgeSettings: ['bridge', 'settings'] as const,
+  project: (id: string) => ['projects', id] as const,
+  /** Действующий план и набор частей моста выпуска */
+  plan: (id: string) => ['projects', id, 'plan'] as const,
+  planParts: (id: string) => ['projects', id, 'plan', 'parts'] as const,
 }
 
 const segment = (id: string) => encodeURIComponent(id)
@@ -118,6 +126,39 @@ export function useFormat(channel: ChannelId) {
   })
 }
 
+/** Источник плана и доступность Claude API — для сегментов «Claude API / Мост через чат» */
+export function useBridgeSettings() {
+  return useQuery({
+    queryKey: qk.bridgeSettings,
+    queryFn: ({ signal }) => api.get<BridgeSettings>('/bridge/settings', { signal }),
+    staleTime: Infinity,
+  })
+}
+
+/** project.json выпуска: здесь — ради заявки (`brief`) */
+export function useProject(id: string) {
+  return useQuery({
+    queryKey: qk.project(id),
+    queryFn: ({ signal }) => api.get<Project>(`/projects/${segment(id)}`, { signal }),
+  })
+}
+
+/** Действующий план: версия плюс ручные правки (M4.3); `null` — план ещё не импортирован */
+export function usePlan(id: string) {
+  return useQuery({
+    queryKey: qk.plan(id),
+    queryFn: ({ signal }) => api.get<EffectivePlan | null>(`/projects/${segment(id)}/plan`, { signal }),
+  })
+}
+
+/** Набор частей моста: сколько частей, какие приняты, какая следующая, последний обмен */
+export function usePlanParts(id: string) {
+  return useQuery({
+    queryKey: qk.planParts(id),
+    queryFn: ({ signal }) => api.get<PlanParts>(`/projects/${segment(id)}/plan/parts`, { signal }),
+  })
+}
+
 export function toJobState(job: Job): JobEventData {
   return {
     job_id: job.id,
@@ -167,6 +208,48 @@ export function usePatchEpisode(id: string) {
     mutationFn: (body: EpisodePatch) =>
       api.patch<EpisodeListItem>(`/episodes/${segment(id)}`, body, { keepalive: true }),
     onSuccess: (episode) => storeEpisode(client, episode, false),
+  })
+}
+
+/** Заявка целиком (автосохранение, ключ `brief:<id>`): ответ — project.json, кладём в кэш */
+export function useSaveBrief(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (brief: EpisodeBrief) =>
+      api.patch<Project>(`/projects/${segment(id)}`, { brief }, { keepalive: true }),
+    onSuccess: (project) => client.setQueryData(qk.project(id), project),
+  })
+}
+
+/** Промпт части `part` для копирования; бэкенд открывает обмен — последний прогон в наборе частей меняется */
+export function usePlanPrompt(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (part: number) =>
+      api.post<PlanPrompt>(`/projects/${segment(id)}/plan/prompt`, undefined, { query: { part } }),
+    onSettled: () => void client.invalidateQueries({ queryKey: qk.planParts(id) }),
+  })
+}
+
+/** Ответ чата: часть в набор или, после последней, новая версия плана — и стадия выпуска «Сценарий» */
+export function useApplyPlanAnswer(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    // Ответ на часть из 26 кадров проверяется дольше обычного запроса
+    mutationFn: (text: string) =>
+      api.post<PlanAnswerResult>(`/projects/${segment(id)}/plan/answer`, { text }, { timeoutMs: 60_000 }),
+    onSettled: () => {
+      // Отказ тоже меняет набор: последний обмен закрыт с ошибкой
+      void client.invalidateQueries({ queryKey: qk.planParts(id) })
+    },
+    onSuccess: (result) => {
+      if (result.import_result) {
+        // Новая версия плана: план, счётчики выпуска и его стадия на доске
+        void client.invalidateQueries({ queryKey: qk.plan(id) })
+        void client.invalidateQueries({ queryKey: qk.episode(id) })
+        void client.invalidateQueries({ queryKey: qk.episodeLists })
+      }
+    },
   })
 }
 
