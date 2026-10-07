@@ -1,7 +1,8 @@
 /* Экран 3 «Сценарий и план»: заголовок с режимами «Сценарий / План кадров / JSON» (⌘⇧1…⌘⇧3, режим — в адресе
-   `?mode=`) и счётчиками; в центре — заявка или принятый план; справа — «Источник плана» (мост через чат).
-   Лист и таблицу наполнит M4.5, JSON-редактор, факт-чек и смету — M4.7. План — только кэш запросов. */
-import { Braces, ChevronDown, ChevronRight, MessagesSquare } from 'lucide-react'
+   `?mode=`) и счётчиками; в центре — заявка, лист сценария 760 или таблица плана; справа — «Источник плана» (мост
+   через чат). На 2560 у листа — колонка раскадровки (плейсхолдеры до картинок M6). JSON-редактор, факт-чек и смета —
+   M4.7. План — только кэш запросов. */
+import { Braces, ChevronDown, ChevronRight, LayoutGrid, MessagesSquare } from 'lucide-react'
 import { useState } from 'react'
 import type { EpisodeListItem } from '@/types/episode'
 import type { EffectivePlan } from '@/types/plan'
@@ -13,13 +14,15 @@ import { setSearchParam, useSearchParam } from '../../app/navigation'
 import type { RouteParams } from '../../app/routes'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import { useHotkeySet } from '../../app/useHotkey'
-import { useFormat, usePlan, useProject, useSaveBrief } from '../../api/queries'
+import { useChannelName, useFormat, usePlan, useProject, useSaveBrief } from '../../api/queries'
+import { PanelHeader } from '../../app/PanelHeader'
 import { Button, EmptyState, SegmentedControl, Skeleton, cn } from '../../ui'
 import { formatCount, plural } from '../episodes/board'
 import { BridgePanel } from './BridgePanel'
 import { EMPTY_BRIEF } from './brief'
 import { BriefForm } from './BriefForm'
-import { PlanPreview } from './PlanPreview'
+import { PlanTable } from './PlanTable'
+import { ScriptSheet } from './ScriptSheet'
 
 export type ScriptMode = 'script' | 'plan' | 'json'
 
@@ -86,70 +89,90 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
         children: <BridgePanel episodeId={episode.id} hasIdea={brief.idea.trim() !== ''} />,
       }}
     >
-      <div className="flex min-h-0 flex-1 justify-center overflow-y-auto p-4">
-        <Center
-          mode={mode}
-          plan={plan.data}
-          planError={plan.error}
-          brief={project.isPending ? undefined : brief}
-          onBrief={setDraft}
-        />
-      </div>
+      <Center
+        episode={episode}
+        mode={mode}
+        plan={plan.data}
+        planError={plan.error}
+        brief={project.isPending ? undefined : brief}
+        onBrief={setDraft}
+      />
     </ScreenLayout>
   )
 }
 
 function Center({
+  episode,
   mode,
   plan,
   planError,
   brief,
   onBrief,
 }: {
+  episode: EpisodeListItem
   mode: ScriptMode
   plan: EffectivePlan | null | undefined
   planError: Error | null
   brief: EpisodeBrief | undefined
   onBrief: (next: EpisodeBrief) => void
 }) {
-  if (planError) {
-    return <p role="alert" className="w-190 text-13 text-failed-text">{planError.message}</p>
-  }
-  if (plan === undefined || brief === undefined) {
-    return (
-      <div className="flex w-190 flex-col gap-3">
-        <Skeleton variant="text" lines={6} />
-      </div>
-    )
-  }
-  if (plan === null) {
-    return (
-      <section aria-label="Заявка выпуска" className="flex w-190 shrink-0 flex-col gap-4 self-start rounded-panel border border-line bg-panel p-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-15 font-semibold">Заявка выпуска</h2>
-          <p className="text-12 text-muted">
-            План приходит из чата частями по 26 кадров: заполните заявку, скопируйте промпт справа и вставьте ответ чата.
-          </p>
-        </div>
-        <BriefForm value={brief} onChange={onBrief} />
-      </section>
-    )
-  }
-  if (mode === 'json') {
-    return (
-      <EmptyState
-        icon={Braces}
-        title="JSON плана"
-        description={`Версия ${plan.version} целиком: правка с проверкой и сохранение новой версией.`}
-        className="self-center"
-      />
-    )
-  }
+  const channelName = useChannelName(episode.channel)
+  if (plan && brief && mode === 'plan') return <PlanTable episodeId={episode.id} plan={plan} />
   return (
-    <div className="flex w-190 shrink-0 flex-col gap-3 self-start">
-      <BriefBlock brief={brief} onBrief={onBrief} />
-      <PlanPreview plan={plan} />
+    <div className="flex min-h-0 flex-1 justify-center gap-4 overflow-y-auto p-4">
+      {planError ? (
+        <p role="alert" className="w-190 text-13 text-failed-text">
+          {planError.message}
+        </p>
+      ) : plan === undefined || brief === undefined ? (
+        <div className="flex w-190 flex-col gap-3">
+          <Skeleton variant="text" lines={6} />
+        </div>
+      ) : plan === null ? (
+        <section aria-label="Заявка выпуска" className="flex w-190 shrink-0 flex-col gap-4 self-start rounded-panel border border-line bg-panel p-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-15 font-semibold">Заявка выпуска</h2>
+            <p className="text-12 text-muted">
+              План приходит из чата частями по 26 кадров: заполните заявку, скопируйте промпт справа и вставьте ответ чата.
+            </p>
+          </div>
+          <BriefForm value={brief} onChange={onBrief} />
+        </section>
+      ) : mode === 'json' ? (
+        <EmptyState
+          icon={Braces}
+          title="JSON плана"
+          description={`Версия ${plan.version} целиком: правка с проверкой и сохранение новой версией.`}
+          className="self-center"
+        />
+      ) : (
+        <>
+          <div className="flex w-190 shrink-0 flex-col gap-3 self-start">
+            <BriefBlock brief={brief} onBrief={onBrief} />
+            <ScriptSheet episodeId={episode.id} channelName={channelName} plan={plan} />
+          </div>
+          <Storyboard count={plan.shots.filter((shot) => shot.status !== 'removed').length} />
+        </>
+      )}
     </div>
+  )
+}
+
+/** Колонка раскадровки 320 справа от листа — только на 2560 (layout.md); миниатюры 16:9 по две в ряд — плейсхолдеры до M6 */
+function Storyboard({ count }: { count: number }) {
+  return (
+    <aside aria-label="Раскадровка" className="hidden w-80 shrink-0 flex-col self-start rounded-panel border border-line bg-panel min-[2560px]:flex">
+      <PanelHeader title="Раскадровка" note="2 в ряд" />
+      {count === 0 ? (
+        <EmptyState icon={LayoutGrid} title="Кадров пока нет" description="Миниатюры 16:9 появятся после генерации." />
+      ) : (
+        <div className="grid grid-cols-2 gap-2 p-2">
+          {Array.from({ length: count }, (_, i) => (
+            <div key={i} aria-hidden className="aspect-video rounded-clip border border-dashed border-line" />
+          ))}
+        </div>
+      )}
+    </aside>
   )
 }
 

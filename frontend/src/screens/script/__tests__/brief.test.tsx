@@ -66,7 +66,7 @@ describe('заявка', () => {
 
   test('с принятым планом заявка свёрнута над ним и раскрывается', async () => {
     renderApp('/episodes/pirate/script')
-    expect(await screen.findByRole('article', { name: 'План' }, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByRole('article', { name: 'Лист сценария' }, { timeout: 3000 })).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Заявка' })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Заявка' }))
     expect(screen.getByRole('form', { name: 'Заявка' })).toBeTruthy()

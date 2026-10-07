@@ -92,6 +92,15 @@ describe('api', () => {
     expect(error.message).toBe('payload.steps: Input should be greater than 0; kind: Field required')
   })
 
+  test('422 правки кадра: русское сообщение без технического пути', async () => {
+    const detail = [
+      { type: 'shot_override', loc: ['shots', 's003', 'user_override', 'image', 'prompt'], msg: 'кадр s003: в image.prompt стилевой токен «8k»' },
+    ]
+    mockFetch(async () => json(422, { detail }))
+    const error = await failure(api.patch('/projects/pirate', {}))
+    expect(error.message).toBe('кадр s003: в image.prompt стилевой токен «8k»')
+  })
+
   test('422 импорта плана: detail.errors', async () => {
     mockFetch(async () => json(422, { detail: { errors: ['s001: пустой vo', 's002: нет раздела'] } }))
     const error = await failure(api.post('/projects/pirate/director', {}))

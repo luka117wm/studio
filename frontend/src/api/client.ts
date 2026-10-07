@@ -51,13 +51,14 @@ function buildUrl(path: string, query: Query = {}): string {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** Строка ошибки валидации FastAPI/Pydantic: `payload.steps: Input should be greater than 0`. */
+/** Строка ошибки валидации: у английских сообщений FastAPI/Pydantic — путь впереди (`payload.steps: Input should be
+ *  greater than 0`); русские сообщения бэкенда («кадр s003: …», «Лишнее поле brief.title — …») место называют сами. */
 function validationLine(item: unknown): string {
   if (typeof item === 'string') return item
   if (!isRecord(item)) return String(item)
   const text = typeof item.msg === 'string' ? item.msg : String(item.message ?? '')
   const loc = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
-  return loc ? `${loc}: ${text}` : text
+  return loc && !/[А-Яа-яЁё]/.test(text) ? `${loc}: ${text}` : text
 }
 
 /** Описание ошибки в теле ответа: `detail` у ошибок FastAPI, а у ошибки моста (`BridgeError`, docs/bridge.md) —

@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react'
 import type { BridgeSettings } from '@/types/bridge'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
+import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
 import type { Job, JobEventData, JobList } from '@/types/job'
 import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt } from '@/types/plan'
@@ -40,6 +41,8 @@ export const qk = {
   /** Действующий план и набор частей моста выпуска */
   plan: (id: string) => ['projects', id, 'plan'] as const,
   planParts: (id: string) => ['projects', id, 'plan', 'parts'] as const,
+  /** Файл версии плана как есть — неизменяемый */
+  directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
 }
 
 const segment = (id: string) => encodeURIComponent(id)
@@ -148,6 +151,17 @@ export function usePlan(id: string) {
   return useQuery({
     queryKey: qk.plan(id),
     queryFn: ({ signal }) => api.get<EffectivePlan | null>(`/projects/${segment(id)}/plan`, { signal }),
+  })
+}
+
+/** Версия плана как файл, без правок: «значение из плана» у поправленного поля и возврат к нему.
+ *  Действующий план на фронте не считается — он приходит готовым (`usePlan`). */
+export function useDirectorVersion(id: string, version: string | null) {
+  return useQuery({
+    queryKey: qk.directorVersion(id, version ?? ''),
+    queryFn: ({ signal }) => api.get<Director>(`/projects/${segment(id)}/director/${segment(version ?? '')}`, { signal }),
+    enabled: version !== null,
+    staleTime: Infinity,
   })
 }
 

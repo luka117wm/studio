@@ -113,7 +113,7 @@ describe('вставка ответа', () => {
     }
     await paste(root, 'part 4')
     expect(await screen.findByText('План v001: +104 кадра')).toBeTruthy()
-    expect(await screen.findByRole('article', { name: 'План' }, { timeout: 3000 })).toBeTruthy()
+    expect(await screen.findByRole('article', { name: 'Лист сценария' }, { timeout: 3000 })).toBeTruthy()
     expect(screen.getByText('Кадры', { selector: 'dt' }).nextElementSibling?.textContent).toBe('104')
     expect(within(root).getByText('План v001 принят. Новая версия — с части 1.')).toBeTruthy()
   })

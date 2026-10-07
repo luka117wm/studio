@@ -6,6 +6,7 @@ import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
+import type { Director } from '@/types/director'
 import type { JobList } from '@/types/job'
 import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt, PlanShot } from '@/types/plan'
 import type { EpisodeBrief, Project } from '@/types/project'
@@ -455,6 +456,131 @@ export function mockPlan(episode: EpisodeListItem, version: string, shots: numbe
   }
 }
 
+/* ---- План «Пиратов» по артборду 3: лист и таблица (M4.5) ---- */
+
+type ArtShot = Pick<PlanShot, 'id' | 'section' | 'vo' | 'status' | 'stale_reasons'> & {
+  prompt: string
+  period: string
+  heroes: string[]
+  size: PlanShot['image']['shot_size']
+  motion: PlanShot['motion']
+  transition: PlanShot['transition_in']
+  animate: boolean
+  sfx: number
+}
+
+const ART_SECTIONS = [
+  { id: 'cold', title: 'Cold open', chapter: false, vo_direction: 'calm, dry irony' },
+  { id: 'r1', title: 'Rank 1: Powder monkey', chapter: true, vo_direction: null },
+  { id: 'r2', title: 'Rank 2: Landsman', chapter: true, vo_direction: null },
+  { id: 'r5', title: 'Rank 5: Quartermaster', chapter: true, vo_direction: null },
+]
+
+const BOY = 'you@powder-monkey-11'
+const MAN = 'you@landsman-16'
+const ease = 'in_out_cubic' as const
+const cut = { type: 'cut' as const, duration: 0 }
+
+/** Кадры s001…s006, s061, s062 артборда; у s004 VO в версии другой — правка возвращает текст артборда */
+const ART_SHOTS: ArtShot[] = [
+  { id: 's001', section: 'cold', vo: 'You are eleven years old, and the first thing you learn on this ship is where the gunpowder lives.', prompt: 'A barefoot boy carries a leather cartridge case down a narrow gun deck, sailors loading a cannon behind him', period: 'caribbean-1716', heroes: [BOY], size: 'establishing', motion: { type: 'push_in', strength: 0.08, ease }, transition: cut, animate: true, sfx: 2, status: 'done', stale_reasons: [] },
+  { id: 's002', section: 'cold', vo: 'Nobody asks your name. They ask if you can run a cartridge to the guns without tripping.', prompt: 'Close view of a boy’s soot-marked hands gripping a canvas cartridge, cannon wheel behind', period: 'caribbean-1716', heroes: [BOY], size: 'detail', motion: { type: 'pull_out', strength: 0.12, ease }, transition: { type: 'crossfade', duration: 0.2 }, animate: false, sfx: 1, status: 'done', stale_reasons: [] },
+  { id: 's003', section: 'r1', vo: 'Your station is the magazine, a felt-lined room below the waterline where no lantern is ever allowed and no man walks in with nails in his boots.', prompt: 'Felt-lined powder magazine below the waterline, barrels stacked in rows, a boy at the door', period: 'caribbean-1716', heroes: [BOY, 'gunner@gun-deck-30'], size: 'establishing', motion: { type: 'push_in', strength: 0.1, ease }, transition: cut, animate: true, sfx: 3, status: 'done', stale_reasons: [] },
+  { id: 's004', section: 'r1', vo: 'Twelve cartridges a trip. Every gun crew counts the seconds.', prompt: 'Boy running along a crowded gun deck, sailors either side, ropes and shot racks', period: 'caribbean-1716', heroes: [BOY], size: 'action', motion: { type: 'pan_right', strength: 0.1, ease: 'linear' }, transition: cut, animate: false, sfx: 2, status: 'queued', stale_reasons: [] },
+  { id: 's005', section: 'r2', vo: 'A landsman is a grown man who knows nothing. He is paid the least, and he is handed the work nobody else claims.', prompt: 'Weather-beaten man in ragged slops standing apart from a working crew on an open deck', period: 'caribbean-1716', heroes: [MAN], size: 'reaction', motion: { type: 'push_in', strength: 0.06, ease }, transition: { type: 'crossfade', duration: 0.27 }, animate: false, sfx: 1, status: 'queued', stale_reasons: [] },
+  { id: 's006', section: 'r2', vo: 'Pump the bilge, scrub the deck, carry the dead. A year of it, and the crew starts using your name.', prompt: 'Two men working a bilge pump in knee-deep water, low cramped hold', period: 'caribbean-1716', heroes: [MAN, 'you@able-seaman-19'], size: 'action', motion: { type: 'pull_out', strength: 0.14, ease }, transition: cut, animate: true, sfx: 2, status: 'stale', stale_reasons: ['Промпт: добавлено „knee-deep water“'] },
+  { id: 's061', section: 'r5', vo: 'Here is the part nobody expects: the crew votes for the captain. And they can vote him out.', prompt: 'Crowded main deck at dusk, raised hands of a voting crew, captain standing apart by the rail', period: 'caribbean-1726', heroes: [], size: 'establishing', motion: { type: 'push_in', strength: 0.04, ease }, transition: cut, animate: true, sfx: 0, status: 'done', stale_reasons: [] },
+  { id: 's062', section: 'r5', vo: 'The quartermaster is the man who counts those votes, divides the plunder and speaks for the crew when the captain will not.', prompt: 'Quartermaster writing shares in a ledger on a barrel head, men waiting in line behind him', period: 'caribbean-1726', heroes: ['quartermaster@ship-40'], size: 'detail', motion: { type: 'pan_left', strength: 0.08, ease: 'linear' }, transition: cut, animate: false, sfx: 1, status: 'done', stale_reasons: [] },
+]
+
+/** Правка VO у s004 — текст артборда поверх версии */
+const ART_OVERRIDES: Record<string, Record<string, unknown>> = {
+  s004: { vo: 'Twelve cartridges a trip, and every gun crew above you counts the seconds you are late.' },
+}
+
+function artboardPlan(episode: EpisodeListItem): EffectivePlan {
+  return {
+    ...mockPlan(episode, 'v003', 0),
+    meta: { ...mockPlan(episode, 'v003', 0).meta, working_title: 'Every Rank on a Pirate Ship' },
+    sections: ART_SECTIONS,
+    shots: ART_SHOTS.map((a) => ({
+      ...planShot(1),
+      id: a.id,
+      section: a.section,
+      vo: a.vo,
+      image: { prompt: a.prompt, period: a.period, appearances: a.heroes, shot_size: a.size },
+      motion: a.motion,
+      transition_in: a.transition,
+      animate: a.animate
+        ? { recommended: true, reason: 'the motion carries the beat', prompt: 'slow camera move along the action', seconds: 4 }
+        : { recommended: false, reason: null, prompt: null, seconds: 4 },
+      sfx: Array.from({ length: a.sfx }, (_, i) => ({ prompt: `effect ${i + 1}`, offset: 0, duration: 2, gain_db: -18 })),
+      status: a.status,
+      stale_reasons: a.stale_reasons,
+    })),
+  }
+}
+
+/** Файл версии (`GET …/director/vNNN`) — план без состояния и правок */
+function directorFile(plan: EffectivePlan): Director {
+  return {
+    schema: 'studio.director/1',
+    meta: plan.meta,
+    brief: { idea: plan.meta.working_title, angle: '', hook_promise: '' },
+    sections: plan.sections,
+    shots: plan.shots.map(({ id, section, vo, image, motion, transition_in, animate, sfx, overlay }) => ({
+      id,
+      section,
+      vo,
+      image,
+      motion,
+      transition_in,
+      animate,
+      sfx,
+      overlay,
+    })),
+    thumbnail: { concepts: [] },
+    publish: { titles: [], description: '', tags: [], category_id: '27', synthetic_media: true, made_for_kids: false },
+    facts: plan.facts,
+  }
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/** Мёрдж PATCH (`docs/project_schema.md`): словари рекурсивно, `null` — сброс поля, пустые блоки исчезают */
+function mergeOverride(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key]
+    else if (isPlainObject(value)) {
+      const inner = mergeOverride(isPlainObject(merged[key]) ? merged[key] : {}, value)
+      if (Object.keys(inner).length) merged[key] = inner
+      else delete merged[key]
+    } else merged[key] = value
+  }
+  return merged
+}
+
+function overlay<T>(base: T, override: Record<string, unknown>): T {
+  if (!isPlainObject(base)) return base
+  const out: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(override)) {
+    out[key] = isPlainObject(value) && isPlainObject(out[key]) ? overlay(out[key], value) : value
+  }
+  return out as T
+}
+
+const OVERRIDE_FIELDS: PlanShot['overridden'] = ['vo', 'image.prompt', 'image.shot_size', 'motion', 'transition_in', 'animate', 'sfx']
+
+function overriddenOf(override: Record<string, unknown>): PlanShot['overridden'] {
+  return OVERRIDE_FIELDS.filter((field) => {
+    const [head, tail] = field.split('.') as [string, string | undefined]
+    const value = override[head]
+    return tail ? isPlainObject(value) && value[tail] !== undefined : value !== undefined
+  })
+}
+
 /** Ответ со стилевым токеном отклоняется, как бэкендом (docs/bridge.md, «Приём ответа») */
 export const STYLE_TOKEN = 'cinematic lighting'
 
@@ -499,7 +625,9 @@ export function createMockApi() {
   const state: EpisodeListItem[] = structuredClone(episodes)
   let created = 0
   const projects = new Map<string, Project>()
+  /** Версии плана без правок; правки — отдельно, как в project.json; действующий план — их наложение */
   const plans = new Map<string, EffectivePlan>()
+  const overrides = new Map<string, Record<string, Record<string, unknown>>>()
   const partSets = new Map<string, PartsState>()
   let runs = 0
 
@@ -571,10 +699,69 @@ export function createMockApi() {
     return project
   }
 
-  /** План в работе у «Пиратов» (стадия «Монтаж») — версия v002 из пяти кадров; у остальных — нет */
+  /** План в работе у «Пиратов» (стадия «Монтаж») — версия v003 по артборду 3; у остальных — нет */
   function plansOf(episode: EpisodeListItem): EffectivePlan | null {
-    if (!plans.has(episode.id) && episode.id === 'pirate') plans.set(episode.id, mockPlan(episode, 'v002', 5))
+    if (!plans.has(episode.id) && episode.id === 'pirate') {
+      plans.set(episode.id, artboardPlan(episode))
+      overrides.set(episode.id, structuredClone(ART_OVERRIDES))
+    }
     return plans.get(episode.id) ?? null
+  }
+
+  /** Действующий план: версия плюс правки (бэкенд, M4.3) */
+  function effectivePlan(episode: EpisodeListItem): EffectivePlan | null {
+    const plan = plansOf(episode)
+    if (!plan) return null
+    const edits = overrides.get(episode.id) ?? {}
+    return {
+      ...plan,
+      shots: plan.shots.map((shot) => {
+        const edit = edits[shot.id] ?? {}
+        return { ...overlay(shot, edit), overridden: overriddenOf(edit) }
+      }),
+    }
+  }
+
+  /** PATCH правок кадров: только кадры версии, проверки — как у кадра плана (пустой VO, стоп-лист) */
+  function patchShots(episode: EpisodeListItem, shots: Record<string, { user_override?: Record<string, unknown> | null }>): MockResponse | null {
+    const plan = plansOf(episode)
+    const edits = overrides.get(episode.id) ?? {}
+    const next = structuredClone(edits)
+    const errors: { type: string; loc: (string | number)[]; msg: string }[] = []
+    for (const [id, patch] of Object.entries(shots)) {
+      if (!plan?.shots.some((shot) => shot.id === id)) {
+        errors.push({ type: 'shot_not_in_plan', loc: ['shots', id], msg: `кадр ${id}: нет в плане ${plan?.version ?? '—'}, ожидалось id кадра текущей версии` })
+        continue
+      }
+      if (!('user_override' in patch)) continue
+      const merged = patch.user_override === null ? {} : mergeOverride(next[id] ?? {}, patch.user_override ?? {})
+      const image = isPlainObject(merged.image) ? merged.image : {}
+      if (typeof image.prompt === 'string' && image.prompt.includes(STYLE_TOKEN)) {
+        errors.push({
+          type: 'shot_override',
+          loc: ['shots', id, 'user_override', 'image', 'prompt'],
+          msg: `кадр ${id}: в image.prompt стилевой токен «cinematic lighting» (lighting), ожидалось только действие, композиция и ракурс — стиль задаёт канон`,
+        })
+      }
+      if (typeof merged.vo === 'string' && !merged.vo.trim()) {
+        errors.push({ type: 'shot_override', loc: ['shots', id, 'user_override', 'vo'], msg: `кадр ${id}: пустой vo, ожидалось текст закадрового голоса` })
+      }
+      if (Object.keys(merged).length) next[id] = merged
+      else delete next[id]
+    }
+    if (errors.length) return { status: 422, body: { detail: errors } }
+    overrides.set(episode.id, next)
+    const project = projectOf(episode)
+    for (const shot of plan?.shots ?? []) {
+      project.shots[shot.id] = {
+        status: shot.status,
+        duration_locked: false,
+        prompt_locked: false,
+        user_override: next[shot.id] ?? null,
+        stale_reasons: shot.stale_reasons,
+      }
+    }
+    return null
   }
 
   function partsOf(episode: EpisodeListItem): PartsState {
@@ -747,12 +934,20 @@ export function createMockApi() {
       if (method === 'GET' && rest === '') return ok(projectOf(episode))
       if (method === 'PATCH' && rest === '') {
         const project = projectOf(episode)
-        const patch = body as { brief?: Partial<EpisodeBrief> | null }
+        const patch = body as { brief?: Partial<EpisodeBrief> | null; shots?: Record<string, { user_override?: Record<string, unknown> | null }> }
+        if (patch.shots) {
+          const refusal = patchShots(episode, patch.shots)
+          if (refusal) return refusal
+        }
         if ('brief' in patch) project.brief = patch.brief === null ? null : { ...(project.brief ?? emptyBrief), ...patch.brief }
         project.updated_at = NOW
         return ok(project)
       }
-      if (method === 'GET' && rest === 'plan') return ok(plansOf(episode))
+      if (method === 'GET' && rest === 'plan') return ok(effectivePlan(episode))
+      if (method === 'GET' && parts[2] === 'director' && parts[3]) {
+        const plan = plansOf(episode)
+        return plan && plan.version === parts[3] ? ok(directorFile(plan)) : fail(404, `Версия ${parts[3]} плана выпуска «${episode.id}» не найдена.`)
+      }
       if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
       if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
       if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
