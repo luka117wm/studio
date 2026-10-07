@@ -18,9 +18,14 @@ from app.models.director import (
     EPISODE_ID_PATTERN,
     SHOT_ID_PATTERN,
     Channel,
+    Ease,
+    MotionType,
     ReferenceMode,
+    SfxSpec,
+    ShotSize,
     Source,
     StrictModel,
+    TransitionType,
 )
 from app.storage.db import now_iso
 
@@ -36,7 +41,62 @@ TimingSource = Literal["voice", "locked", "estimate"]
 # Откуда версия плана (устав M4, решение 6): мост через чат, ручной импорт или правка JSON, API.
 VersionSource = Literal["bridge", "manual", "api"]
 
+# Поля кадра, которые правятся на экране 3 (устав M4, решение 6). Поля канона (`image.period`,
+# `image.appearances`) меняет только новая версия плана.
+OverrideField = Literal[
+    "vo", "image.prompt", "image.shot_size", "motion", "transition_in", "animate", "sfx"
+]
+
 _SHOT_ID_RE = re.compile(SHOT_ID_PATTERN)
+
+
+def _is_none(value: object) -> bool:
+    return value is None
+
+
+def _unset() -> Any:
+    """Поле правки: нет значения — нет правки; в project.json не выгружается."""
+    return Field(default=None, exclude_if=_is_none)
+
+
+# --- правки кадра ---------------------------------------------------------------------------------
+# Повторяют форму кадра плана, но каждое поле необязательно: правка `{"motion": {"strength": 0.12}}`
+# меняет одну силу движения. Диапазоны и доменные проверки — у действующего кадра (план + правка):
+# `Shot` и `validators.check_shot`, чтобы правило было одно.
+
+
+class ImageOverride(StrictModel):
+    prompt: str | None = _unset()
+    shot_size: ShotSize | None = _unset()
+
+
+class MotionOverride(StrictModel):
+    type: MotionType | None = _unset()
+    strength: float | None = _unset()
+    ease: Ease | None = _unset()
+
+
+class TransitionOverride(StrictModel):
+    type: TransitionType | None = _unset()
+    duration: float | None = _unset()
+
+
+class AnimateOverride(StrictModel):
+    recommended: bool | None = _unset()
+    reason: str | None = _unset()
+    prompt: str | None = _unset()
+    seconds: int | None = _unset()
+
+
+class ShotOverride(StrictModel):
+    """Ручные правки полей кадра поверх плана. `sfx` заменяется целиком."""
+
+    vo: str | None = _unset()
+    image: ImageOverride | None = _unset()
+    motion: MotionOverride | None = _unset()
+    transition_in: TransitionOverride | None = _unset()
+    animate: AnimateOverride | None = _unset()
+    sfx: list[SfxSpec] | None = _unset()
 
 
 class ShotState(StrictModel):
@@ -44,7 +104,7 @@ class ShotState(StrictModel):
     duration_locked: bool = False
     prompt_locked: bool = False
     # Ручные правки полей кадра поверх плана; импорт новой версии их не затирает.
-    user_override: dict[str, Any] | None = None
+    user_override: ShotOverride | None = None
     # Почему кадр `stale`/`removed` — человеческим языком, ставит импорт плана; пусто у остальных.
     stale_reasons: list[str] = []
 
@@ -140,6 +200,23 @@ class Project(StrictModel):
         if problems:
             raise ValueError("; ".join(problems))
         return self
+
+
+class ShotPatch(StrictModel):
+    """Правка состояния кадра в PATCH. Поле не прислано — не меняется (мёрдж идёт по сырому
+    телу); `null` в правке поля — сброс этой правки, `user_override: null` — сброс всех."""
+
+    duration_locked: bool = False
+    prompt_locked: bool = False
+    user_override: ShotOverride | None = None
+
+
+class ProjectPatch(StrictModel):
+    """Тело `PATCH /api/projects/{id}`: только то, что правит человек. Остальное в project.json
+    пишет пайплайн (импорт плана, генерация, выравнивание, учёт расходов)."""
+
+    brief: EpisodeBrief | None = None
+    shots: dict[str, ShotPatch] = {}
 
 
 def empty_project(channel: Channel, episode_id: str) -> Project:

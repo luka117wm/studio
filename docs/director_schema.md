@@ -17,8 +17,11 @@
 
 **Точка входа:** `app.models.validators.validate_director(data) -> Director`. При ошибках поднимает
 `DirectorValidationError` со списком `errors` — все ошибки разом, по строке на каждую, формат
-`кадр s047: <что не так>, ожидалось <что>`. Доменные проверки встроены в модель `Director`, так что
-`Director.model_validate` их тоже выполняет — но сообщения там сырые, pydantic-овские.
+`кадр s047: <что не так>, ожидалось <что>`. Те же ошибки структурно — `items` (M4.3), в том же порядке:
+`{shot_id, path, message}`, где `message` — строка из `errors`, `shot_id` — кадр или `null` (ошибка не по кадру),
+`path` — поле внутри кадра (`image.prompt`, `motion.strength`) или от корня плана (`meta.episode_id`,
+`music.0.section`). По `items` JSON-редактор ставит ссылки «к кадру». Доменные проверки встроены в модель `Director`,
+так что `Director.model_validate` их тоже выполняет — но сообщения там сырые, pydantic-овские.
 
 Лишние поля запрещены на всех уровнях (`additionalProperties: false`): контракт — ровно этот скелет.
 
@@ -217,7 +220,8 @@
 `created: false`. `meta.episode_id`/`meta.channel` не совпали с выпуском из URL — 422.
 
 **Общий путь импорта** — `import_plan(paths, db, episode, director, source)` в `api/director.py` (M4.2). Его зовут ручной
-`POST …/director` (`source: manual`) и мост через чат (`source: bridge`, `api/plan.py`); неполный набор частей
+`POST …/director?source=…` (по умолчанию `manual`: ручной импорт и «Сохранить как версию» из JSON-редактора, M4.3) и
+мост через чат (`source: bridge`, `api/plan.py`); неполный набор частей
 функция возвращает (`PartsPending`), ручной путь отдаёт его как 409, мост — как принятую часть. `source` версии
 (`bridge | manual | api`) — откуда она пришла впервые, как `imported_at`; записи индекса до M4.2 читаются как
 `manual`. Успешный импорт переводит выпуск из стадии `idea` в `script` (`docs/episodes.md`).
@@ -232,7 +236,10 @@
 цельный план — хэш тот же, что при импорте целиком.
 
 **Мёрдж по `shot.id`** (`merge_into_project`) меняет в `project.json → shots[id]` только `status` и `stale_reasons`;
-`duration_locked`, `prompt_locked`, `user_override`, ассеты и тайминги не трогаются.
+`duration_locked`, `prompt_locked`, `user_override`, ассеты и тайминги не трогаются. Ручная правка переживает новую
+версию: действующий план (`GET …/plan`, `docs/project_schema.md`) показывает её поверх новой версии, а если план
+изменил поправленное поле — кадр `stale` с причиной «План изменил vo, но действует ручная правка vo». В новую версию
+правки автоматически не сливаются: новая версия — только импорт или «Сохранить как версию».
 
 | Кадр | Что происходит |
 |---|---|
@@ -254,9 +261,16 @@ diff: «Промпт: добавлено „a lantern in his hand“; убран
 **Ответ** `ImportResult`: `version`, `created`, `added`, `changed`, `removed`, `changes[]` —
 `{shot_id, section, kind: added|changed|removed, change, fields, stale, drawn_at, price}` в порядке таймлайна нового
 плана, убранные — в конце. `drawn_at` и `price` пока всегда `null` (появятся с модулями картинок и цен).
-Ошибки валидации — 422 `{"detail": {"errors": [...]}}` в формате раздела ниже.
+Ошибки валидации — 422 `{"detail": {"errors": [...], "items": [...]}}` в формате раздела ниже (`items` — с M4.3; у
+ошибок сборки частей — только `errors`).
 
 `GET …/director/versions` — индекс версий по порядку; `GET …/director/vNNN` — файл версии как есть, 404 если нет.
+
+**Проверка без записи** — `POST /api/projects/{episode_id}/director/validate` (M4.3, `api/plan.py`). Тело — как у
+импорта: план целиком или часть. Те же проверки — `validate_director` и совпадение `meta.episode_id`/`meta.channel` с
+выпуском, — но ничего не пишется: ни версия, ни набор частей, ни `project.json`. Ответ всегда 200
+`PlanCheck {ok, errors[], items[]}`. `canon_ref` и `voice` полного плана проверяются как есть — JSON-редактор
+присылает их из текущей версии; части не собираются, ссылки на канон части 2…N без `canon_ref` не проверяются.
 
 ## Доменные проверки и сообщения
 

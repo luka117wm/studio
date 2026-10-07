@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.director import Director
-from app.models.project import Project, ShotState
+from app.models.project import Project, ShotState, merge_patch
 from app.models.validators import DirectorValidationError
 from app.pipeline.director_import import (
     PartsError,
@@ -22,6 +22,7 @@ from app.pipeline.director_import import (
 )
 from app.pipeline.director_import.stale import decide, lock_conflicts, text_change
 from app.settings import Settings
+from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
@@ -71,6 +72,13 @@ def project_on_disk(paths: StudioPaths) -> dict[str, Any]:
         paths.project_path("cursus", EPISODE).read_text(encoding="utf-8")
     )
     return data
+
+
+def pipeline_writes(paths: StudioPaths, patch: dict[str, Any]) -> None:
+    """То, что пишет пайплайн (ассеты, статусы кадров), — прямо в project.json: PATCH их не
+    принимает."""
+    path = paths.project_path("cursus", EPISODE)
+    write_json_atomic(path, merge_patch(read_json(path), patch))
 
 
 def statuses(project: dict[str, Any]) -> dict[str, str]:
@@ -248,10 +256,7 @@ def test_canon_version_bump_marks_only_affected_shots(
         "hash": "abc",
         "status": "ok",
     }
-    episode.patch(
-        "/api/projects/" + EPISODE,
-        json={"assets": {asset["id"]: asset}, "shots": {"s002": {"status": "done"}}},
-    )
+    pipeline_writes(paths, {"assets": {asset["id"]: asset}, "shots": {"s002": {"status": "done"}}})
 
     bumped = copy.deepcopy(v1)
     bumped["canon_ref"]["appearances"]["you@powder-monkey-11"] = (
@@ -289,7 +294,7 @@ def test_removed_shot_keeps_assets_and_returns_as_queued(
         "path": "media/s006/v001.png",
         "hash": "h6",
     }
-    episode.patch("/api/projects/" + EPISODE, json={"assets": {asset["id"]: asset}})
+    pipeline_writes(paths, {"assets": {asset["id"]: asset}})
     assert episode.post(URL, json=v2).status_code == 200
     project = project_on_disk(paths)
     assert project["shots"]["s006"]["status"] == "removed"

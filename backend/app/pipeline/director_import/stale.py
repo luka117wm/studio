@@ -127,7 +127,8 @@ def lock_conflicts(changes: list[FieldChange], state: ShotState) -> list[str]:
         reasons.append("План изменил промпт, но промпт заблокирован — действует ручная правка")
     if state.duration_locked and "vo" in fields:
         reasons.append("План изменил текст VO (длительность), но длительность заблокирована")
-    for path in _override_paths(state.user_override):
+    override = state.user_override
+    for path in _override_paths(override.model_dump(exclude_none=True) if override else None):
         for changed in sorted(fields):
             if path == changed or path.startswith(changed + ".") or changed.startswith(path + "."):
                 reasons.append(f"План изменил {changed}, но действует ручная правка {path}")

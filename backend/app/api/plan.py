@@ -4,22 +4,34 @@
 импорт — общий с ручным путём `import_plan` (M2.4, `source: bridge`). Каждый промпт и ответ —
 строка журнала `bridge_runs`. Неверный ответ — 422 `BridgeError`, на диске ничего не меняется.
 Контракт — `docs/bridge.md`, раздел «План».
+
+Здесь же — действующий план для экрана 3 (версия плюс ручные правки, `effective_plan`) и проверка
+плана из JSON-редактора без записи (`director/validate`).
 """
 
 import sqlite3
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.api.channels import read_profile
 from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep
-from app.api.director import PartsPending, import_plan, staged_parts
+from app.api.director import (
+    PartsPending,
+    identity_items,
+    import_plan,
+    read_version,
+    removed_shots,
+    staged_parts,
+)
 from app.api.episodes import Episode, require_episode
 from app.models.channel import ChannelProfile
 from app.models.director import Director, StrictModel
 from app.models.formats import FormatPreset, FormatsConfig
 from app.models.project import Project
+from app.models.validators import DirectorValidationError, ValidationItem, validate_director
 from app.pipeline.bridge import (
     BridgeAnswerError,
     BridgeIssue,
@@ -33,7 +45,7 @@ from app.pipeline.bridge import (
     record_answer,
 )
 from app.pipeline.bridge.runs import AnswerStatus
-from app.pipeline.director_import import ImportResult
+from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
 from app.pipeline.script.plan_bridge import (
     PROMPT_FIRST,
@@ -103,6 +115,14 @@ class PlanParts(BaseModel):
     # null — все части на месте (сборка не прошла — можно прислать исправленную часть).
     next_part: int | None
     last_run: BridgeRun | None
+
+
+class PlanCheck(BaseModel):
+    """Проверка плана без записи: `errors` — строки, как у импорта; `items` — они же по кадрам."""
+
+    ok: bool
+    errors: list[str]
+    items: list[ValidationItem]
 
 
 @dataclass(frozen=True)
@@ -306,6 +326,32 @@ async def plan_parts(episode_id: str, paths: PathsDep, db: DbDep, formats: Forma
         next_part=missing[0] if missing else None,
         last_run=latest,
     )
+
+
+@router.get("/projects/{episode_id}/plan")
+async def get_plan(episode_id: str, paths: PathsDep, db: DbDep) -> EffectivePlan | None:
+    """Действующий план: текущая версия с ручными правками; `null` — план ещё не импортирован."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None:
+        return None
+    return effective_plan(director, project, removed_shots(paths, episode, project, director))
+
+
+@router.post("/projects/{episode_id}/director/validate")
+async def validate_plan(episode_id: str, body: dict[str, Any], db: DbDep) -> PlanCheck:
+    """План или часть — те же проверки, что у импорта (`POST …/director`), но без записи.
+
+    `canon_ref` и `voice` проверяются как есть: редактор присылает их из текущей версии.
+    """
+    episode = require_episode(db, episode_id)
+    try:
+        director = validate_director(body)
+    except DirectorValidationError as exc:
+        return PlanCheck(ok=False, errors=exc.errors, items=exc.items)
+    items = identity_items(director, episode)
+    return PlanCheck(ok=not items, errors=[item.message for item in items], items=items)
 
 
 # --- вспомогательное ------------------------------------------------------------------------------

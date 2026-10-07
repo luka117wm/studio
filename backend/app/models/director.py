@@ -15,7 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.models.validators import check_director
+from app.models.validators import check_director_items
 
 SCHEMA_VERSION = "studio.director/1"
 
@@ -196,9 +196,12 @@ class Director(StrictModel):
 
     @model_validator(mode="after")
     def _domain_checks(self) -> "Director":
-        messages = check_director(self)
-        if messages:
+        items = check_director_items(self)
+        if items:
+            messages = [item.message for item in items]
             raise PydanticCustomError(
-                "director_domain", "\n".join(messages), {"messages": messages}
+                "director_domain",
+                "\n".join(messages),
+                {"messages": messages, "items": [item.model_dump() for item in items]},
             )
         return self

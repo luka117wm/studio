@@ -744,18 +744,50 @@ standard — одна строка в `providers.yaml`). У 5.5 мышление
   - стадию `idea` → `script` вживую не видно: выпуск «С нуля» создаётся сразу в `script`, переход покрыт тестом;
   - сессия открылась в устаревшей копии `/mnt/d/studio/studio` (L-030).
 
+### 31. M4.3 — Правки кадров, действующий план, версия из JSON (2026-10-07, ветка `m4-script-bridge`)
+
+- `models/project.py`: `ShotOverride` — частичная правка в форме кадра (`vo`, `image{prompt, shot_size}`, `motion`,
+  `transition_in`, `animate`, `sfx` целиком); пустые поля не выгружаются. `ShotState.user_override` теперь
+  типизирован. `ProjectPatch` — в теле PATCH только `brief` и `shots{id: {duration_locked, prompt_locked,
+  user_override}}`, хвост M2/M3 закрыт.
+- `api/projects.py`: PATCH проверяет тело `ProjectPatch` и пускает только кадры текущей версии. Правки мёрджатся
+  (`null` — сброс поля), действующий кадр проходит `Shot` + `check_shot`. Ошибки — `кадр s003: …`, поля пайплайна —
+  «меняется пайплайном, не через PATCH». Ручной `stale`: правка промпта или крупности у `done`.
+- `pipeline/director_import/effective.py` — чистые функции: `prune_override`, `apply_override`, `overridden_fields`,
+  `edit_stale`, `effective_plan` → `EffectivePlan`/`PlanShot`.
+- `api/plan.py`: `GET …/plan` (до импорта — `null`; убранные кадры — в конце, с содержимым из прошлой версии) и
+  `POST …/director/validate` → `PlanCheck{ok, errors, items}`. `api/director.py`: `?source=` и `items` в 422.
+- `validators.py`: `ValidationItem{shot_id, path, message}` идут параллельно `errors`, строки M2.2 прежние;
+  проверки кадра вынесены в `check_shot(shot, ShotContext)`.
+- Решения:
+  - ошибки правки — только по поправленным полям;
+  - `schema`/`episode_id`/`channel` в PATCH — 422 даже с теми же значениями;
+  - `ProjectPatch` — своя группа схем `project_patch` (L-031).
+- Старые тесты, писавшие `status`, `assets` и `director_version` через PATCH, пишут их в файл, как пайплайн
+  (`test_api_episodes.py`, `test_director_import.py`).
+- Проверки: pytest 322 (новых 27 в `test_plan_edits.py`), ruff, mypy, `typegen:check`, `pnpm build`, vitest 383,
+  oxlint. Живая проверка (временный `STUDIO_DATA_DIR`, seed, c01 + фикстура):
+  - PATCH VO → в файле только `user_override.vo`, `null` сбросил;
+  - стилевой токен → 422 `кадр s003: …`; `director_version`/`assets` → 422 с текстом;
+  - `/plan` с правкой; `validate` с `items`, на диск ничего;
+  - правка VO s009 + v002 → правка на месте, `stale` с причиной, s006 в конце;
+  - `?source=manual` → v003 `manual`, повтор — `created: false`.
+- Хвосты: ручной `stale` вживую не виден — картинок до M6 нет, правило закреплено тестом. Фронт PATCH проекта пока
+  не шлёт, автосохранение правок — M4.5.
+
 ## Дальше
 
 Модуль **M3** закрыт 2026-09-29, хвосты — 2026-10-01, правки handoff — 2026-10-02 (разделы 19–28), тег `m3`.
-M4.1 — 2026-10-02 (раздел 29), M4.2 — 2026-10-06 (раздел 30).
+M4.1 — 2026-10-02 (раздел 29), M4.2 — 2026-10-06 (раздел 30), M4.3 — 2026-10-07 (раздел 31).
 
 **M4 — Идеи, сценарий и план через мост** составлен 2026-10-02: `docs/tasks/M4.md`, двенадцать этапов
 `M4.1`…`M4.12`, ~44 ч. Ключа Anthropic нет — с Claude только мост через чат; Claude API и радар трендов YouTube
 вынесены в roadmap «когда появятся ключи». Ветка `m4-script-bridge` (от `handoff-fixes`, пока PR #3 открыт; после
 слияния — перебазировать на `main`).
 
-1. **M4.2 закрыт** (раздел 30). **Следующая сессия — `M4.3`** (правки кадров, действующий план, версия из JSON),
-   стартовая фраза — в `docs/tasks/M4.md`. Claude Code запускать в `~/projects/studio` (L-030).
+1. **M4.3 закрыт** (раздел 31). **Следующая сессия — `M4.4`** (экран «Сценарий и план»: заявка, панель моста,
+   режимы), стартовая фраза — в `docs/tasks/M4.md`. Действующий план — `GET …/plan`, типы — `types/plan.ts`,
+   тело PATCH — `types/project_patch.ts`. Claude Code запускать в `~/projects/studio` (L-030).
 2. Входы M4 из хвостов M2–M3 вошли в устав: `ProjectPatch` (M4.3), «Из бэклога идей» (M4.9), вкладки ⌘⇧1…⌘⇧3 и
    дубль сочетания в `keyboard.register()` (M4.4), смета пресета при мосте (M4.6). К API-сессии: кэш ответов LLM,
    мышление Opus 5.5, ключ `ANTHROPIC_API_KEY`.

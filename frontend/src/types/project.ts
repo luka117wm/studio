@@ -1,8 +1,15 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:239d415d8db4eac3dfcb9fde37f82a739b7079fc2299f7b3474190c9015bd720
+ * @generated sha256:a7541eee9fe22902569cf26816d95913266a150f77cf876a53f9962c6ebbe517
  */
+export interface AnimateOverride {
+  recommended?: boolean | null
+  reason?: string | null
+  prompt?: string | null
+  seconds?: number | null
+}
+
 export interface Asset {
   id: string
   shot_id: string | null
@@ -43,6 +50,11 @@ export interface EpisodeBrief {
   reference_mode: 'none' | 'structure_clone' | 'own_version'
 }
 
+export interface ImageOverride {
+  prompt?: string | null
+  shot_size?: ('establishing' | 'action' | 'reaction' | 'detail') | null
+}
+
 export interface ImportResult {
   version: string
   created: boolean
@@ -50,6 +62,23 @@ export interface ImportResult {
   changed: number
   removed: number
   changes: ShotChange[]
+}
+
+export interface MotionOverride {
+  type?:
+    | (
+        | 'push_in'
+        | 'pull_out'
+        | 'pan_left'
+        | 'pan_right'
+        | 'tilt_up'
+        | 'tilt_down'
+        | 'static'
+        | 'drift'
+      )
+    | null
+  strength?: number | null
+  ease?: ('linear' | 'in_out_sine' | 'in_out_cubic' | 'in_cubic' | 'out_cubic') | null
 }
 
 export interface Project {
@@ -76,6 +105,13 @@ export interface Project {
   updated_at: string
 }
 
+export interface SfxSpec {
+  prompt: string
+  offset: number
+  duration: number
+  gain_db: number
+}
+
 /**
  * Строка таблицы расхождений (ConflictBar, экран 10).
  */
@@ -90,13 +126,23 @@ export interface ShotChange {
   price: number | null
 }
 
+/**
+ * Ручные правки полей кадра поверх плана. `sfx` заменяется целиком.
+ */
+export interface ShotOverride {
+  vo?: string | null
+  image?: ImageOverride | null
+  motion?: MotionOverride | null
+  transition_in?: TransitionOverride | null
+  animate?: AnimateOverride | null
+  sfx?: SfxSpec[] | null
+}
+
 export interface ShotState {
   status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
   duration_locked: boolean
   prompt_locked: boolean
-  user_override: {
-    [k: string]: unknown
-  } | null
+  user_override: ShotOverride | null
   stale_reasons: string[]
 }
 
@@ -110,4 +156,9 @@ export interface Timing {
   start: number
   duration: number
   source: 'voice' | 'locked' | 'estimate'
+}
+
+export interface TransitionOverride {
+  type?: ('cut' | 'crossfade' | 'dip') | null
+  duration?: number | null
 }

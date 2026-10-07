@@ -23,16 +23,16 @@ from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
 from app.api.jobs import JobCreate, JobList
-from app.api.plan import PlanAnswer, PlanAnswerResult, PlanParts, PlanPrompt
+from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
 from app.models.channel import ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
-from app.models.project import DirectorVersionInfo, EpisodeBrief, Project
+from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
 from app.pipeline.bridge import BridgeError, BridgeRun
-from app.pipeline.director_import import ImportResult
+from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.providers.base import Cost, KeyStatus
 from app.settings import REPO_ROOT
 
@@ -51,6 +51,9 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
     ],
+    # Тело PATCH — отдельно: `EpisodeBrief`, `ShotOverride`, `SfxSpec` в двух режимах в одной
+    # группе pydantic назвал бы `…-Input`/`…-Output`, и тип ответа сменил бы имя.
+    "project_patch": [(ProjectPatch, "validation")],
     "channel": [(ChannelProfile, "serialization"), (FormatPreview, "serialization")],
     "episode": [
         (Episode, "serialization"),
@@ -83,6 +86,8 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (PlanAnswer, "validation"),
         (PlanAnswerResult, "serialization"),
         (PlanParts, "serialization"),
+        (EffectivePlan, "serialization"),
+        (PlanCheck, "serialization"),
     ],
 }
 
