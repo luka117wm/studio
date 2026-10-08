@@ -5,17 +5,19 @@
 строка журнала `bridge_runs`. Неверный ответ — 422 `BridgeError`, на диске ничего не меняется.
 Контракт — `docs/bridge.md`, раздел «План».
 
-Здесь же — действующий план для экрана 3 (версия плюс ручные правки, `effective_plan`) и проверка
-плана из JSON-редактора без записи (`director/validate`).
+Здесь же — действующий план для экрана 3 (версия плюс ручные правки, `effective_plan`), проверка
+плана из JSON-редактора без записи (`director/validate`), смета плана и «Утвердить план» (M4.6).
 """
 
 import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.api.bridge import PlanSourceDep
 from app.api.channels import read_profile
 from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep
 from app.api.director import (
@@ -26,7 +28,21 @@ from app.api.director import (
     removed_shots,
     staged_parts,
 )
-from app.api.episodes import Episode, require_episode
+from app.api.episodes import (
+    Episode,
+    EpisodeListItem,
+    episode_item,
+    mark_plan_approved,
+    require_episode,
+)
+from app.cost.budget import (
+    ANIMATION_STAGE,
+    BudgetLevel,
+    Committed,
+    committed_episode,
+    committed_month,
+    load_budgets,
+)
 from app.models.channel import ChannelProfile
 from app.models.director import Director, StrictModel
 from app.models.formats import FormatPreset, FormatsConfig
@@ -47,6 +63,8 @@ from app.pipeline.bridge import (
 from app.pipeline.bridge.runs import AnswerStatus
 from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
+from app.pipeline.script.approve import ApprovalSubject, approval_problems, refusal
+from app.pipeline.script.estimate import PlanEstimate, plan_estimate
 from app.pipeline.script.plan_bridge import (
     PROMPT_FIRST,
     PROMPT_NEXT,
@@ -65,6 +83,7 @@ from app.pipeline.script.plan_bridge import (
     voice_for,
 )
 from app.storage.atomic import read_json, write_json_atomic
+from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
 router = APIRouter(tags=["plan"])
@@ -352,6 +371,77 @@ async def validate_plan(episode_id: str, body: dict[str, Any], db: DbDep) -> Pla
         return PlanCheck(ok=False, errors=exc.errors, items=exc.items)
     items = identity_items(director, episode)
     return PlanCheck(ok=not items, errors=[item.message for item in items], items=items)
+
+
+@router.get("/projects/{episode_id}/estimate")
+async def get_estimate(
+    episode_id: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    formats: FormatsDep,
+    plan_source: PlanSourceDep,
+) -> PlanEstimate:
+    """Смета действующего плана и остаток бюджетов канала после выпуска. Без плана — 409."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Плана ещё нет — смета появится, когда план будет собран: вставьте ответ чата"
+            " или импортируйте JSON.",
+        )
+    now = datetime.now(UTC)
+    committed: dict[BudgetLevel, Committed] = {
+        "month": committed_month(db, episode.channel, now),
+        "episode": committed_episode(db, episode.id),
+        "animation": committed_episode(db, episode.id, ANIMATION_STAGE),
+    }
+    return plan_estimate(
+        effective_plan(director, project),
+        gateway,
+        plan_source,
+        load_budgets(paths, episode.channel),
+        committed,
+        formats.estimate,
+    )
+
+
+@router.post("/episodes/{episode_id}/approve")
+async def approve_plan(episode_id: str, paths: PathsDep, db: DbDep) -> EpisodeListItem:
+    """«Утвердить план»: проверки → `approved_version` и `approved_at` в project.json → стадия
+    `generate`. Отказ — 409, `detail` — `ApprovalRefusal`. Повтор для утверждённой версии — 200
+    без записи. Джобов не ставит, бюджет не резервирует (M6).
+
+    Без `await` между чтением и записью: относительно импорта и правок утверждение
+    последовательно (L-014). Сначала project.json, потом стадия: после сбоя между ними повтор
+    доводит дело до конца.
+    """
+    episode = require_episode(db, episode_id)
+    path = paths.project_path(episode.channel, episode.id)
+    project = Project.model_validate(read_json(path))
+    director = read_version(paths, episode, project.director_version)
+    staged = [] if director is not None else staged_parts(paths, episode)
+    subject = ApprovalSubject(
+        stage=episode.stage,
+        plan=None if director is None else effective_plan(director, project),
+        staged_parts=[part.meta.part for part in staged],
+        parts_total=staged[0].meta.parts_total if staged else 0,
+    )
+    problems = approval_problems(subject)
+    if problems:
+        raise HTTPException(status_code=409, detail=refusal(problems).model_dump(mode="json"))
+    if project.approved_version == project.director_version and episode.stage == "generate":
+        return episode_item(db, paths, episode.id)
+
+    now = now_iso()
+    approved = project.model_copy(
+        update={"approved_version": project.director_version, "approved_at": now, "updated_at": now}
+    )
+    write_json_atomic(path, approved.model_dump(mode="json"))
+    mark_plan_approved(db, episode.id)
+    return episode_item(db, paths, episode.id)
 
 
 # --- вспомогательное ------------------------------------------------------------------------------

@@ -478,12 +478,18 @@ def test_old_records_read_with_defaults(app: FastAPI) -> None:
 
 
 def test_plan_bridge_has_no_paid_calls() -> None:
-    """План через мост бесплатен: модули сценария не зовут gateway, Anthropic и учёт расходов."""
+    """План через мост бесплатен: модули сценария не зовут gateway, Anthropic и учёт расходов.
+    Смета плана (`estimate.py`, M4.6) берёт цены у `Gateway.estimate` — без вызова и журнала."""
     package = Path(script_pkg.__file__).parent
     for source in package.glob("*.py"):
         text = source.read_text(encoding="utf-8")
-        for forbidden in ("anthropic", "app.cost", "app.providers.gateway"):
-            assert forbidden not in text, f"{source.name} imports {forbidden}"
+        forbidden = (
+            ("anthropic", ".call(", "ledger")
+            if source.name == "estimate.py"
+            else ("anthropic", "app.cost", "app.providers.gateway")
+        )
+        for name in forbidden:
+            assert name not in text, f"{source.name} uses {name}"
 
 
 # --- эталоны промптов ----------------------------------------------------------------------------

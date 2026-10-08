@@ -22,7 +22,7 @@ from app.storage.paths import StudioPaths
 BudgetLevel = Literal["month", "episode", "animation"]
 ANIMATION_STAGE = "animate"  # этап, чьи траты идут в лимит «анимация на выпуск»
 
-_TITLE: dict[BudgetLevel, str] = {
+LEVEL_TITLE: dict[BudgetLevel, str] = {
     "month": "Месячный лимит",
     "episode": "Лимит на выпуск",
     "animation": "Лимит на анимацию выпуска",
@@ -85,13 +85,14 @@ def _message(level: BudgetLevel, limit: int, committed: Committed, cost: int) ->
     queued = f", в очереди {format_usd(committed.queued)}" if committed.queued else ""
     if committed.total >= limit:
         head = (
-            f"{_TITLE[level]} {format_usd(limit)} исчерпан,"
+            f"{LEVEL_TITLE[level]} {format_usd(limit)} исчерпан,"
             f" потрачено {format_usd(committed.spent)}{queued}"
         )
     else:
         short = committed.total + cost - limit
         head = (
-            f"{_TITLE[level]} {format_usd(limit)}: потрачено {format_usd(committed.spent)}{queued},"
+            f"{LEVEL_TITLE[level]} {format_usd(limit)}:"
+            f" потрачено {format_usd(committed.spent)}{queued},"
             f" операция — {format_usd(cost)}, не хватает {format_usd(short)}"
         )
     return f"{head}; поднять лимит можно в настройках канала."

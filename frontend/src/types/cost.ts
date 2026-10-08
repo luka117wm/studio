@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/cost.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:bc958c830442fb9f2055755fc179427579985e5a1055449be481e821fdd47c3a
+ * @generated sha256:703dbbc6ba62d459aaea1955e38ec4a38cc473bdaf2ceb6322536aa92217f7bd
  */
 /**
  * Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса.
@@ -76,6 +76,9 @@ export interface LedgerRow {
   input_hash: string | null
 }
 
+/**
+ * Деньги в ответе API: по `usd_micro` считать, `usd` показывать.
+ */
 export interface Money {
   usd_micro: number
   usd: string

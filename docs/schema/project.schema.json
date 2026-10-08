@@ -467,6 +467,31 @@
           "title": "Director Versions",
           "type": "object"
         },
+        "approved_version": {
+          "anyOf": [
+            {
+              "pattern": "^v\\d{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Version"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
         "shots": {
           "additionalProperties": {
             "$ref": "#/$defs/ShotState"

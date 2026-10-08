@@ -90,7 +90,8 @@ def import_plan(
 
     Общий путь ручного импорта (`source: manual`) и моста (`bridge`). Части 2…N без части 1 или
     с другим `parts_total` — 409, ошибка сборки — 422 (`HTTPException`). Успешный импорт переводит
-    выпуск из стадии `idea` в `script` (устав M4, решение 7).
+    выпуск из стадии `idea` в `script`, новая текущая версия — ещё и из `generate`: утверждённый
+    план надо утвердить снова, `approved_version` остаётся историей (устав M4, решение 7).
     """
     parts = 1
     if director.meta.parts_total > 1:
@@ -106,7 +107,7 @@ def import_plan(
     known = next((v for v in project.director_versions.values() if v.hash == digest), None)
 
     if known is not None and known.version == project.director_version:
-        mark_plan_imported(db, episode.id)
+        mark_plan_imported(db, episode.id, new_version=False)
         return ImportResult(
             version=known.version, created=False, added=0, changed=0, removed=0, changes=[]
         )
@@ -133,7 +134,7 @@ def import_plan(
     )
     write_json_atomic(project_path, merged.model_dump(mode="json"))
     _clear_parts(paths, episode)
-    mark_plan_imported(db, episode.id)
+    mark_plan_imported(db, episode.id, new_version=version != project.director_version)
     log.info(
         "director import %s/%s: %s from %s (+%d ~%d -%d)",
         episode.channel,

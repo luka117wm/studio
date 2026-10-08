@@ -112,49 +112,6 @@
       "title": "ChannelVoice",
       "type": "object"
     },
-    "Cost": {
-      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
-      "properties": {
-        "stage": {
-          "title": "Stage",
-          "type": "string"
-        },
-        "provider": {
-          "title": "Provider",
-          "type": "string"
-        },
-        "model": {
-          "title": "Model",
-          "type": "string"
-        },
-        "lines": {
-          "items": {
-            "$ref": "#/$defs/CostLine"
-          },
-          "title": "Lines",
-          "type": "array"
-        },
-        "usd_micro": {
-          "title": "Usd Micro",
-          "type": "integer"
-        },
-        "stale_pricing": {
-          "default": false,
-          "title": "Stale Pricing",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "stage",
-        "provider",
-        "model",
-        "lines",
-        "usd_micro",
-        "stale_pricing"
-      ],
-      "title": "Cost",
-      "type": "object"
-    },
     "CostLine": {
       "properties": {
         "unit": {
@@ -205,7 +162,7 @@
       "properties": {
         "stages": {
           "items": {
-            "$ref": "#/$defs/Cost"
+            "$ref": "#/$defs/StageCost"
           },
           "title": "Stages",
           "type": "array"
@@ -333,6 +290,62 @@
         "stale_pricing"
       ],
       "title": "FormatPreview",
+      "type": "object"
+    },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
       "type": "object"
     },
     "VoiceQuota": {

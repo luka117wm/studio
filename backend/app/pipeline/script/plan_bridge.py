@@ -398,7 +398,8 @@ def issue_path(message: str) -> str:
     return match.group(1) or match.group(2)
 
 
-def _plural(count: int, one: str, few: str, many: str) -> str:
+def plural(count: int, one: str, few: str, many: str) -> str:
+    """Русское склонение по числу: 1 часть, 2 части, 5 частей."""
     if count % 10 == 1 and count % 100 != 11:
         return one
     if count % 10 in (2, 3, 4) and count % 100 // 10 != 1:
@@ -407,8 +408,8 @@ def _plural(count: int, one: str, few: str, many: str) -> str:
 
 
 def errors_word(count: int) -> str:
-    return _plural(count, "ошибка", "ошибки", "ошибок")
+    return plural(count, "ошибка", "ошибки", "ошибок")
 
 
 def parts_word(count: int) -> str:
-    return _plural(count, "часть", "части", "частей")
+    return plural(count, "часть", "части", "частей")

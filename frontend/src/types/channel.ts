@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/channel.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:ec0e7a0efd32e592bf1c13fae30e32e06489cc5a1d3630ac2cd736f1e555a08e
+ * @generated sha256:a56430dfb4927133f6f657106398e014260bc90b4dda05aa74ef791ebedce66a
  */
 /**
  * Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).
@@ -32,18 +32,6 @@ export interface ChannelVoice {
   pace_wpm: number | null
 }
 
-/**
- * Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.
- */
-export interface Cost {
-  stage: string
-  provider: string
-  model: string
-  lines: CostLine[]
-  usd_micro: number
-  stale_pricing: boolean
-}
-
 export interface CostLine {
   unit: 'image' | 'char' | 'second' | 'token_in' | 'token_out' | 'search'
   quantity: number
@@ -55,7 +43,7 @@ export interface CostLine {
  * Смета выпуска: цена этапа на маршруте профиля по умолчанию и итог, микродоллары.
  */
 export interface EpisodeEstimate {
-  stages: Cost[]
+  stages: StageCost[]
   usd_micro: number
 }
 
@@ -80,6 +68,20 @@ export interface FormatPreview {
   preset: FormatPreset
   estimate: EpisodeEstimate
   stale_pricing: boolean
+}
+
+/**
+ * Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;
+ * у платного этапа поля нет.
+ */
+export interface StageCost {
+  stage: string
+  provider: string
+  model: string
+  lines: CostLine[]
+  usd_micro: number
+  stale_pricing: boolean
+  via?: 'bridge' | null
 }
 
 export interface VoiceQuota {

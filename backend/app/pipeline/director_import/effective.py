@@ -52,7 +52,8 @@ class EffectivePlan(StrictModel):
 
     version: str
     source: VersionSource
-    # Утверждённая версия — появится в M4.6; до него всегда null.
+    # Утверждённая версия (M4.6); null — план не утверждали. Не равна `version` — утверждена
+    # старая версия, план нужно утвердить снова.
     approved_version: str | None = None
     meta: Meta
     sections: list[Section]
@@ -150,7 +151,7 @@ def effective_plan(
     return EffectivePlan(
         version=version,
         source=info.source,
-        approved_version=None,
+        approved_version=project.approved_version,
         meta=director.meta,
         sections=director.sections,
         shots=shots,

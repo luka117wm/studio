@@ -53,6 +53,71 @@
       "title": "AnimateSpec",
       "type": "object"
     },
+    "ApprovalProblem": {
+      "properties": {
+        "check": {
+          "enum": [
+            "stage",
+            "plan",
+            "vo",
+            "prompt"
+          ],
+          "title": "Check",
+          "type": "string"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Shot Id"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check",
+        "shot_id",
+        "message"
+      ],
+      "title": "ApprovalProblem",
+      "type": "object"
+    },
+    "ApprovalRefusal": {
+      "description": "Тело 409 «Утвердить план» (`detail`): сводка для пользователя и проблемы по кадрам.",
+      "properties": {
+        "code": {
+          "const": "plan_not_ready",
+          "default": "plan_not_ready",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/ApprovalProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "problems"
+      ],
+      "title": "ApprovalRefusal",
+      "type": "object"
+    },
     "BridgeIssue": {
       "description": "Одна ошибка внутри ответа: где (`shots[3].image.prompt`, `s012`) и что не так.",
       "properties": {
@@ -190,6 +255,95 @@
       "title": "BridgeRun",
       "type": "object"
     },
+    "BudgetOutlook": {
+      "description": "Уровень бюджета после выпуска: лимит, занятое до него, доля сметы, остаток.",
+      "properties": {
+        "level": {
+          "enum": [
+            "month",
+            "episode",
+            "animation"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/Money"
+        },
+        "committed": {
+          "$ref": "#/$defs/Money"
+        },
+        "estimate": {
+          "$ref": "#/$defs/Money"
+        },
+        "remaining": {
+          "$ref": "#/$defs/Money"
+        },
+        "exceeded": {
+          "title": "Exceeded",
+          "type": "boolean"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "limit",
+        "committed",
+        "estimate",
+        "remaining",
+        "exceeded",
+        "message"
+      ],
+      "title": "BudgetOutlook",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
     "EffectivePlan": {
       "additionalProperties": false,
       "description": "Действующий план для экрана 3: текущая версия плюс ручные правки.\n\n`shots` — кадры версии по таймлайну, затем убранные (`status: removed`) с содержимым из\nпоследней версии, где они были (принцип 8).",
@@ -254,6 +408,33 @@
         "facts"
       ],
       "title": "EffectivePlan",
+      "type": "object"
+    },
+    "EstimateLine": {
+      "description": "Строка сметы плана для экрана: что, сколько и почём.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cost": {
+          "$ref": "#/$defs/StageCost"
+        }
+      },
+      "required": [
+        "title",
+        "label",
+        "usd",
+        "cost"
+      ],
+      "title": "EstimateLine",
       "type": "object"
     },
     "Fact": {
@@ -452,6 +633,25 @@
       "title": "Meta",
       "type": "object"
     },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
     "Motion": {
       "additionalProperties": false,
       "properties": {
@@ -606,6 +806,62 @@
         "items"
       ],
       "title": "PlanCheck",
+      "type": "object"
+    },
+    "PlanEstimate": {
+      "description": "Смета действующего плана: `GET /api/projects/{id}/estimate`.",
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "plan_source": {
+          "enum": [
+            "bridge",
+            "api"
+          ],
+          "title": "Plan Source",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/EstimateLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "total": {
+          "$ref": "#/$defs/Money"
+        },
+        "budgets": {
+          "items": {
+            "$ref": "#/$defs/BudgetOutlook"
+          },
+          "title": "Budgets",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "stale_pricing": {
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "version",
+        "plan_source",
+        "lines",
+        "total",
+        "budgets",
+        "warnings",
+        "stale_pricing"
+      ],
+      "title": "PlanEstimate",
       "type": "object"
     },
     "PlanParts": {
@@ -977,6 +1233,62 @@
         "price"
       ],
       "title": "ShotChange",
+      "type": "object"
+    },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
       "type": "object"
     },
     "Transition": {

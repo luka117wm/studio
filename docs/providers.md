@@ -41,6 +41,10 @@
 M4 пути через API нет вовсе, он подключается отдельной сессией. Неизвестное значение — ошибка старта. Подробности и
 `GET /api/bridge/settings` — `docs/bridge.md`.
 
+Сметы (`GET /api/formats`, `GET /api/projects/{id}/estimate`) берут **действующий** источник —
+`api/bridge.py → PlanSourceDep`: `api` из конфига при недоступном API считается мостом. При мосте строка сценария —
+`StageCost` с `via: "bridge"`, провайдер `bridge`, модель `chat`, без строк единиц, $0; у платных строк поля `via` нет.
+
 ### Выбор модели
 
 `registry.resolve(stage, profile=None, override=None)`:
@@ -233,6 +237,28 @@ anthropic:
 | `GET /api/cost/ledger?episode=&channel=&limit=500` | `{items: [строки журнала + usd], episode_budget, animation_budget}` (лимиты — только с `episode`); 422 без `episode` и `channel` |
 
 `budget` = `{limit, charged, reserved, queued, remaining}`, где `remaining = max(limit − занятое, 0)`.
+
+## Смета плана — `GET /api/projects/{id}/estimate` (M4.6)
+
+Цена до клика «Утвердить план» (устав M4, решение 8). Считает `pipeline/script/estimate.py → plan_estimate` по
+действующему плану (версия плюс правки, без `removed`) через `Gateway.estimate` маршрутами профиля по умолчанию —
+запросами того же объёма, что выпуск, как смета пресета (`docs/slots.md`). Цен и ID моделей в коде нет.
+
+| Строка (`title`) | Запрос | Подпись (`label`) |
+|---|---|---|
+| Кадры | кадров × отдельный вызов `images` | «104 × $0.067» — цена вызова до десятых цента (`format_unit_usd`) |
+| Голос | один вызов `voice` на все символы VO | «23 400 знаков» |
+| Анимация | кадры с `animate.recommended`: вызов `animate` на клип, `seconds` клипа | «6 клипов × $0.32»; разная длина — «6 клипов, 26 с» |
+| План | мост — $0 без вызова; `api` — вызов `script`: вход `script_input_tokens`, выход слова VO × `script_output_tokens_per_word` | «Мост через чат»; при `api` — «N токенов» |
+
+Ответ `PlanEstimate`: `version`, `plan_source`, `lines[{title, label, usd, cost: StageCost}]`, `total`, `budgets`,
+`warnings`, `stale_pricing`. `budgets` — уровни `month`, `episode`, `animation` (лимиты из профиля канала):
+`limit`, `committed` (занято до выпуска — журнал и очередь, как у проверки бюджета), `estimate` (доля сметы: итог,
+у анимации — строка анимации), `remaining` (не меньше нуля), `exceeded`, `message` — «Останется $75.20 из месячных
+$150» или «Лимит на выпуск $15: занято $3, смета $14 — не хватает $2; поднять лимит можно в настройках канала.»
+Правило превышения — как у `check_budget`: занятое + смета > лимита, бесплатное не превышает. Превышение — текст в
+`warnings` и 200, не отказ: отказывает очередь генерации (M6). Смета ничего не пишет в журнал. Смета считает план
+целиком, сделанное до неё не вычитается — это M6. Без плана — 409.
 
 ## Проверка ключей
 

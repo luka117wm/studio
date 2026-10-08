@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:a7541eee9fe22902569cf26816d95913266a150f77cf876a53f9962c6ebbe517
+ * @generated sha256:4b05e45b411c05c23d07d3623441c9f0e151003eaa51ce4b5216640eb489d79d
  */
 export interface AnimateOverride {
   recommended?: boolean | null
@@ -90,6 +90,8 @@ export interface Project {
   director_versions: {
     [k: string]: DirectorVersionInfo
   }
+  approved_version?: string | null
+  approved_at?: string | null
   shots: {
     [k: string]: ShotState
   }

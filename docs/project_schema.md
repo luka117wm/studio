@@ -18,6 +18,8 @@
 | `brief` | `EpisodeBrief` \| `null` | заявка выпуска — вход промпта плана; `null` — ещё не заполнена (M4.1) |
 | `director_version` | `vNNN` \| `null` | текущая версия плана; `null` — план ещё не импортирован |
 | `director_versions` | `{vNNN: DirectorVersionInfo}` | индекс всех импортированных версий (файлы — `director/vNNN.json`) |
+| `approved_version` | `vNNN`, поля нет — не утверждали | версия, утверждённая кнопкой «Утвердить план» (M4.6); новая версия плана её не трогает — утверждённая старше текущей, утвердить нужно снова |
+| `approved_at` | ISO 8601 UTC, поля нет — не утверждали | когда утвердили |
 | `shots` | `{shot_id: ShotState}` | состояние и ручные правки кадров |
 | `assets` | `{asset_id: Asset}` | ассеты с версиями |
 | `timings` | `{shot_id: Timing}` | фактические тайминги кадров (принцип 1) |
@@ -131,7 +133,8 @@
 | `shots` | `{shot_id: {duration_locked?, prompt_locked?, user_override?}}` |
 
 Остальное пишет пайплайн. Поле корня из `Project` — 422 «Поле director_version меняется пайплайном, не через PATCH —
-уберите его из запроса.» (так же `director_versions`, `assets`, `timings`, `cost`, `updated_at`), поля
+уберите его из запроса.» (так же `director_versions`, `approved_version`, `approved_at`, `assets`, `timings`, `cost`,
+`updated_at`), поля
 идентичности — «Поле channel задаётся при создании выпуска и не меняется — …», неизвестное поле — «Лишнее поле nope —
 уберите его из запроса.». Внутри кадра `status` и `stale_reasons` — «кадр s003: поле status меняется пайплайном, не
 через PATCH — …».
@@ -152,7 +155,8 @@
 `updated_at` ставит сервер. Дебаунс автосохранения (800 мс) — на фронте; бэкенд пишет сразу.
 
 Импорт новой версии плана (M2.4) идёт мимо PATCH: `merge_into_project` меняет в `shots` только `status` и
-`stale_reasons`, добавляет запись в `director_versions` и переставляет `director_version`.
+`stale_reasons`, добавляет запись в `director_versions` и переставляет `director_version`. `approved_*` пишет только
+`POST /api/episodes/{id}/approve` (`docs/episodes.md`, «Утверждение плана»).
 
 ## Действующий план — `GET /api/projects/{episode_id}/plan`
 
@@ -167,7 +171,7 @@ removed_shots)`: на копию кадра версии правка накла
 |---|---|
 | `version` | текущая версия `vNNN` |
 | `source` | откуда версия: `bridge \| manual \| api` |
-| `approved_version` | утверждённая версия; до M4.6 всегда `null` |
+| `approved_version` | утверждённая версия из `project.json`; `null` — не утверждали; не равна `version` — утверждена старая версия, план нужно утвердить снова |
 | `meta`, `sections`, `facts` | из версии как есть |
 | `shots` | `PlanShot[]`: кадры версии по таймлайну, затем убранные |
 

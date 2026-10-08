@@ -33,6 +33,8 @@ from app.models.director import SCHEMA_VERSION, Director
 from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
 from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.script.approve import ApprovalRefusal
+from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
 from app.settings import REPO_ROOT
 
@@ -88,6 +90,8 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (PlanParts, "serialization"),
         (EffectivePlan, "serialization"),
         (PlanCheck, "serialization"),
+        (PlanEstimate, "serialization"),
+        (ApprovalRefusal, "serialization"),
     ],
 }
 

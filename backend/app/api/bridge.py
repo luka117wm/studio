@@ -4,7 +4,9 @@
 статусом 422 (подключается в `main.create_app`).
 """
 
-from fastapi import APIRouter, Query, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -41,6 +43,16 @@ def bridge_settings(settings: Settings, configured: PlanSource) -> BridgeSetting
         api = BridgeApiStatus(available=False, reason=REASON_NOT_WIRED)
     source: PlanSource = "api" if configured == "api" and api.available else "bridge"
     return BridgeSettings(plan_source=source, api=api)
+
+
+def effective_plan_source(request: Request) -> PlanSource:
+    """Действующий источник плана для смет: `api` из конфига при недоступном API — `bridge`."""
+    settings: Settings = request.app.state.settings
+    configured: PlanSource = request.app.state.gateway.registry.config.plan_source
+    return bridge_settings(settings, configured).plan_source
+
+
+PlanSourceDep = Annotated[PlanSource, Depends(effective_plan_source)]
 
 
 @router.get("/bridge/settings")

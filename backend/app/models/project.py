@@ -172,6 +172,12 @@ class Project(StrictModel):
     director_version: str | None = Field(default=None, pattern=DIRECTOR_VERSION_PATTERN)
     # Все импортированные версии плана; файлы — `director/vNNN.json`, неизменяемые.
     director_versions: dict[str, DirectorVersionInfo] = {}
+    # «Утвердить план» (M4.6, принцип 10): какая версия и когда; поля нет — план не утверждали.
+    # Новая версия их не трогает: утверждённая старше текущей — утвердить нужно снова.
+    approved_version: str | None = Field(
+        default=None, pattern=DIRECTOR_VERSION_PATTERN, exclude_if=_is_none
+    )
+    approved_at: str | None = Field(default=None, exclude_if=_is_none)
     shots: dict[str, ShotState] = {}
     assets: dict[str, Asset] = {}
     timings: dict[str, Timing] = {}

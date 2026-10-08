@@ -1,13 +1,28 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:2dff78f3a3f018dc6deca805d1bc8ecc2666ff8c278641e067fa30d553c06d57
+ * @generated sha256:fbad23b82ec6d40ece7ab0d98e24d185ad1343ac7a53b0313eb7b6e22ed95fbe
  */
 export interface AnimateSpec {
   recommended: boolean
   reason: string | null
   prompt: string | null
   seconds: number
+}
+
+export interface ApprovalProblem {
+  check: 'stage' | 'plan' | 'vo' | 'prompt'
+  shot_id: string | null
+  message: string
+}
+
+/**
+ * Тело 409 «Утвердить план» (`detail`): сводка для пользователя и проблемы по кадрам.
+ */
+export interface ApprovalRefusal {
+  code: 'plan_not_ready'
+  message: string
+  problems: ApprovalProblem[]
 }
 
 /**
@@ -36,6 +51,26 @@ export interface BridgeRun {
 }
 
 /**
+ * Уровень бюджета после выпуска: лимит, занятое до него, доля сметы, остаток.
+ */
+export interface BudgetOutlook {
+  level: 'month' | 'episode' | 'animation'
+  limit: Money
+  committed: Money
+  estimate: Money
+  remaining: Money
+  exceeded: boolean
+  message: string
+}
+
+export interface CostLine {
+  unit: 'image' | 'char' | 'second' | 'token_in' | 'token_out' | 'search'
+  quantity: number
+  variant: string | null
+  usd_micro: number
+}
+
+/**
  * Действующий план для экрана 3: текущая версия плюс ручные правки.
  *
  * `shots` — кадры версии по таймлайну, затем убранные (`status: removed`) с содержимым из
@@ -49,6 +84,16 @@ export interface EffectivePlan {
   sections: Section[]
   shots: PlanShot[]
   facts: Fact[]
+}
+
+/**
+ * Строка сметы плана для экрана: что, сколько и почём.
+ */
+export interface EstimateLine {
+  title: string
+  label: string
+  usd: Money
+  cost: StageCost
 }
 
 export interface Fact {
@@ -85,6 +130,14 @@ export interface Meta {
   parts_total: number
 }
 
+/**
+ * Деньги в ответе API: по `usd_micro` считать, `usd` показывать.
+ */
+export interface Money {
+  usd_micro: number
+  usd: string
+}
+
 export interface Motion {
   type:
     'push_in' | 'pull_out' | 'pan_left' | 'pan_right' | 'tilt_up' | 'tilt_down' | 'static' | 'drift'
@@ -117,6 +170,19 @@ export interface PlanCheck {
   ok: boolean
   errors: string[]
   items: ValidationItem[]
+}
+
+/**
+ * Смета действующего плана: `GET /api/projects/{id}/estimate`.
+ */
+export interface PlanEstimate {
+  version: string
+  plan_source: 'bridge' | 'api'
+  lines: EstimateLine[]
+  total: Money
+  budgets: BudgetOutlook[]
+  warnings: string[]
+  stale_pricing: boolean
 }
 
 /**
@@ -192,6 +258,20 @@ export interface ShotChange {
   stale: boolean
   drawn_at: string | null
   price: number | null
+}
+
+/**
+ * Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;
+ * у платного этапа поля нет.
+ */
+export interface StageCost {
+  stage: string
+  provider: string
+  model: string
+  lines: CostLine[]
+  usd_micro: number
+  stale_pricing: boolean
+  via?: 'bridge' | null
 }
 
 export interface Transition {
