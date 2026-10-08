@@ -7,6 +7,7 @@ import type { CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
 import type { Director } from '@/types/director'
+import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { JobList } from '@/types/job'
 import type {
   ApprovalProblem,
@@ -40,6 +41,8 @@ export const channels = [
     budgets: { monthly_usd: 150, per_episode_usd: 15, animation_usd: 5 },
     voice_quota: { limit_chars: 600_000 },
     voice: { voice_id: 'unset', pace_wpm: null },
+    // Семена ниши артборда 2; у Otto семян нет — поле не выгружается (L-033)
+    seeds: ['every rank', 'medieval life', 'pirates', 'ancient jobs', 'monasteries'],
   },
   {
     id: 'otto',
@@ -606,6 +609,43 @@ function estimateLine(title: string, label: string, stage: string, model: string
   }
 }
 
+/* ---- Идеи артборда 2 и бэклог (M4.9) ---- */
+
+const idea = (n: number, fields: Partial<Idea> & Pick<Idea, 'channel' | 'title' | 'status'>): Idea => ({
+  id: `i${String(n).padStart(4, '0')}`,
+  angle: '',
+  hook_promise: '',
+  summary: '',
+  score: null,
+  score_reason: null,
+  source: 'bridge',
+  episode_id: null,
+  created_at: `2026-09-${String(n).padStart(2, '0')}T09:00:00+00:00`,
+  updated_at: `2026-09-${String(n).padStart(2, '0')}T09:00:00+00:00`,
+  ...fields,
+})
+
+/** «Идеи из кластеров» артборда — предложения чата (`proposed`), Арсенал уже в бэклоге; бэклог Cursus — 7 идей, как
+ *  «Бэклог: 7 идей» в шапке артборда; одна убранная */
+export const IDEAS: Idea[] = [
+  idea(1, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Roman Legion', score: 79, score_reason: 'Узнаваемая иерархия, сильный визуал', angle: 'От новобранца-тирона до легата: восемь ступеней и одна лопата на всех.', source: 'manual' }),
+  idea(2, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Royal Kitchen', score: 71, angle: 'Кухня дворца как армия: поварята, вертельщики, кондитер и главный повар с ключом от специй.' }),
+  idea(3, { channel: 'cursus', status: 'backlog', title: 'Every Rank in the Venetian Arsenal', score: 77, score_reason: 'Конвейер в XVI веке — неожиданно и наглядно', angle: 'Государственная верфь как конвейер: галера в день, двенадцать тысяч рабочих, отдельная каста мастеров-корабелов с пожизненным контрактом.', hook_promise: 'Как Венеция строила галеру за день', summary: 'От носильщика досок до адмирала Арсенала.' }),
+  idea(4, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Hanseatic Kontor', score: 64, angle: 'Купеческая контора в Бергене: ученики живут взаперти семь лет.' }),
+  idea(5, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Viking Longship', source: 'manual', angle: 'Гребцы, кормчий и хёвдинг: кто делит добычу и как.' }),
+  idea(6, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Coal Mine (1840)', score: 58, angle: 'Дети-трапперы у дверей штольни и хозяин, который в шахту не спускается.' }),
+  idea(7, { channel: 'cursus', status: 'backlog', title: 'Every Rank in a Spanish Treasure Fleet', score: 66, angle: 'Серебро из Нового Света: от юнги до генерала флота.' }),
+  idea(8, { channel: 'cursus', status: 'dropped', title: 'Every Rank in a Lighthouse Service', score: 41, angle: 'Слишком мало ступеней на часовой ролик.' }),
+  idea(9, { channel: 'cursus', status: 'proposed', title: 'Every Rank in a Medieval Monastery (Oblate to Abbot)', score: 81, score_reason: 'Мало похожих роликов, сильный хук', angle: 'Монастырь как вертикаль власти: мальчик-облат, послушник, брат, приор, аббат. Каждая ступень — своя доля хлеба, свой час подъёма и своё право голоса в капитуле.', hook_promise: 'Почему у мальчика в монастыре не было права голоса', summary: 'Пять ступеней монастырской вертикали.' }),
+  idea(10, { channel: 'cursus', status: 'proposed', title: 'Every Rank in a Cathedral Build (Mortar Boy to Master Mason)', score: 74, score_reason: 'Стройка на сто лет — понятная драма', angle: 'Стройка длиной в сто лет: кто мешает раствор, кто режет камень, кто держит чертёж. Разница в оплате за день — три порядка.' }),
+  idea(11, { channel: 'otto', status: 'proposed', title: 'I Survived a Day as a Monastery Oblate (1180)', score: 68, angle: 'Тот же кластер для Отто: сутки по расписанию монастырских часов, восемь служб, разговоры только знаками.' }),
+  idea(12, { channel: 'otto', status: 'backlog', title: 'A Day in Pompeii Before the Eruption', score: 70, source: 'manual' }),
+]
+
+const IDEA_STATUS: Record<Idea['status'], string> = { proposed: 'предложена', backlog: 'в бэклоге', used: 'взята в выпуск', dropped: 'отброшена' }
+const IDEA_MOVES: Record<Idea['status'], Idea['status'][]> = { proposed: ['backlog', 'dropped'], backlog: ['dropped'], dropped: ['backlog'], used: [] }
+const titleKey = (title: string) => title.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -691,6 +731,119 @@ export function createMockApi() {
   const overrides = new Map<string, Record<string, Record<string, unknown>>>()
   const partSets = new Map<string, PartsState>()
   let runs = 0
+  const profiles = structuredClone(channels) as ChannelProfile[]
+  const ideas: Idea[] = structuredClone(IDEAS)
+
+  /** Следующий номер идеи: глобальный, как у бэкенда */
+  const nextIdeaId = () => `i${String(Math.max(0, ...ideas.map((i) => Number(i.id.slice(1)))) + 1).padStart(4, '0')}`
+
+  /** PATCH семян: как `ChannelPatch` бэкенда — пустые выбрасываются, до 20, до 80 знаков, без повторов */
+  function patchSeeds(channel: string, body: unknown): MockResponse {
+    const profile = profiles.find((p) => p.id === channel)
+    if (!profile) return fail(404, `Канал «${channel}» не найден. Создайте каналы: python -m app.tools.seed`)
+    const raw = isPlainObject(body) && Array.isArray(body.seeds) ? (body.seeds as unknown[]).map(String) : []
+    const seeds = raw.map((seed) => seed.trim()).filter(Boolean)
+    const invalid = (msg: string) => ({ status: 422, body: { detail: [{ type: 'value_error', loc: ['body', 'seeds'], msg }] } })
+    if (seeds.length > 20) return invalid(`Семян ${seeds.length}, а можно не больше 20 — уберите лишние.`)
+    const seen = new Set<string>()
+    for (const seed of seeds) {
+      if (seed.length > 80) return invalid(`Семя «${seed.slice(0, 40)}…» длиннее 80 знаков — сократите его до пары слов.`)
+      if (seen.has(seed.toLowerCase())) return invalid(`Семя «${seed}» повторяется — оставьте одно.`)
+      seen.add(seed.toLowerCase())
+    }
+    if (seeds.length) profile.seeds = seeds
+    else delete profile.seeds
+    return ok(profile)
+  }
+
+  function patchIdea(target: Idea, patch: IdeaPatch): MockResponse {
+    if (patch.status && patch.status !== target.status) {
+      if (patch.status === 'used') {
+        return fail(409, 'Статус «взята в выпуск» ставит создание выпуска из идеи: «Начать выпуск» (POST /api/episodes с idea_id).')
+      }
+      const allowed = IDEA_MOVES[target.status]
+      if (!allowed.includes(patch.status)) {
+        const options = allowed.map((s) => `«${IDEA_STATUS[s]}»`).join(', ') || 'никуда'
+        return fail(409, `Идею со статусом «${IDEA_STATUS[target.status]}» нельзя перевести в «${IDEA_STATUS[patch.status]}»: можно ${options}.`)
+      }
+    }
+    const { status, ...texts } = patch
+    Object.assign(target, texts, status ? { status } : {}, { updated_at: NOW })
+    return ok(target)
+  }
+
+  /** Ответ чата на промпт идей — как `review_proposals`: битая и дубль пропускаются, ни одной принятой — 422 */
+  function ideasAnswer(channel: Idea['channel'], text: string): MockResponse {
+    const start = text.indexOf('{')
+    let data: unknown = null
+    try {
+      data = start < 0 ? null : JSON.parse(text.slice(start, text.lastIndexOf('}') + 1))
+    } catch {
+      data = null
+    }
+    const hint = 'Попросите чат прислать идеи целиком одним блоком ```json вида {"ideas": [...]}.'
+    const list = isPlainObject(data) && Array.isArray(data.ideas) ? (data.ideas as unknown[]) : null
+    if (!list?.length) return { status: 422, body: { message: 'В ответе нет списка идей: ожидался {"ideas": [...]}.', hint, errors: [] } satisfies BridgeError }
+    const taken = new Map<string, string>()
+    for (const e of state.filter((e) => e.channel === channel)) taken.set(titleKey(e.title), 'уже есть выпуск с таким названием')
+    for (const i of ideas.filter((i) => i.channel === channel && i.status !== 'dropped')) {
+      taken.set(titleKey(i.title), { backlog: 'уже в бэклоге', proposed: 'уже предложена', used: 'уже взята в выпуск', dropped: '' }[i.status])
+    }
+    const created: Idea[] = []
+    const skipped: IdeasAnswerResult['skipped'] = []
+    list.forEach((item, i) => {
+      const index = i + 1
+      if (!isPlainObject(item)) return skipped.push({ index, title: null, reason: 'ожидался объект идеи {…}' })
+      const title = typeof item.title === 'string' ? item.title.trim() : ''
+      const missing = ['angle', 'hook_promise', 'summary'].filter((k) => typeof item[k] !== 'string')
+      if (!title) return skipped.push({ index, title: null, reason: 'Название не может быть пустым — введите текст.' })
+      if (missing.length) return skipped.push({ index, title, reason: missing.map((k) => `нет поля «${k}»`).join('; ') })
+      const reason = taken.get(titleKey(title))
+      if (reason) return skipped.push({ index, title, reason: `«${title}» — ${reason}` })
+      taken.set(titleKey(title), `повторяет идею ${index} этого ответа`)
+      const score = typeof item.score === 'number' ? item.score : null
+      const next = idea(Number(nextIdeaId().slice(1)), {
+        channel,
+        status: 'proposed',
+        title,
+        angle: String(item.angle),
+        hook_promise: String(item.hook_promise),
+        summary: String(item.summary),
+        score,
+        score_reason: typeof item.score_reason === 'string' ? item.score_reason : null,
+        created_at: NOW,
+        updated_at: NOW,
+      })
+      ideas.push(next)
+      created.push(next)
+      return undefined
+    })
+    const errors = skipped.map((s) => ({ path: `ideas[${s.index - 1}]`, message: `идея ${s.index}: ${s.reason}` }))
+    if (!created.length) {
+      const word = ru(skipped.length, ['пропущена', 'пропущены', 'пропущено'])
+      return { status: 422, body: { message: `Ни одна идея не принята: ${skipped.length} ${word}.`, hint, errors } satisfies BridgeError }
+    }
+    runs += 1
+    return ok({ run_id: `run-${runs}`, created, skipped } satisfies IdeasAnswerResult)
+  }
+
+  /** Выпуск из идеи (`idea_id`): идея этого канала и в бэклоге; иначе 404 / 422 / 409, как бэкенд */
+  function ideaForEpisode(request: EpisodeCreate): Idea | MockResponse | null {
+    if (!request.idea_id) return null
+    if (request.origin !== 'backlog') {
+      return { status: 422, body: { detail: [{ type: 'idea_origin', loc: ['body'], msg: 'Выпуск из идеи создаётся с origin «backlog» — поправьте origin или уберите idea_id.' }] } }
+    }
+    const found = ideas.find((i) => i.id === request.idea_id)
+    if (!found) return fail(404, `Идея «${request.idea_id}» не найдена.`)
+    if (found.channel !== request.channel) {
+      return fail(422, `Идея «${found.title}» (${found.id}) — из канала ${found.channel}, а выпуск создаётся в ${request.channel}. Выберите идею этого канала.`)
+    }
+    if (found.status !== 'backlog') {
+      const where = found.status === 'used' && found.episode_id ? ` ${found.episode_id}` : ''
+      return fail(409, `Идея «${found.title}» ${IDEA_STATUS[found.status]}${where} — выпуск создаётся только из идеи в бэклоге.`)
+    }
+    return found
+  }
 
   const one = (id: string) => state.find((e) => e.id === id)
 
@@ -966,7 +1119,7 @@ export function createMockApi() {
     ]
     const total = lines.reduce((sum, line) => sum + line.usd.usd_micro, 0)
     const animation = lines[2]!.usd.usd_micro
-    const budgets = channels.find((c) => c.id === episode.channel)!.budgets
+    const budgets = profiles.find((c) => c.id === episode.channel)!.budgets
     const spent = costSummaries[episode.channel].budget
     const monthCommitted = spent.charged.usd_micro + spent.reserved.usd_micro + spent.queued.usd_micro
     const outlook = (level: 'month' | 'episode' | 'animation', limitUsd: number, committed: number, share: number) => {
@@ -1093,7 +1246,52 @@ export function createMockApi() {
     const channel = searchParams.get('channel') as ChannelId | null
     const parts = path.split('/').filter(Boolean)
 
-    if (method === 'GET' && path === '/channels') return ok(channels)
+    if (method === 'GET' && path === '/channels') return ok(profiles)
+    if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchSeeds(decodeURIComponent(parts[1]), body)
+    if (method === 'GET' && path === '/ideas') {
+      const status = searchParams.get('status')
+      const list = ideas.filter((i) => (!channel || i.channel === channel) && (!status || i.status === status))
+      return ok([...list].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)))
+    }
+    if (method === 'POST' && path === '/ideas') {
+      const request = body as IdeaCreate
+      if (!request.title?.trim()) {
+        return { status: 422, body: { detail: [{ type: 'title_empty', loc: ['body', 'title'], msg: 'Название не может быть пустым — введите текст.' }] } }
+      }
+      const next = idea(Number(nextIdeaId().slice(1)), {
+        ...request,
+        title: request.title.trim(),
+        score: request.score ?? null,
+        score_reason: request.score_reason ?? null,
+        status: 'backlog',
+        source: 'manual',
+        created_at: NOW,
+        updated_at: NOW,
+      })
+      ideas.push(next)
+      return ok(next, 201)
+    }
+    if (method === 'PATCH' && parts[0] === 'ideas' && parts[1]) {
+      const target = ideas.find((i) => i.id === decodeURIComponent(parts[1]!))
+      return target ? patchIdea(target, body as IdeaPatch) : fail(404, `Идея «${parts[1]}» не найдена.`)
+    }
+    if (method === 'POST' && path === '/ideas/prompt') {
+      const request = body as { channel: Idea['channel']; count?: number }
+      const count = request.count ?? 6
+      const profile = profiles.find((p) => p.id === request.channel)
+      runs += 1
+      return ok({
+        text: `You are the idea editor of the history channel "${profile?.name}" on YouTube. Propose ${count} new video ideas for it.`,
+        prompt_id: 'ideas',
+        version: 1,
+        run_id: `run-${runs}`,
+        count,
+      } satisfies IdeasPrompt)
+    }
+    if (method === 'POST' && path === '/ideas/answer') {
+      const request = body as { channel: Idea['channel']; text: string }
+      return ideasAnswer(request.channel, request.text)
+    }
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
     if (method === 'GET' && path === '/slots') return ok(currentSlots())
     if (method === 'GET' && path === '/jobs') return ok(jobs)
@@ -1109,11 +1307,13 @@ export function createMockApi() {
       const slot = request.slot === null ? null : request.slot && request.slot !== 'next_free' ? request.slot : nextFree()
       const refusal = slot === null ? null : slotRefusal(null, slot)
       if (refusal) return refusal
+      const source = ideaForEpisode(request)
+      if (source && !('id' in source)) return source
       created += 1
       const episode: EpisodeListItem = {
         id: request.id ?? `${request.channel[0]}${String(10 + created).padStart(2, '0')}`,
         channel: request.channel,
-        title: request.title ?? 'Новый выпуск',
+        title: request.title ?? source?.title ?? 'Новый выпуск',
         short_title: request.short_title ?? null,
         origin: request.origin ?? 'blank',
         stage: request.origin === 'backlog' ? 'idea' : 'script',
@@ -1124,6 +1324,18 @@ export function createMockApi() {
         summary: summary({}),
       }
       state.push(episode)
+      if (source) {
+        // Заявка из идеи (docs/research.md, «Выпуск из идеи»), идея — «взята в выпуск»
+        projectOf(episode).brief = {
+          ...emptyBrief,
+          idea: source.title,
+          angle: source.angle,
+          hook_promise: source.hook_promise,
+          notes: source.summary,
+          idea_id: source.id,
+        }
+        Object.assign(source, { status: 'used', episode_id: episode.id, updated_at: NOW })
+      }
       return ok(episode, 201)
     }
     if (parts[0] === 'episodes' && parts[1]) {

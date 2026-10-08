@@ -8,6 +8,7 @@ import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
+import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobEventData, JobList } from '@/types/job'
 import type { EffectivePlan, PlanAnswerResult, PlanCheck, PlanEstimate, PlanParts, PlanPrompt } from '@/types/plan'
 import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
@@ -37,6 +38,8 @@ export const qk = {
   format: (channel: ChannelId) => ['formats', channel] as const,
   jobs: ['jobs'] as const,
   bridgeSettings: ['bridge', 'settings'] as const,
+  /** Идеи канала всех статусов: экран делит их на бэклог, убранные и «Идеи из чата» */
+  ideas: (channel: ChannelId) => ['ideas', channel] as const,
   project: (id: string) => ['projects', id] as const,
   /** Действующий план и набор частей моста выпуска */
   plan: (id: string) => ['projects', id, 'plan'] as const,
@@ -128,6 +131,15 @@ export function useFormat(channel: ChannelId) {
   return useQuery({
     queryKey: qk.format(channel),
     queryFn: ({ signal }) => api.get<FormatPreview>('/formats', { signal, query: { channel } }),
+  })
+}
+
+/** Идеи канала, все статусы, новые первыми (docs/research.md); сортировку бэклога делает экран */
+export function useIdeas(channel: ChannelId | null) {
+  return useQuery({
+    queryKey: qk.ideas(channel ?? 'cursus'),
+    queryFn: ({ signal }) => api.get<Idea[]>('/ideas', { signal, query: { channel } }),
+    enabled: channel !== null,
   })
 }
 
@@ -225,7 +237,58 @@ export function useCreateEpisode() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (body: EpisodeCreate) => api.post<EpisodeListItem>('/episodes', body),
-    onSuccess: (episode) => storeEpisode(client, episode, true),
+    onSuccess: (episode, body) => {
+      storeEpisode(client, episode, true)
+      // Выпуск из идеи: идея стала «взята в выпуск»
+      if (body.idea_id) void client.invalidateQueries({ queryKey: qk.ideas(episode.channel) })
+    },
+  })
+}
+
+/** Идея руками — сразу в бэклог */
+export function useCreateIdea(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Omit<IdeaCreate, 'channel'>) => api.post<Idea>('/ideas', { ...body, channel }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: qk.ideas(channel) }),
+  })
+}
+
+/** Правка идеи и смена статуса («В бэклог», «Убрать», «Вернуть»); неверный переход — 409 с текстом бэкенда */
+export function usePatchIdea(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: IdeaPatch }) => api.patch<Idea>(`/ideas/${segment(id)}`, patch),
+    onSuccess: (idea) => {
+      client.setQueryData<Idea[]>(qk.ideas(channel), (list) => list?.map((i) => (i.id === idea.id ? idea : i)))
+      void client.invalidateQueries({ queryKey: qk.ideas(channel) })
+    },
+  })
+}
+
+/** Промпт идей канала для копирования; бэкенд открывает обмен моста `ideas` */
+export function useIdeasPrompt(channel: ChannelId) {
+  return useMutation({
+    mutationFn: (count?: number) => api.post<IdeasPrompt>('/ideas/prompt', { channel, count }),
+  })
+}
+
+/** Ответ чата → идеи `proposed`; пропущенные — в отчёте. Ни одной принятой — 422 `BridgeError` */
+export function useApplyIdeasAnswer(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => api.post<IdeasAnswerResult>('/ideas/answer', { channel, text }, { timeoutMs: 60_000 }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: qk.ideas(channel) }),
+  })
+}
+
+/** Семена ниши канала: ответ — профиль целиком, кладём его в список каналов */
+export function usePatchChannelSeeds(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (seeds: string[]) => api.patch<ChannelProfile>(`/channels/${segment(channel)}`, { seeds }),
+    onSuccess: (profile) =>
+      client.setQueryData<ChannelProfile[]>(qk.channels, (list) => list?.map((c) => (c.id === profile.id ? profile : c))),
   })
 }
 

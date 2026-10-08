@@ -138,6 +138,13 @@ export function plural(n: number, [one, few, many]: readonly [string, string, st
   return many
 }
 
+/** Тост после создания выпуска (диалог «Новый выпуск» и «Начать выпуск» из идеи): «Выпуск создан: Cursus, слот
+ *  13 сентября»; без слота — «слот не назначен» */
+export function createdToast(channelName: string, slotDate: string | null): string {
+  const slot = slotDate ? `слот ${formatSlotDate(slotDate, { long: true })}` : 'слот не назначен'
+  return `Выпуск создан: ${channelName}, ${slot}`
+}
+
 /** 2140 → «2 140» (неразрывный пробел, как в артборде) */
 export function formatCount(n: number): string {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')

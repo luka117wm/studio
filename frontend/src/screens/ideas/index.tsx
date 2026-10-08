@@ -1,35 +1,118 @@
-/* Экран 2 «Идеи»: бэклог идей канала. Содержимое — M4. */
-import { Lightbulb, Radar, Sprout } from 'lucide-react'
-import { ScreenLayout } from '../../app/ScreenLayout'
+/* Экран 2 «Идеи» (артборд 2). Вкладка «Тренды»: семена ниши 300 слева, бэклог в центре (вместо радара — его нет без
+   ключа YouTube, устав M4), «Идеи из чата» 340 справа с мостом. Вкладка «Референс» — M4.11. Вкладка — в адресе
+   `?tab=`. Идеи и семена у каждого канала свои (правило 6 handoff): в «Все каналы» экран просит выбрать канал.
+   Статус-строка: «Идей в бэклоге 7, слот 21 сентября свободен» — ближайший пустой слот после сегодняшнего. */
+import { FileSearch, Layers, MessagesSquare, Sprout } from 'lucide-react'
+import type { ReactNode } from 'react'
+import type { Slot } from '@/types/slot'
+import { useChannels, useIdeas, useSlots, type ChannelId } from '../../api/queries'
+import { formatSlotDate } from '../../app/format'
+import { setSearchParam, useSearchParam } from '../../app/navigation'
 import type { RouteParams } from '../../app/routes'
-import { estimates } from '../../mocks/placeholders'
-import { EmptyState } from '../../ui'
+import { ScreenLayout } from '../../app/ScreenLayout'
+import { useStatusNote } from '../../app/useStatusNote'
+import { useUiStore } from '../../store/uiStore'
+import { EmptyState, SegmentedControl } from '../../ui'
+import { formatCount, plural } from '../episodes/board'
+import { Backlog } from './Backlog'
+import { ChatIdeas } from './ChatIdeas'
+import { backlogOf } from './ideaView'
+import { SeedsPanel } from './SeedsPanel'
+import { useStartEpisode } from './useStartEpisode'
 
-/* Экран 2: семена ниши 300 слева, выбросы радара в центре, идеи из кластеров 340 справа (артборд 2). */
+type Tab = 'trends' | 'reference'
+
+const IDEAS = ['идея', 'идеи', 'идей'] as const
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'trends', label: 'Тренды' },
+  { value: 'reference', label: 'Референс' },
+]
+
 export function IdeasScreen(_props: { params: RouteParams }) {
+  const scope = useUiStore((s) => s.channel)
+  const tab: Tab = useSearchParam('tab') === 'reference' ? 'reference' : 'trends'
+  const setTab = (next: Tab) => setSearchParam('tab', next === 'trends' ? null : next)
+  const view = <SegmentedControl ariaLabel="Вкладка" value={tab} onChange={setTab} options={TABS} />
+
+  if (scope === 'all') return <PickChannel view={view} />
+  return <ChannelIdeas key={scope} channel={scope} tab={tab} view={view} />
+}
+
+function ChannelIdeas({ channel, tab, view }: { channel: ChannelId; tab: Tab; view: ReactNode }) {
+  const ideas = useIdeas(channel)
+  const slots = useSlots()
+  const { start, busyId } = useStartEpisode(channel)
+  const backlog = ideas.data ? backlogOf(ideas.data).length : null
+  const proposed = ideas.data?.filter((idea) => idea.status === 'proposed').length ?? null
+  useStatusNote(backlog === null ? null : statusNote(backlog, slots.data))
+
+  const header = {
+    title: 'Идеи',
+    view,
+    actions:
+      backlog === null ? undefined : (
+        <span className="text-12 text-muted">{`Бэклог: ${formatCount(backlog)} ${plural(backlog, IDEAS)}`}</span>
+      ),
+  }
+
+  if (tab === 'reference') {
+    return (
+      <ScreenLayout header={header}>
+        <div className="flex flex-1 items-center justify-center p-4">
+          <EmptyState
+            icon={FileSearch}
+            title="Разбор референса"
+            description="Здесь появится разбор ролика-референса: структура, темп и приёмы подачи — и новая тема по этой структуре."
+          />
+        </div>
+      </ScreenLayout>
+    )
+  }
+
   return (
     <ScreenLayout
-      header={{ title: 'Идеи', note: 'бэклог: 0 идей' }}
-      left={{
-        kind: 'seeds',
-        title: 'Семена ниши',
-        icon: Sprout,
-        children: <EmptyState icon={Sprout} title="Семян нет" description="Темы, язык, регион, период и длина — из них радар собирает выбросы." />,
-      }}
+      header={header}
+      left={{ kind: 'seeds', title: 'Семена ниши', icon: Sprout, children: <SeedsPanel channel={channel} /> }}
       right={{
         kind: 'clusters',
-        title: 'Идеи из кластеров',
-        icon: Radar,
-        children: <EmptyState icon={Radar} title="Кластеров нет" description="Идеи с доказательствами и оценкой насыщенности появятся после радара." />,
+        title: 'Идеи из чата',
+        note: proposed ? `${proposed} ${plural(proposed, IDEAS)}` : undefined,
+        icon: MessagesSquare,
+        children: <ChatIdeas channel={channel} ideas={ideas.data} onStart={(idea) => void start(idea)} busyId={busyId} />,
       }}
     >
+      {ideas.error ? (
+        <p role="alert" className="m-4 text-13 text-failed-text">
+          {ideas.error.message}
+        </p>
+      ) : (
+        <Backlog channel={channel} ideas={ideas.data} onStart={(idea) => void start(idea)} busyId={busyId} />
+      )}
+    </ScreenLayout>
+  )
+}
+
+/** «Идей в бэклоге 7, слот 21 сентября свободен» — ближайший пустой слот расписания после сегодняшнего */
+function statusNote(backlog: number, slots: Slot[] | undefined): string {
+  const head = `Идей в бэклоге ${formatCount(backlog)}`
+  if (!slots) return head
+  const free = slots.find((slot) => slot.state === 'empty')
+  return free ? `${head}, слот ${formatSlotDate(free.date, { long: true })} свободен` : `${head}, свободных слотов нет`
+}
+
+/** «Все каналы»: идеи и семена у каждого канала свои — экран просит выбрать канал */
+function PickChannel({ view }: { view: ReactNode }) {
+  const channels = useChannels()
+  const setChannel = useUiStore((s) => s.setChannel)
+  return (
+    <ScreenLayout header={{ title: 'Идеи', view }}>
       <div className="flex flex-1 items-center justify-center p-4">
         <EmptyState
-          icon={Lightbulb}
-          title="Идей пока нет"
-          description="Заголовок, угол, референсы и оценка тренда. Из идеи начинается выпуск: «Начать выпуск» ведёт в сценарий и план."
-          primary={{ label: 'Добавить идею', onClick: () => {} }}
-          secondary={{ label: 'Найти идеи', price: estimates.ideasUsd, onClick: () => {} }}
+          icon={Layers}
+          title="Выберите канал"
+          description="Идеи, бэклог и семена ниши у каждого канала свои. Выберите канал здесь или в переключателе вверху."
+          primary={channels.data?.[0] ? { label: channels.data[0].name, onClick: () => setChannel(channels.data![0]!.id) } : undefined}
+          secondary={channels.data?.[1] ? { label: channels.data[1].name, onClick: () => setChannel(channels.data![1]!.id) } : undefined}
         />
       </div>
     </ScreenLayout>

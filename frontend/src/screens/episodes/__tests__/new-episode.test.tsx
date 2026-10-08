@@ -2,6 +2,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { stubApi } from '../../../api/__tests__/fakes'
+import { createMockApi } from '../../../mocks/api'
 import { renderApp } from '../../../app/__tests__/harness'
 import { useUiStore } from '../../../store/uiStore'
 
@@ -54,14 +55,51 @@ describe('диалог «Новый выпуск»', () => {
     expect(document.activeElement).toBe(cursus)
   })
 
-  test('«Из бэклога идей» выключен с пояснением, по умолчанию — «С нуля»', async () => {
+  test('«Из бэклога идей» включён, подпись — число идей канала; по умолчанию — «С нуля»', async () => {
     renderApp('/episodes')
     const dialog = await openDialog()
     const backlog = within(dialog).getByRole('radio', { name: 'Из бэклога идей' }) as HTMLInputElement
-    expect(backlog.disabled).toBe(true)
-    expect(within(dialog).getByText('появится с экраном идей')).toBeTruthy()
+    await waitFor(() => expect(backlog.disabled).toBe(false))
+    expect(within(dialog).getByText('7 идей')).toBeTruthy()
     expect((within(dialog).getByRole('radio', { name: 'С нуля' }) as HTMLInputElement).checked).toBe(true)
     expect(within(dialog).getByText('ссылку на ролик добавите в сценарии')).toBeTruthy()
+    // Otto: одна идея в бэклоге
+    await userEvent.click(within(dialog).getByRole('radio', { name: "Otto's Timeline" }))
+    expect(await within(dialog).findByText('1 идея')).toBeTruthy()
+  })
+
+  test('из бэклога: Select идей по оценке, создание с idea_id, название и заявка из идеи', async () => {
+    const { stub } = renderApp('/episodes')
+    const dialog = await openDialog()
+    const backlog = within(dialog).getByRole('radio', { name: 'Из бэклога идей' }) as HTMLInputElement
+    await waitFor(() => expect(backlog.disabled).toBe(false))
+    await userEvent.click(backlog)
+    const select = within(dialog).getByRole('combobox', { name: 'Идея из бэклога' })
+    // Первая по оценке — римский легион (79)
+    expect(select.textContent).toContain('Every Rank in a Roman Legion')
+    await userEvent.click(select)
+    await userEvent.click(await screen.findByRole('option', { name: 'Every Rank in the Venetian Arsenal' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Создать выпуск' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/episodes/c11/script'))
+    expect(posts(stub.fetch)).toEqual([
+      { url: '/api/episodes', body: { channel: 'cursus', origin: 'backlog', slot: 'next_free', idea_id: 'i0003' } },
+    ])
+    const project = stub.api.handle('GET', '/api/projects/c11').body as { brief: { idea: string; idea_id: string } }
+    expect(project.brief).toMatchObject({ idea: 'Every Rank in the Venetian Arsenal', idea_id: 'i0003' })
+    const episode = stub.api.handle('GET', '/api/episodes/c11').body as { title: string; stage: string }
+    expect(episode).toMatchObject({ title: 'Every Rank in the Venetian Arsenal', stage: 'idea' })
+  })
+
+  test('пустой бэклог канала — пункт выключен с подсказкой', async () => {
+    const api = createMockApi()
+    // Единственную идею Otto убрали
+    expect(api.handle('PATCH', '/api/ideas/i0012', { status: 'dropped' }).status).toBe(200)
+    useUiStore.setState({ channel: 'otto' })
+    renderApp('/episodes', { stub: stubApi(api) })
+    const dialog = await openDialog()
+    expect(await within(dialog).findByText("В бэклоге Otto's Timeline нет идей")).toBeTruthy()
+    expect((within(dialog).getByRole('radio', { name: 'Из бэклога идей' }) as HTMLInputElement).disabled).toBe(true)
   })
 
   test('«Создать выпуск» → POST с origin и slot: "next_free", тост с датой из ответа, переход на сценарий', async () => {
