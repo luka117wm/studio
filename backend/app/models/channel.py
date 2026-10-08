@@ -5,9 +5,15 @@
 профиль: считается из `cost_ledger` и ответов провайдера (M2.7).
 """
 
-from pydantic import Field
+from typing import Annotated
+
+from pydantic import AfterValidator, Field
+from pydantic_core import PydanticCustomError
 
 from app.models.director import Channel, EpisodeFormat, StrictModel
+
+SEEDS_MAX = 20
+SEED_MAX_CHARS = 80
 
 
 class Budgets(StrictModel):
@@ -34,6 +40,40 @@ class ChannelVoice(StrictModel):
     pace_wpm: int | None = Field(default=None, ge=100, le=200)
 
 
+def _no_seeds(value: list[str]) -> bool:
+    return not value
+
+
+def _clean_seeds(value: list[str]) -> list[str]:
+    """Семена ниши: строки после `strip`, пустые выбрасываются; до 20, до 80 знаков, без повторов
+    без учёта регистра. Ошибка — одна фраза с тем, что исправить (L-022)."""
+    seeds = [seed.strip() for seed in value if seed.strip()]
+    if len(seeds) > SEEDS_MAX:
+        raise PydanticCustomError(
+            "seeds_too_many",
+            "Семян {count}, а можно не больше {max} — уберите лишние.",
+            {"count": len(seeds), "max": SEEDS_MAX},
+        )
+    seen: set[str] = set()
+    for seed in seeds:
+        if len(seed) > SEED_MAX_CHARS:
+            raise PydanticCustomError(
+                "seed_too_long",
+                "Семя «{seed}» длиннее {max} знаков — сократите его до пары слов.",
+                {"seed": seed[:40] + "…", "max": SEED_MAX_CHARS},
+            )
+        key = seed.casefold()
+        if key in seen:
+            raise PydanticCustomError(
+                "seed_duplicate", "Семя «{seed}» повторяется — оставьте одно.", {"seed": seed}
+            )
+        seen.add(key)
+    return seeds
+
+
+Seeds = Annotated[list[str], AfterValidator(_clean_seeds)]
+
+
 class ChannelProfile(StrictModel):
     id: Channel
     name: str
@@ -42,3 +82,12 @@ class ChannelProfile(StrictModel):
     voice_quota: VoiceQuota
     # Профили до M4.2 поля не имеют — читаются со значениями по умолчанию.
     voice: ChannelVoice = ChannelVoice()
+    # Семена ниши для промпта идей (M4.8): короткие строки. Пустой список не выгружается — в TS поле
+    # необязательно, пока его не покажет экран идей (L-033).
+    seeds: list[str] = Field(default_factory=list, exclude_if=_no_seeds)
+
+
+class ChannelPatch(StrictModel):
+    """Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно."""
+
+    seeds: Seeds

@@ -22,14 +22,16 @@ from app.api.bridge import BridgeSettings
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
+from app.api.ideas import IdeasAnswerBody, IdeasAnswerResult, IdeasPrompt, IdeasPromptBody
 from app.api.jobs import JobCreate, JobList
 from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
-from app.models.channel import ChannelProfile
+from app.models.channel import ChannelPatch, ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
+from app.models.idea import Idea, IdeaCreate, IdeaPatch
 from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
 from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.director_import import EffectivePlan, ImportResult
@@ -56,7 +58,11 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
     # Тело PATCH — отдельно: `EpisodeBrief`, `ShotOverride`, `SfxSpec` в двух режимах в одной
     # группе pydantic назвал бы `…-Input`/`…-Output`, и тип ответа сменил бы имя.
     "project_patch": [(ProjectPatch, "validation")],
-    "channel": [(ChannelProfile, "serialization"), (FormatPreview, "serialization")],
+    "channel": [
+        (ChannelProfile, "serialization"),
+        (FormatPreview, "serialization"),
+        (ChannelPatch, "validation"),
+    ],
     "episode": [
         (Episode, "serialization"),
         (EpisodeListItem, "serialization"),
@@ -82,6 +88,15 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (BridgeSettings, "serialization"),
         (BridgeRun, "serialization"),
         (BridgeError, "serialization"),
+    ],
+    "idea": [
+        (Idea, "serialization"),
+        (IdeasPrompt, "serialization"),
+        (IdeasAnswerResult, "serialization"),
+        (IdeaCreate, "validation"),
+        (IdeaPatch, "validation"),
+        (IdeasPromptBody, "validation"),
+        (IdeasAnswerBody, "validation"),
     ],
     "plan": [
         (PlanPrompt, "serialization"),

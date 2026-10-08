@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/channel.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:a56430dfb4927133f6f657106398e014260bc90b4dda05aa74ef791ebedce66a
+ * @generated sha256:9e965bab75307d22d8377df773a8446439cbaefc0f177288b65f7440e6c5d603
  */
 /**
  * Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).
@@ -12,6 +12,13 @@ export interface Budgets {
   animation_usd: number
 }
 
+/**
+ * Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.
+ */
+export interface ChannelPatch {
+  seeds: string[]
+}
+
 export interface ChannelProfile {
   id: 'cursus' | 'otto'
   name: string
@@ -19,6 +26,7 @@ export interface ChannelProfile {
   budgets: Budgets
   voice_quota: VoiceQuota
   voice: ChannelVoice
+  seeds?: string[]
 }
 
 /**

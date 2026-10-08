@@ -181,12 +181,20 @@ def latest_runs(
     episode_id: str | None = None,
     target_id: str | None = None,
     task: BridgeTask | None = None,
+    channel: Channel | None = None,
     limit: int = LATEST_LIMIT,
 ) -> list[BridgeRun]:
-    """Последние обмены, новые первыми; фильтры складываются через AND."""
+    """Последние обмены, новые первыми; фильтры складываются через AND. Канал — для задач без
+    выпуска (идеи канала)."""
     where: list[str] = []
     params: list[str | int] = []
-    for column, value in (("episode_id", episode_id), ("target_id", target_id), ("task", task)):
+    filters = (
+        ("episode_id", episode_id),
+        ("target_id", target_id),
+        ("task", task),
+        ("channel", channel),
+    )
+    for column, value in filters:
         if value is not None:
             where.append(f"{column} = ?")
             params.append(value)

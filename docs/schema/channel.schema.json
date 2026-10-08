@@ -32,6 +32,24 @@
       "title": "Budgets",
       "type": "object"
     },
+    "ChannelPatch": {
+      "additionalProperties": false,
+      "description": "Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.",
+      "properties": {
+        "seeds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Seeds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "seeds"
+      ],
+      "title": "ChannelPatch",
+      "type": "object"
+    },
     "ChannelProfile": {
       "additionalProperties": false,
       "properties": {
@@ -67,6 +85,13 @@
             "voice_id": "unset",
             "pace_wpm": null
           }
+        },
+        "seeds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Seeds",
+          "type": "array"
         }
       },
       "required": [

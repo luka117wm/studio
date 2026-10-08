@@ -20,7 +20,8 @@ from app.cost.ledger import spent_by_episode
 from app.jobs.queue import active_jobs
 from app.models.director import EPISODE_ID_PATTERN, Channel, Director, StrictModel
 from app.models.episode_summary import EpisodeSummary, current_jobs, summarize
-from app.models.project import Project, empty_project
+from app.models.idea import STATUS_TEXT, Idea
+from app.models.project import EpisodeBrief, Project, empty_project
 from app.slots import schedule
 from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import now_iso
@@ -120,6 +121,19 @@ class EpisodeCreate(StrictModel):
     origin: EpisodeOrigin = "blank"
     # Слот публикации: ближайший свободный после сегодняшнего, конкретная дата или без слота.
     slot: SlotChoice = NEXT_FREE
+    # Идея бэклога этого канала (M4.8): заявка и название — из неё, идея — `used`. Только с
+    # `origin: backlog`.
+    idea_id: str | None = None
+
+    @model_validator(mode="after")
+    def _idea_only_from_backlog(self) -> "EpisodeCreate":
+        if self.idea_id is not None and self.origin != "backlog":
+            raise PydanticCustomError(
+                "idea_origin",
+                "Выпуск из идеи создаётся с origin «backlog» — поправьте origin или уберите"
+                " idea_id.",
+            )
+        return self
 
 
 class EpisodePatch(StrictModel):
@@ -299,10 +313,45 @@ def _require_free(
         )
 
 
+def _idea_for(db: sqlite3.Connection, body: EpisodeCreate) -> Idea | None:
+    """Идея для выпуска: есть, этого канала и в бэклоге — иначе 404 / 422 / 409 с текстом."""
+    if body.idea_id is None:
+        return None
+    row = db.execute("SELECT * FROM ideas WHERE id = ?", (body.idea_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Идея «{body.idea_id}» не найдена.")
+    idea = Idea.model_validate(dict(row))
+    if idea.channel != body.channel:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Идея «{idea.title}» ({idea.id}) — из канала {idea.channel}, а выпуск "
+            f"создаётся в {body.channel}. Выберите идею этого канала.",
+        )
+    if idea.status != "backlog":
+        where = f" {idea.episode_id}" if idea.status == "used" and idea.episode_id else ""
+        raise HTTPException(
+            status_code=409,
+            detail=f"Идея «{idea.title}» {STATUS_TEXT[idea.status]}{where} — выпуск создаётся "
+            "только из идеи в бэклоге.",
+        )
+    return idea
+
+
+def _brief_of(idea: Idea) -> EpisodeBrief:
+    """Заявка из идеи (устав M4, решение 5): идея — название, о чём видео — в заметках."""
+    return EpisodeBrief(
+        idea=idea.title,
+        angle=idea.angle,
+        hook_promise=idea.hook_promise,
+        notes=idea.summary,
+        idea_id=idea.id,
+    )
+
+
 def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCreate) -> str:
     """Выбор id и слота, дерево выпуска и строка в БД — одна транзакция `BEGIN IMMEDIATE`:
     второй писатель (другое соединение или процесс) ждёт коммита первого и видит занятые номер
-    и слот."""
+    и слот. Выпуск из идеи: проверка идеи и её `used` — в той же транзакции."""
     db.execute("BEGIN IMMEDIATE")
     try:
         if body.id is None:
@@ -311,10 +360,14 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
             episode_id = body.id
             _require_free(db, paths, body.channel, episode_id)
         slot_date = _choose_slot(db, paths, body.slot)
+        idea = _idea_for(db, body)
+        title = idea.title if idea and "title" not in body.model_fields_set else body.title
 
         for directory in paths.episode_tree(body.channel, episode_id):
             directory.mkdir(parents=True, exist_ok=True)
         project = empty_project(body.channel, episode_id)
+        if idea:
+            project = project.model_copy(update={"brief": _brief_of(idea)})
         write_json_atomic(
             paths.project_path(body.channel, episode_id), project.model_dump(mode="json")
         )
@@ -326,7 +379,7 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
             (
                 episode_id,
                 body.channel,
-                body.title,
+                title,
                 body.short_title,
                 body.origin,
                 _START_STAGE[body.origin],
@@ -335,6 +388,11 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
                 now,
             ),
         )
+        if idea:
+            db.execute(
+                "UPDATE ideas SET status = 'used', episode_id = ?, updated_at = ? WHERE id = ?",
+                (episode_id, now, idea.id),
+            )
         db.commit()
     except BaseException:
         db.rollback()

@@ -10,6 +10,7 @@ from app.api import (
     episodes,
     formats,
     health,
+    ideas,
     jobs,
     plan,
     projects,
@@ -30,3 +31,4 @@ api_router.include_router(jobs.router)
 api_router.include_router(cost.router)
 api_router.include_router(providers.router)
 api_router.include_router(bridge.router)
+api_router.include_router(ideas.router)

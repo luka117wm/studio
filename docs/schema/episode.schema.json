@@ -166,6 +166,18 @@
           ],
           "default": "next_free",
           "title": "Slot"
+        },
+        "idea_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Id"
         }
       },
       "required": [

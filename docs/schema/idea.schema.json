@@ -1,0 +1,393 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/idea",
+  "title": "idea",
+  "description": "Модели API Studio, группа «idea». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Idea": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "angle": {
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Score"
+        },
+        "score_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Score Reason"
+        },
+        "source": {
+          "enum": [
+            "manual",
+            "bridge"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "backlog",
+            "used",
+            "dropped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "title",
+        "angle",
+        "hook_promise",
+        "summary",
+        "score",
+        "score_reason",
+        "source",
+        "status",
+        "episode_id",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "Idea",
+      "type": "object"
+    },
+    "IdeaCreate": {
+      "additionalProperties": false,
+      "description": "Идея руками: `source: manual`, сразу в бэклог.",
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "angle": {
+          "default": "",
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "default": "",
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "score_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Reason"
+        }
+      },
+      "required": [
+        "channel",
+        "title"
+      ],
+      "title": "IdeaCreate",
+      "type": "object"
+    },
+    "IdeaPatch": {
+      "additionalProperties": false,
+      "description": "Правка идеи. Поля нет в теле — не меняется; `score: null` — сбросить оценку. Статус — по\n`TRANSITIONS`, неверный переход — 409 в API.",
+      "properties": {
+        "title": {
+          "default": null,
+          "title": "Title",
+          "type": "string"
+        },
+        "angle": {
+          "default": "",
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "default": "",
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "score_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Reason"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "proposed",
+                "backlog",
+                "used",
+                "dropped"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "IdeaPatch",
+      "type": "object"
+    },
+    "IdeasAnswerBody": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 200000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "text"
+      ],
+      "title": "IdeasAnswerBody",
+      "type": "object"
+    },
+    "IdeasAnswerResult": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "created": {
+          "items": {
+            "$ref": "#/$defs/Idea"
+          },
+          "title": "Created",
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedIdea"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "created",
+        "skipped"
+      ],
+      "title": "IdeasAnswerResult",
+      "type": "object"
+    },
+    "IdeasPrompt": {
+      "description": "Промпт идей для кнопки «Скопировать»; обмен открыт (`run_id`).",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "prompt_id",
+        "version",
+        "run_id",
+        "count"
+      ],
+      "title": "IdeasPrompt",
+      "type": "object"
+    },
+    "IdeasPromptBody": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "count": {
+          "default": 6,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "title": "IdeasPromptBody",
+      "type": "object"
+    },
+    "SkippedIdea": {
+      "description": "Несохранённая идея ответа: номер в ответе с 1, название (если разобралось), причина.",
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "title",
+        "reason"
+      ],
+      "title": "SkippedIdea",
+      "type": "object"
+    }
+  }
+}
