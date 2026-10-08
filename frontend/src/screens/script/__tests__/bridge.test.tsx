@@ -114,7 +114,9 @@ describe('вставка ответа', () => {
     await paste(root, 'part 4')
     expect(await screen.findByText('План v001: +104 кадра')).toBeTruthy()
     expect(await screen.findByRole('article', { name: 'Лист сценария' }, { timeout: 3000 })).toBeTruthy()
-    expect(screen.getByText('Кадры', { selector: 'dt' }).nextElementSibling?.textContent).toBe('104')
+    // «Кадры» есть и в смете правой панели — счётчик берём из шапки
+    const counters = screen.getByText('Хронометраж по тексту').closest('dl')!
+    expect(within(counters).getByText('Кадры').nextElementSibling?.textContent).toBe('104')
     expect(within(root).getByText('План v001 принят. Новая версия — с части 1.')).toBeTruthy()
   })
 })

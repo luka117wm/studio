@@ -3,6 +3,7 @@
 // ответа нет вовсе — сеть или таймаут. Провайдеров и очередей во фронте нет (CLAUDE.md, «Стек»).
 import type { BridgeError } from '@/types/bridge'
 import type { BudgetRefusal } from '@/types/cost'
+import type { ApprovalRefusal, ValidationItem } from '@/types/plan'
 
 export const API_BASE = '/api'
 export const DEFAULT_TIMEOUT_MS = 15_000
@@ -154,6 +155,21 @@ async function request<T>(
 export function budgetRefusal(error: unknown): BudgetRefusal | null {
   if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
   return error.detail.code === 'budget_exceeded' ? (error.detail as unknown as BudgetRefusal) : null
+}
+
+/** Отказ «Утвердить план» (409 `ApprovalRefusal` в `detail`, docs/episodes.md): сводка и проблемы по кадрам;
+ *  иначе null. */
+export function approvalRefusal(error: unknown): ApprovalRefusal | null {
+  if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
+  return error.detail.code === 'plan_not_ready' ? (error.detail as unknown as ApprovalRefusal) : null
+}
+
+/** План не прошёл проверку импорта (422 `{errors, items}` от `POST …/director`): ошибки по кадрам и полям;
+ *  иначе null — ошибка без адресов (сборка частей) показывается текстом `message`. */
+export function planRejection(error: unknown): ValidationItem[] | null {
+  if (!(error instanceof ApiError) || error.status !== 422 || !isRecord(error.detail)) return null
+  const { items } = error.detail
+  return Array.isArray(items) && items.length ? (items as ValidationItem[]) : null
 }
 
 /** Ответ моста отклонён (422 `BridgeError`: текст, подсказка, ошибки по кадрам); иначе null. */

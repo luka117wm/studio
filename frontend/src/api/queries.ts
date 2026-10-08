@@ -1,7 +1,7 @@
 // Запросы к бэкенду через TanStack Query: ключи и пути `/api` — только здесь, типы ответов — только `@/types/*`.
 // Данные API живут в кэше запросов, не в Zustand (решение 6 устава M3). Свежесть держат мутации и поток SSE
 // (`live.ts`), опроса по таймеру нет.
-import { useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import type { BridgeSettings } from '@/types/bridge'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
@@ -9,8 +9,8 @@ import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
 import type { Job, JobEventData, JobList } from '@/types/job'
-import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt } from '@/types/plan'
-import type { EpisodeBrief, Project } from '@/types/project'
+import type { EffectivePlan, PlanAnswerResult, PlanCheck, PlanEstimate, PlanParts, PlanPrompt } from '@/types/plan'
+import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { ApiError, api } from './client'
 
@@ -41,6 +41,8 @@ export const qk = {
   /** Действующий план и набор частей моста выпуска */
   plan: (id: string) => ['projects', id, 'plan'] as const,
   planParts: (id: string) => ['projects', id, 'plan', 'parts'] as const,
+  /** Смета плана; `stamp` — время ответа плана: перезапрос плана после любой правки тянет новую смету */
+  estimate: (id: string, stamp: number) => ['projects', id, 'plan', 'estimate', stamp] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
 }
@@ -173,6 +175,18 @@ export function usePlanParts(id: string) {
   })
 }
 
+/** Смета действующего плана до клика «Утвердить» (M4.6): строки, итог, остаток бюджетов. Ключ — по времени ответа
+ *  плана (`planStamp`, `dataUpdatedAt`): правка кадра перезапрашивает план, а с ним и смету; пока идёт новый запрос,
+ *  видна прежняя. Без плана (`planStamp` 0) не запрашивается — бэкенд ответил бы 409. */
+export function useEstimate(id: string, planStamp: number) {
+  return useQuery({
+    queryKey: qk.estimate(id, planStamp),
+    queryFn: ({ signal }) => api.get<PlanEstimate>(`/projects/${segment(id)}/estimate`, { signal }),
+    enabled: planStamp > 0,
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function toJobState(job: Job): JobEventData {
   return {
     job_id: job.id,
@@ -263,6 +277,41 @@ export function useApplyPlanAnswer(id: string) {
         void client.invalidateQueries({ queryKey: qk.episode(id) })
         void client.invalidateQueries({ queryKey: qk.episodeLists })
       }
+    },
+  })
+}
+
+/** Проверка плана из JSON-редактора без записи: те же правила, что у импорта; кэш не трогает */
+export function useValidateDirector(id: string) {
+  return useMutation({
+    mutationFn: (plan: Record<string, unknown>) => api.post<PlanCheck>(`/projects/${segment(id)}/director/validate`, plan),
+  })
+}
+
+/** «Сохранить как версию»: план из JSON — новая версия `source: manual` (или та же, если совпал хэш). Меняются
+ *  project.json, действующий план, смета, стадия выпуска (`generate` → `script`) и его счётчики. */
+export function useSaveDirectorVersion(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (plan: Record<string, unknown>) =>
+      api.post<ImportResult>(`/projects/${segment(id)}/director`, plan, { query: { source: 'manual' }, timeoutMs: 60_000 }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.project(id) })
+      void client.invalidateQueries({ queryKey: qk.episode(id) })
+      void client.invalidateQueries({ queryKey: qk.episodeLists })
+    },
+  })
+}
+
+/** «Утвердить план» (M4.6): ответ — выпуск в стадии «Генерация». Рельс и доска берут стадию из кэша выпуска и
+ *  списков, кнопка — `approved_version` из плана. Отказ 409 — `approvalRefusal(error)`. */
+export function useApprovePlan(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<EpisodeListItem>(`/episodes/${segment(id)}/approve`),
+    onSuccess: (episode) => {
+      storeEpisode(client, episode, false)
+      void client.invalidateQueries({ queryKey: qk.project(id) })
     },
   })
 }

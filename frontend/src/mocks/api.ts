@@ -8,8 +8,20 @@ import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } fro
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
 import type { Director } from '@/types/director'
 import type { JobList } from '@/types/job'
-import type { EffectivePlan, PlanAnswerResult, PlanParts, PlanPrompt, PlanShot } from '@/types/plan'
-import type { EpisodeBrief, Project } from '@/types/project'
+import type {
+  ApprovalProblem,
+  ApprovalRefusal,
+  EffectivePlan,
+  EstimateLine,
+  PlanAnswerResult,
+  PlanCheck,
+  PlanEstimate,
+  PlanParts,
+  PlanPrompt,
+  PlanShot,
+  ValidationItem,
+} from '@/types/plan'
+import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
@@ -498,10 +510,19 @@ const ART_OVERRIDES: Record<string, Record<string, unknown>> = {
   s004: { vo: 'Twelve cartridges a trip, and every gun crew above you counts the seconds you are late.' },
 }
 
+/** Факт-чек артборда: два подтверждено, один спорно, один без источника (кадр s008 артборда — здесь s004) */
+const ART_FACTS: EffectivePlan['facts'] = [
+  { claim: 'Команда пиратского корабля выбирала капитана голосованием и могла его сместить.', status: 'verified', source_url: 'https://example.org/rediker/villains-of-all-nations', shot_id: 's061' },
+  { claim: 'Пороховой погреб обшивали войлоком, работали без обуви с гвоздями.', status: 'verified', source_url: 'https://example.org/royal-navy/gunnery-1780', shot_id: 's003' },
+  { claim: 'Юнгам-пороховщикам платили половину доли взрослого матроса.', status: 'disputed', source_url: 'https://example.org/articles/shares-1720', shot_id: 's004' },
+  { claim: 'Слово powder monkey встречается в документах до 1700 года.', status: 'not_found', source_url: null, shot_id: 's001' },
+]
+
 function artboardPlan(episode: EpisodeListItem): EffectivePlan {
   return {
     ...mockPlan(episode, 'v003', 0),
     meta: { ...mockPlan(episode, 'v003', 0).meta, working_title: 'Every Rank on a Pirate Ship' },
+    facts: ART_FACTS,
     sections: ART_SECTIONS,
     shots: ART_SHOTS.map((a) => ({
       ...planShot(1),
@@ -542,6 +563,46 @@ function directorFile(plan: EffectivePlan): Director {
     thumbnail: { concepts: [] },
     publish: { titles: [], description: '', tags: [], category_id: '27', synthetic_media: true, made_for_kids: false },
     facts: plan.facts,
+  }
+}
+
+/* ---- Смета, проверка, версия из JSON, утверждение (M4.7) ---- */
+
+/** Цены маршрутов профиля standard из `config/pricing.yaml`, микродоллары: кадр 1K, знак голоса, секунда клипа 720p */
+const PRICE = { image: 67_000, char: 100, second: 50_000 } as const
+
+const ru = (n: number, [one, few, many]: readonly [string, string, string]) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many
+const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0')
+
+const STAGE_TITLE: Record<EpisodeListItem['stage'], string> = {
+  idea: 'Идея',
+  script: 'Сценарий',
+  generate: 'Генерация',
+  edit: 'Монтаж',
+  export: 'Экспорт',
+  publish: 'Публикация',
+}
+
+/** JSON с ключами по алфавиту — сравнение плана «по хэшу», как `canonical_hash` бэкенда */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+  if (isPlainObject(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function estimateLine(title: string, label: string, stage: string, model: string, lines: EstimateLine['cost']['lines']): EstimateLine {
+  const usd_micro = lines.reduce((sum, line) => sum + line.usd_micro, 0)
+  return {
+    title,
+    label,
+    usd: money(usd_micro),
+    cost: { stage, provider: stage === 'images' || stage === 'animate' ? 'gemini' : 'elevenlabs', model, lines, usd_micro, stale_pricing: false },
   }
 }
 
@@ -872,6 +933,160 @@ export function createMockApi() {
     } satisfies PlanAnswerResult)
   }
 
+  /** Смета как у `plan_estimate` бэкенда: кадры, голос, клипы, план через мост; остаток месяца — от сводки расходов */
+  function estimateOf(episode: EpisodeListItem): MockResponse {
+    const plan = effectivePlan(episode)
+    if (!plan) return fail(409, 'Плана ещё нет — смета появится, когда план будет собран: вставьте ответ чата или импортируйте JSON.')
+    const shots = plan.shots.filter((shot) => shot.status !== 'removed')
+    const chars = shots.reduce((sum, shot) => sum + shot.vo.length, 0)
+    const clips = shots.filter((shot) => shot.animate.recommended)
+    const seconds = clips.reduce((sum, shot) => sum + shot.animate.seconds, 0)
+    const sameLength = new Set(clips.map((shot) => shot.animate.seconds)).size <= 1
+    const clipWord = ru(clips.length, ['клип', 'клипа', 'клипов'])
+    const lines = [
+      estimateLine('Кадры', `${shots.length} × $0.067`, 'images', 'gemini-3.1-flash-image', [
+        { unit: 'image', quantity: shots.length, variant: '1K', usd_micro: PRICE.image * shots.length },
+      ]),
+      estimateLine('Голос', `${count(chars)} ${ru(chars, ['знак', 'знака', 'знаков'])}`, 'voice', 'eleven_multilingual_v2', [
+        { unit: 'char', quantity: chars, variant: null, usd_micro: PRICE.char * chars },
+      ]),
+      estimateLine(
+        'Анимация',
+        !clips.length ? `0 ${clipWord}` : sameLength ? `${clips.length} ${clipWord} × ${formatUsd(PRICE.second * (clips[0]?.animate.seconds ?? 0))}` : `${clips.length} ${clipWord}, ${seconds} с`,
+        'animate',
+        'veo-3.1-lite-generate-preview',
+        [{ unit: 'second', quantity: seconds, variant: '720p', usd_micro: PRICE.second * seconds }],
+      ),
+      {
+        title: 'План',
+        label: 'Мост через чат',
+        usd: money(0),
+        cost: { stage: 'script', provider: 'bridge', model: 'chat', lines: [], usd_micro: 0, stale_pricing: false, via: 'bridge' as const },
+      },
+    ]
+    const total = lines.reduce((sum, line) => sum + line.usd.usd_micro, 0)
+    const animation = lines[2]!.usd.usd_micro
+    const budgets = channels.find((c) => c.id === episode.channel)!.budgets
+    const spent = costSummaries[episode.channel].budget
+    const monthCommitted = spent.charged.usd_micro + spent.reserved.usd_micro + spent.queued.usd_micro
+    const outlook = (level: 'month' | 'episode' | 'animation', limitUsd: number, committed: number, share: number) => {
+      const limit = limitUsd * 1_000_000
+      const left = limit - committed - share
+      const exceeded = share > 0 && left < 0
+      const title = { month: 'Месячный лимит', episode: 'Лимит на выпуск', animation: 'Лимит на анимацию выпуска' }[level]
+      const message = exceeded
+        ? `${title} ${formatUsd(limit)}: занято ${formatUsd(committed)}, смета ${formatUsd(share)} — не хватает ${formatUsd(-left)}; поднять лимит можно в настройках канала.`
+        : { month: `Останется ${formatUsd(Math.max(left, 0))} из месячных ${formatUsd(limit)}`, episode: `Останется ${formatUsd(Math.max(left, 0))} из ${formatUsd(limit)} на выпуск`, animation: `Останется ${formatUsd(Math.max(left, 0))} из ${formatUsd(limit)} на анимацию` }[level]
+      return { level, limit: money(limit), committed: money(committed), estimate: money(share), remaining: money(Math.max(left, 0)), exceeded, message }
+    }
+    const outlooks = [
+      outlook('month', budgets.monthly_usd, monthCommitted, total),
+      outlook('episode', budgets.per_episode_usd, episode.summary.spent_usd_micro, total),
+      outlook('animation', budgets.animation_usd, 0, animation),
+    ]
+    return ok({
+      version: plan.version,
+      plan_source: 'bridge',
+      lines,
+      total: money(total),
+      budgets: outlooks,
+      warnings: outlooks.filter((o) => o.exceeded).map((o) => o.message),
+      stale_pricing: false,
+    } satisfies PlanEstimate)
+  }
+
+  /** Проверка плана, как у `director/validate`: план для этого выпуска, VO не пусто, в промпте нет стоп-слов */
+  function checkDirector(episode: EpisodeListItem, body: unknown): ValidationItem[] {
+    if (!isPlainObject(body)) return [{ shot_id: null, path: '', message: 'План — объект JSON' }]
+    const items: ValidationItem[] = []
+    const meta = isPlainObject(body.meta) ? body.meta : {}
+    if (meta.episode_id !== episode.id) {
+      items.push({ shot_id: null, path: 'meta.episode_id', message: `meta: episode_id «${String(meta.episode_id)}» — план для другого выпуска, ожидалось «${episode.id}»` })
+    }
+    for (const shot of Array.isArray(body.shots) ? body.shots : []) {
+      if (!isPlainObject(shot)) continue
+      const id = String(shot.id)
+      if (typeof shot.vo !== 'string' || !shot.vo.trim()) {
+        items.push({ shot_id: id, path: 'vo', message: `кадр ${id}: пустой vo, ожидалось текст закадрового голоса` })
+      }
+      const image = isPlainObject(shot.image) ? shot.image : {}
+      if (typeof image.prompt === 'string' && image.prompt.includes(STYLE_TOKEN)) {
+        items.push({
+          shot_id: id,
+          path: 'image.prompt',
+          message: `кадр ${id}: в image.prompt стилевой токен «cinematic lighting» (lighting), ожидалось только действие, композиция и ракурс — стиль задаёт канон`,
+        })
+      }
+    }
+    return items
+  }
+
+  /** «Сохранить как версию»: тот же план — версия не создаётся; иначе vNNN+1 `manual`, стадия `generate` → `script` */
+  function saveVersion(episode: EpisodeListItem, body: unknown): MockResponse {
+    const items = checkDirector(episode, body)
+    if (items.length) return fail(422, { errors: items.map((item) => item.message), items })
+    const current = plansOf(episode)
+    const director = body as Director
+    if (current && canonical(directorFile(current)) === canonical(director)) {
+      return ok({ version: current.version, created: false, added: 0, changed: 0, removed: 0, changes: [] } satisfies ImportResult)
+    }
+    const version = `v${String((current ? Number(current.version.slice(1)) : 0) + 1).padStart(3, '0')}`
+    const before = new Map((current?.shots ?? []).map((shot) => [shot.id, shot]))
+    const shots = director.shots.map((shot) => ({
+      ...planShot(1),
+      ...shot,
+      status: before.get(shot.id)?.status ?? 'queued',
+      stale_reasons: [],
+      overridden: [],
+    })) as PlanShot[]
+    plans.set(episode.id, {
+      version,
+      source: 'manual',
+      approved_version: current?.approved_version ?? null,
+      // Тело — файл версии из редактора: поля с умолчанием в нём уже есть
+      meta: director.meta as EffectivePlan['meta'],
+      sections: director.sections as EffectivePlan['sections'],
+      shots,
+      facts: (director.facts ?? []).map((fact) => ({ ...fact, source_url: fact.source_url ?? null })),
+    })
+    projectOf(episode).director_version = version
+    if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
+    const ids = new Set(shots.map((shot) => shot.id))
+    const added = shots.filter((shot) => !before.has(shot.id)).length
+    const removed = [...before.keys()].filter((id) => !ids.has(id)).length
+    const changed = shots.filter((shot) => before.has(shot.id) && canonical(before.get(shot.id)!.vo) !== canonical(shot.vo)).length
+    return ok({ version, created: true, added, changed, removed, changes: [] } satisfies ImportResult)
+  }
+
+  /** «Утвердить план», как бэкенд M4.6: стадия до генерации, план есть, у кадров VO и промпт; повтор — без изменений */
+  function approve(episode: EpisodeListItem): MockResponse {
+    const plan = effectivePlan(episode)
+    const problems: ApprovalProblem[] = []
+    if (!['idea', 'script', 'generate'].includes(episode.stage)) {
+      problems.push({ check: 'stage', shot_id: null, message: `Выпуск уже на стадии «${STAGE_TITLE[episode.stage]}» — план утверждается до начала генерации.` })
+    }
+    if (!plan) problems.push({ check: 'plan', shot_id: null, message: 'Плана ещё нет — скопируйте промпт части 1 и вставьте ответ чата.' })
+    for (const shot of plan?.shots ?? []) {
+      if (shot.status === 'removed') continue
+      if (!shot.vo.trim()) problems.push({ check: 'vo', shot_id: shot.id, message: `кадр ${shot.id}: пустой VO — допишите текст закадрового голоса` })
+      if (!shot.image.prompt.trim()) problems.push({ check: 'prompt', shot_id: shot.id, message: `кадр ${shot.id}: пустой промпт — опишите действие и композицию` })
+    }
+    if (problems.length) {
+      const parts = problems.filter((p) => p.shot_id === null).map((p) => p.message)
+      const groups = new Map<string, string[]>()
+      for (const p of problems) if (p.shot_id) groups.set(p.check, [...(groups.get(p.check) ?? []), p.shot_id])
+      const summaries = [...groups].map(([check, ids]) => `${ids.length} ${ru(ids.length, ['кадр', 'кадра', 'кадров'])} ${check === 'vo' ? 'без VO' : 'без промпта'}: ${ids.join(', ')}`)
+      if (summaries.length) parts.push(`${summaries.join('; ')} — допишите на листе сценария или в таблице плана и утвердите снова.`)
+      return fail(409, { code: 'plan_not_ready', message: parts.join(' '), problems } satisfies ApprovalRefusal)
+    }
+    const base = plansOf(episode)!
+    if (base.approved_version === base.version && episode.stage === 'generate') return ok(episode)
+    base.approved_version = base.version
+    Object.assign(projectOf(episode), { approved_version: base.version, approved_at: NOW, updated_at: NOW })
+    Object.assign(episode, { stage: 'generate', updated_at: NOW })
+    return ok(episode)
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -919,6 +1134,7 @@ export function createMockApi() {
         Object.assign(episode, body as EpisodePatch, { updated_at: NOW })
         return ok(episode)
       }
+      if (method === 'POST' && parts[2] === 'approve') return approve(episode)
       if (method === 'PUT' && parts[2] === 'slot') {
         const { date } = body as SlotAssign
         const refusal = date === null ? null : slotRefusal(episode.id, date)
@@ -944,6 +1160,12 @@ export function createMockApi() {
         return ok(project)
       }
       if (method === 'GET' && rest === 'plan') return ok(effectivePlan(episode))
+      if (method === 'GET' && rest === 'estimate') return estimateOf(episode)
+      if (method === 'POST' && rest === 'director/validate') {
+        const items = checkDirector(episode, body)
+        return ok({ ok: !items.length, errors: items.map((item) => item.message), items } satisfies PlanCheck)
+      }
+      if (method === 'POST' && rest === 'director') return saveVersion(episode, body)
       if (method === 'GET' && parts[2] === 'director' && parts[3]) {
         const plan = plansOf(episode)
         return plan && plan.version === parts[3] ? ok(directorFile(plan)) : fail(404, `Версия ${parts[3]} плана выпуска «${episode.id}» не найдена.`)

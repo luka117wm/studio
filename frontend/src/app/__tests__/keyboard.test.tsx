@@ -183,7 +183,7 @@ describe('оболочка', () => {
     expect(within(modes).getByRole('radio', { name: 'План кадров' }).getAttribute('aria-checked')).toBe('true')
     await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}')
     expect(window.location.search).toBe('?mode=json')
-    expect(await screen.findByText('JSON плана')).toBeTruthy()
+    expect(await screen.findByRole('textbox', { name: 'JSON плана' }, { timeout: 3000 })).toBeTruthy()
     await userEvent.keyboard('{Control>}{Shift>}1{/Shift}{/Control}')
     expect(window.location.search).toBe('')
     expect(within(modes).getByRole('radio', { name: 'Сценарий' }).getAttribute('aria-checked')).toBe('true')

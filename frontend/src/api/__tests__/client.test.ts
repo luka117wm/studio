@@ -2,7 +2,7 @@
 // Клиент /api на замоканном fetch: URL и тело, разбор ответа, ошибки бэкенда как {status, message}.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Episode } from '@/types/episode'
-import { api, ApiError, bridgeError, budgetRefusal } from '../client'
+import { api, ApiError, approvalRefusal, bridgeError, budgetRefusal, planRejection } from '../client'
 
 type Handler = (url: string, init: RequestInit) => Promise<Response>
 
@@ -80,6 +80,32 @@ describe('api', () => {
     expect(budgetRefusal(error)?.level).toBe('month')
     expect(budgetRefusal(new ApiError(409, 'Джоб уже завершён', 'text'))).toBeNull()
     expect(budgetRefusal(new Error('x'))).toBeNull()
+  })
+
+  test('409 утверждения плана: сводка в message, проблемы по кадрам — в detail', async () => {
+    const detail = {
+      code: 'plan_not_ready',
+      message: '2 кадра без VO: s003, s007 — допишите на листе сценария или в таблице плана и утвердите снова.',
+      problems: [
+        { check: 'vo', shot_id: 's003', message: 'кадр s003: пустой VO — допишите текст закадрового голоса' },
+        { check: 'vo', shot_id: 's007', message: 'кадр s007: пустой VO — допишите текст закадрового голоса' },
+      ],
+    }
+    mockFetch(async () => json(409, { detail }))
+    const error = await failure(api.post('/episodes/c01/approve'))
+    expect(error.message).toBe(detail.message)
+    expect(approvalRefusal(error)?.problems.map((p) => p.shot_id)).toEqual(['s003', 's007'])
+    expect(budgetRefusal(error)).toBeNull()
+    expect(approvalRefusal(new ApiError(409, 'Слот занят', 'text'))).toBeNull()
+  })
+
+  test('422 импорта плана: строки ошибок в message, адреса — planRejection', async () => {
+    const items = [{ shot_id: 's003', path: 'vo', message: 'кадр s003: пустой vo, ожидалось текст закадрового голоса' }]
+    mockFetch(async () => json(422, { detail: { errors: items.map((i) => i.message), items } }))
+    const error = await failure(api.post('/projects/c01/director', {}))
+    expect(error.message).toBe(items[0]!.message)
+    expect(planRejection(error)).toEqual(items)
+    expect(planRejection(new ApiError(422, 'x', { errors: ['сборка'] }))).toBeNull()
   })
 
   test('422 валидации: строки по полям без "body"', async () => {

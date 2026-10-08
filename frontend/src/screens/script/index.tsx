@@ -1,9 +1,10 @@
 /* Экран 3 «Сценарий и план»: заголовок с режимами «Сценарий / План кадров / JSON» (⌘⇧1…⌘⇧3, режим — в адресе
-   `?mode=`) и счётчиками; в центре — заявка, лист сценария 760 или таблица плана; справа — «Источник плана» (мост
-   через чат). На 2560 у листа — колонка раскадровки (плейсхолдеры до картинок M6). JSON-редактор, факт-чек и смета —
-   M4.7. План — только кэш запросов. */
-import { Braces, ChevronDown, ChevronRight, LayoutGrid, MessagesSquare } from 'lucide-react'
-import { useState } from 'react'
+   `?mode=`) и счётчиками; в центре — заявка, лист сценария 760, таблица плана или JSON-редактор; справа — «Источник
+   плана» (мост через чат), факт-чек, смета и «Утвердить план» в подвале (M4.7). На 2560 у листа — колонка
+   раскадровки (плейсхолдеры до картинок M6). Ссылка на кадр из факт-чека и отказа утверждения открывает лист и
+   ставит фокус на VO кадра. Уход из «JSON» с несохранёнными правками — вопрос. План — только кэш запросов. */
+import { ChevronDown, ChevronRight, LayoutGrid, MessagesSquare } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type { EpisodeListItem } from '@/types/episode'
 import type { EffectivePlan } from '@/types/plan'
 import type { EpisodeBrief } from '@/types/project'
@@ -14,13 +15,19 @@ import { setSearchParam, useSearchParam } from '../../app/navigation'
 import type { RouteParams } from '../../app/routes'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import { useHotkeySet } from '../../app/useHotkey'
-import { useChannelName, useFormat, usePlan, useProject, useSaveBrief } from '../../api/queries'
+import { useChannelName, useFormat, usePlan, usePlanParts, useProject, useSaveBrief } from '../../api/queries'
 import { PanelHeader } from '../../app/PanelHeader'
-import { Button, EmptyState, SegmentedControl, Skeleton, cn } from '../../ui'
+import { useUiStore } from '../../store/uiStore'
+import { Button, Dialog, EmptyState, SegmentedControl, Skeleton, cn } from '../../ui'
 import { formatCount, plural } from '../episodes/board'
+import { ApprovePlan } from './ApprovePlan'
 import { BridgePanel } from './BridgePanel'
 import { EMPTY_BRIEF } from './brief'
 import { BriefForm } from './BriefForm'
+import { EstimatePanel } from './EstimatePanel'
+import { FactCheck } from './FactCheck'
+import { JsonEditor } from './JsonEditor'
+import { discardJsonDraft, hasJsonDraft } from './jsonDrafts'
 import { PlanTable } from './PlanTable'
 import { ScriptSheet } from './ScriptSheet'
 
@@ -40,10 +47,21 @@ export function ScriptScreen({ params }: { params: RouteParams }) {
   )
 }
 
+const setMode = (next: ScriptMode) => setSearchParam('mode', next === 'script' ? null : next)
+
 function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
   const param = useSearchParam('mode')
   const mode: ScriptMode = isMode(param) ? param : 'script'
-  const setMode = (next: ScriptMode) => setSearchParam('mode', next === 'script' ? null : next)
+  // Смена режима из любого места (сегменты, ⌘⇧1…3, ссылка на кадр) — через вопрос, если в JSON есть правки
+  const modeRef = useRef(mode)
+  useEffect(() => {
+    modeRef.current = mode
+  })
+  const [leaving, setLeaving] = useState<ScriptMode | null>(null)
+  const requestMode = (next: ScriptMode) => {
+    if (modeRef.current === 'json' && next !== 'json' && hasJsonDraft(episode.id)) setLeaving(next)
+    else setMode(next)
+  }
   useHotkeySet(
     MODES.map((m) => ({
       id: `script-mode-${m.value}`,
@@ -52,12 +70,35 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
       group: 'Сценарий',
       description: `Режим: ${m.label.toLowerCase()}`,
       hint: m.hint,
-      handler: () => setMode(m.value),
+      handler: () => requestMode(m.value),
     })),
   )
 
   const project = useProject(episode.id)
   const plan = usePlan(episode.id)
+  const parts = usePlanParts(episode.id)
+  const pushToast = useUiStore((s) => s.pushToast)
+
+  // Переход к кадру: режим «Сценарий», после отрисовки листа — прокрутка к строке кадра и фокус на его VO
+  const [target, setTarget] = useState<string | null>(null)
+  const goToShot = (shotId: string) => {
+    setTarget(shotId)
+    requestMode('script')
+  }
+  useEffect(() => {
+    if (target === null || mode !== 'script' || !plan.data) return
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-shot="${target}"]`)
+      if (row) {
+        row.scrollIntoView?.({ block: 'center' })
+        row.querySelector('textarea')?.focus({ preventScroll: true })
+      } else {
+        pushToast({ id: 'script-goto', message: `Кадра ${target} нет на листе — его убрали из плана`, status: 'warning' })
+      }
+      setTarget(null)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [target, mode, plan.data, pushToast])
   const format = useFormat(episode.channel)
   const saveBrief = useSaveBrief(episode.id)
   // Правка заявки живёт здесь до записи: её видят и форма, и кнопка промпта (без идеи выключена)
@@ -76,7 +117,7 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
           <SegmentedControl
             ariaLabel="Режим"
             value={mode}
-            onChange={setMode}
+            onChange={requestMode}
             options={MODES.map(({ value, label }) => ({ value, label }))}
           />
         ),
@@ -86,7 +127,17 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
         title: 'Источник плана',
         icon: MessagesSquare,
         collapsible: true,
-        children: <BridgePanel episodeId={episode.id} hasIdea={brief.idea.trim() !== ''} />,
+        children: (
+          // Секции прокручиваются, «Утвердить план» — в подвале панели (артборд 3)
+          <div className="flex h-full flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <BridgePanel episodeId={episode.id} hasIdea={brief.idea.trim() !== ''} />
+              {plan.data && <FactCheck facts={plan.data.facts} onShot={goToShot} />}
+              {plan.data && <EstimatePanel episodeId={episode.id} planStamp={plan.dataUpdatedAt} />}
+            </div>
+            <ApprovePlan episodeId={episode.id} plan={plan.data} parts={parts.data} onShot={goToShot} />
+          </div>
+        ),
       }}
     >
       <Center
@@ -97,6 +148,40 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
         brief={project.isPending ? undefined : brief}
         onBrief={setDraft}
       />
+      <Dialog
+        open={leaving !== null}
+        onClose={() => {
+          setLeaving(null)
+          setTarget(null)
+        }}
+        title="Несохранённый JSON"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setLeaving(null)
+                setTarget(null)
+              }}
+            >
+              Остаться
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                discardJsonDraft(episode.id)
+                if (leaving) setMode(leaving)
+                setLeaving(null)
+              }}
+            >
+              Уйти без сохранения
+            </Button>
+          </>
+        }
+      >
+        <p className="text-13 text-ink">Правки плана в JSON не сохранены как версия. Если уйти, они пропадут.</p>
+      </Dialog>
     </ScreenLayout>
   )
 }
@@ -118,6 +203,7 @@ function Center({
 }) {
   const channelName = useChannelName(episode.channel)
   if (plan && brief && mode === 'plan') return <PlanTable episodeId={episode.id} plan={plan} />
+  if (plan && brief && mode === 'json') return <JsonEditor episodeId={episode.id} plan={plan} onSaved={() => setMode('script')} />
   return (
     <div className="flex min-h-0 flex-1 justify-center gap-4 overflow-y-auto p-4">
       {planError ? (
@@ -138,13 +224,6 @@ function Center({
           </div>
           <BriefForm value={brief} onChange={onBrief} />
         </section>
-      ) : mode === 'json' ? (
-        <EmptyState
-          icon={Braces}
-          title="JSON плана"
-          description={`Версия ${plan.version} целиком: правка с проверкой и сохранение новой версией.`}
-          className="self-center"
-        />
       ) : (
         <>
           <div className="flex w-190 shrink-0 flex-col gap-3 self-start">
