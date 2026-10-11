@@ -138,7 +138,11 @@ def first_context(
     episode_id: str,
     brief: EpisodeBrief | None,
     rng: PartRange,
+    reference: dict[str, Any] | None = None,
 ) -> dict[str, str]:
+    """Часть 1. `reference` — структура референса выпуска (`pipeline/research/reference_structure`):
+    сегменты, темп, приёмы и режим, без текста реплик (принцип 11); null — выпуск не по
+    референсу."""
     preset_view = {
         "minutes": preset.minutes.model_dump(),
         "sections": preset.sections,
@@ -150,8 +154,7 @@ def first_context(
         "format": profile.format,
         "preset_json": json_block(preset_view),
         "brief_json": json_block(_brief(brief)),
-        # Структура референса наполнится в M4.10; пока референса нет.
-        "reference_json": json_block(None),
+        "reference_json": json_block(reference),
         "meta_json": json_block(_meta(profile, preset, episode_id, rng)),
         "part": str(rng.part),
         "parts_total": str(rng.parts_total),

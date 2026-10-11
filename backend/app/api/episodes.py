@@ -348,10 +348,16 @@ def _brief_of(idea: Idea) -> EpisodeBrief:
     )
 
 
-def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCreate) -> str:
+def insert_episode(
+    db: sqlite3.Connection,
+    paths: StudioPaths,
+    body: EpisodeCreate,
+    brief: EpisodeBrief | None = None,
+) -> str:
     """Выбор id и слота, дерево выпуска и строка в БД — одна транзакция `BEGIN IMMEDIATE`:
     второй писатель (другое соединение или процесс) ждёт коммита первого и видит занятые номер
-    и слот. Выпуск из идеи: проверка идеи и её `used` — в той же транзакции."""
+    и слот. Выпуск из идеи: проверка идеи и её `used` — в той же транзакции. `brief` — готовая
+    заявка (выпуск по референсу, M4.10); у выпуска из идеи заявку собирает идея."""
     db.execute("BEGIN IMMEDIATE")
     try:
         if body.id is None:
@@ -366,8 +372,8 @@ def insert_episode(db: sqlite3.Connection, paths: StudioPaths, body: EpisodeCrea
         for directory in paths.episode_tree(body.channel, episode_id):
             directory.mkdir(parents=True, exist_ok=True)
         project = empty_project(body.channel, episode_id)
-        if idea:
-            project = project.model_copy(update={"brief": _brief_of(idea)})
+        if idea or brief:
+            project = project.model_copy(update={"brief": _brief_of(idea) if idea else brief})
         write_json_atomic(
             paths.project_path(body.channel, episode_id), project.model_dump(mode="json")
         )

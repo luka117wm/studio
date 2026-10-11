@@ -60,7 +60,8 @@
             "stage",
             "plan",
             "vo",
-            "prompt"
+            "prompt",
+            "similarity"
           ],
           "title": "Check",
           "type": "string"
@@ -1233,6 +1234,85 @@
         "price"
       ],
       "title": "ShotChange",
+      "type": "object"
+    },
+    "Similarity": {
+      "description": "Сходство VO плана с текстом референса (принцип 11): доля n-грамм плана, найденных в\nсубтитрах.",
+      "properties": {
+        "ratio": {
+          "title": "Ratio",
+          "type": "number"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "ngram": {
+          "title": "Ngram",
+          "type": "integer"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "matched": {
+          "title": "Matched",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "phrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Phrases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ratio",
+        "threshold",
+        "ngram",
+        "ok",
+        "matched",
+        "total",
+        "phrases"
+      ],
+      "title": "Similarity",
+      "type": "object"
+    },
+    "SimilarityReport": {
+      "description": "`GET /api/projects/{id}/similarity`: сходство или почему его нет (нет плана, выпуск не по\nреференсу).",
+      "properties": {
+        "similarity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Similarity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "similarity",
+        "reason"
+      ],
+      "title": "SimilarityReport",
       "type": "object"
     },
     "StageCost": {

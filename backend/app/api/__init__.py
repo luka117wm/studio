@@ -15,6 +15,7 @@ from app.api import (
     plan,
     projects,
     providers,
+    references,
     slots,
 )
 
@@ -32,3 +33,4 @@ api_router.include_router(cost.router)
 api_router.include_router(providers.router)
 api_router.include_router(bridge.router)
 api_router.include_router(ideas.router)
+api_router.include_router(references.router)

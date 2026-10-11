@@ -265,3 +265,14 @@ def test_new_version_at_late_stage_keeps_stage(planned: TestClient, paths: Studi
     set_stage(paths, "edit")
     assert planned.post(DIRECTOR_URL, json=load("director_pirate_v2.json")).status_code == 200
     assert stage(planned) == "edit"
+
+
+def test_similarity_check_needs_plan_and_reference() -> None:
+    """Принцип 11: без плана сравнивать нечего — отказ даёт только `plan_assembled`; без референса
+    проверки нет (сам отказ по сходству — `tests/test_reference.py`)."""
+    reference = approve.ReferenceText(
+        text="you are seventeen and the navy hands you an oar", ngram=5, threshold=0.1
+    )
+    no_plan = ApprovalSubject(stage="script", plan=None, reference=reference)
+    assert [p.check for p in approve.approval_problems(no_plan)] == ["plan"]
+    assert approve.not_like_reference(ApprovalSubject(stage="script", plan=None)) == []

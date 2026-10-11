@@ -1,4 +1,5 @@
-"""Общие зависимости роутеров: пути, БД на запрос, пул джобов, gateway, шаблоны промптов моста."""
+"""Общие зависимости роутеров: пути, БД на запрос, пул джобов, gateway, шаблоны промптов моста,
+пресеты формата, настройки сходства с референсом."""
 
 import sqlite3
 from typing import Annotated
@@ -7,6 +8,7 @@ from fastapi import Depends, Request
 
 from app.jobs.worker import JobPool
 from app.models.formats import FormatsConfig
+from app.models.reference import ReferenceConfig
 from app.pipeline.bridge import PromptLibrary
 from app.providers.gateway import Gateway
 from app.storage.db import get_db
@@ -38,7 +40,13 @@ def get_formats(request: Request) -> FormatsConfig:
     return formats
 
 
+def get_reference_config(request: Request) -> ReferenceConfig:
+    config: ReferenceConfig = request.app.state.reference
+    return config
+
+
 PathsDep = Annotated[StudioPaths, Depends(get_paths)]
+ReferenceConfigDep = Annotated[ReferenceConfig, Depends(get_reference_config)]
 FormatsDep = Annotated[FormatsConfig, Depends(get_formats)]
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
 PromptsDep = Annotated[PromptLibrary, Depends(get_prompts)]

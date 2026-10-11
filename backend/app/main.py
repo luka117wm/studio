@@ -16,6 +16,7 @@ from app.jobs.handlers import builtin_handlers
 from app.jobs.worker import HandlerSpec, JobPool
 from app.log import configure_logging
 from app.models.formats import load_formats
+from app.models.reference import load_reference_config
 from app.pipeline.bridge import PROMPTS_DIR, BridgeAnswerError, load_templates
 from app.providers.gateway import build_gateway
 from app.settings import Settings
@@ -57,6 +58,8 @@ def create_app(
     app.state.gateway = build_gateway(settings, app.state.paths)
     # Пресеты формата (`config/formats.yaml`) — тоже проверка при старте.
     app.state.formats = load_formats(settings.config_dir / "formats.yaml")
+    # Сходство с референсом (`config/reference.yaml`): n-грамма и порог — тоже проверка при старте.
+    app.state.reference = load_reference_config(settings.config_dir / "reference.yaml")
     # Шаблоны промптов моста (`docs/bridge.md`): битый front-matter — тоже ConfigError.
     app.state.prompts = load_templates(PROMPTS_DIR)
     configured = app.state.gateway.registry.config.plan_source

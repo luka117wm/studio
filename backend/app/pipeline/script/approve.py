@@ -1,7 +1,7 @@
 """«Утвердить план» (M4.6): проверки перед стадией «Генерация» (принцип 10, устав M4, решение 8).
 
 Проверки — список `CHECKS`: функция от `ApprovalSubject` возвращает проблемы, пустой список —
-можно утверждать. M4.10 добавит в список сходство VO с референсом (принцип 11). Сами проверки
+можно утверждать. Сходство VO с референсом (принцип 11, M4.10) — `not_like_reference`. Сами проверки
 ничего не пишут; утверждение не ставит джобов и не резервирует бюджет — это M6. Контракт —
 `docs/episodes.md`, «Утверждение плана».
 """
@@ -13,9 +13,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.pipeline.director_import import EffectivePlan
+from app.pipeline.research.similarity import percent, similarity
 from app.pipeline.script.plan_bridge import plural
 
-ApprovalCheck = Literal["stage", "plan", "vo", "prompt"]
+ApprovalCheck = Literal["stage", "plan", "vo", "prompt", "similarity"]
 
 # Стадии, на которых план можно утвердить. Позже идёт генерация — что делать с планом там, решит M6.
 APPROVABLE_STAGES = ("idea", "script", "generate")
@@ -48,13 +49,23 @@ class ApprovalRefusal(BaseModel):
 
 
 @dataclass(frozen=True)
+class ReferenceText:
+    """Текст реплик референса выпуска и правило сходства из `config/reference.yaml`."""
+
+    text: str
+    ngram: int
+    threshold: float
+
+
+@dataclass(frozen=True)
 class ApprovalSubject:
-    """Что утверждается: стадия выпуска, действующий план, недособранный набор частей."""
+    """Что утверждается: стадия выпуска, действующий план, недособранный набор частей, референс."""
 
     stage: str
     plan: EffectivePlan | None  # null — версии плана ещё нет
     staged_parts: list[int] = field(default_factory=list)  # номера принятых частей набора
     parts_total: int = 0  # частей в наборе; 0 — набора нет
+    reference: ReferenceText | None = None  # выпуск по референсу (`brief.reference_id`)
 
 
 Check = Callable[[ApprovalSubject], list[ApprovalProblem]]
@@ -117,7 +128,28 @@ def shots_filled(subject: ApprovalSubject) -> list[ApprovalProblem]:
     return problems
 
 
-CHECKS: list[Check] = [stage_open, plan_assembled, shots_filled]
+def not_like_reference(subject: ApprovalSubject) -> list[ApprovalProblem]:
+    """Принцип 11: VO плана выпуска по референсу не повторяет текст референса. Плана нет — проверять
+    нечего (об этом скажет `plan_assembled`)."""
+    if subject.plan is None or subject.reference is None:
+        return []
+    ref = subject.reference
+    vo = [shot.vo for shot in subject.plan.shots if shot.status != "removed"]
+    found = similarity(vo, ref.text, ref.ngram, ref.threshold)
+    if found.ok:
+        return []
+    phrases = "; ".join(f"«{phrase}»" for phrase in found.phrases)
+    return [
+        ApprovalProblem(
+            check="similarity",
+            shot_id=None,
+            message=f"Сходство с референсом {percent(found.ratio)} при пороге"
+            f" {percent(found.threshold)}: перепишите совпавшие фразы — {phrases}.",
+        )
+    ]
+
+
+CHECKS: list[Check] = [stage_open, plan_assembled, shots_filled, not_like_reference]
 
 
 def approval_problems(subject: ApprovalSubject) -> list[ApprovalProblem]:

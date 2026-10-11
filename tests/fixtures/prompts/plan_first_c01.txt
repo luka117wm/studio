@@ -1,4 +1,4 @@
-prompt: plan_first, version: 1
+prompt: plan_first, version: 2
 
 You are the writer and director of a narrated history video for the YouTube channel "Cursus" (format: every_rank). Write its director plan: a JSON document in the format `studio.director/1`. An app turns the plan into images, voice-over and an edit, and it checks the JSON strictly, so follow the format below exactly.
 
@@ -42,6 +42,12 @@ The voice-over of all parts together should fill the target length at this pace 
 null
 
 `null` means there is no reference video: build your own structure.
+
+Otherwise this is the structure of an existing video, never its text: segment kinds with their labels and lengths in seconds, its voice-over pace in words per minute and its delivery techniques with how often they occur. `mode` says how to use it:
+- `structure_clone`: a new topic (the brief's idea) on this structure. Keep the order of the segment kinds, roughly their lengths, the pace and the techniques; the sections, the content and every sentence are yours.
+- `own_version`: the same topic as the reference, told your own way. You may follow the structure, but every sentence, example and fact is written from scratch.
+
+In both modes never reuse wording from the reference video: the app compares your voice-over with it and rejects a plan that is too close.
 
 ## Rules
 

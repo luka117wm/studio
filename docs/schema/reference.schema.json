@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/reference",
+  "title": "reference",
+  "description": "Модели API Studio, группа «reference». Сгенерировано из Pydantic.",
+  "$defs": {
+    "AnalysisSegment": {
+      "description": "Сегмент разбора: вид, подпись своими словами, начало, сколько фактов.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "hook",
+            "promise",
+            "rank",
+            "retention",
+            "finale",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "start": {
+          "ge": 0,
+          "title": "Start",
+          "type": "number"
+        },
+        "facts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Facts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "label",
+        "start",
+        "facts"
+      ],
+      "title": "AnalysisSegment",
+      "type": "object"
+    },
+    "ReferenceAnalysis": {
+      "description": "Разбор референса чатом (ответ на промпт `reference`). Лишние ключи чата игнорируются.",
+      "properties": {
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "author": {
+          "default": "",
+          "title": "Author",
+          "type": "string"
+        },
+        "topic": {
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/AnalysisSegment"
+          },
+          "title": "Segments",
+          "type": "array"
+        },
+        "techniques": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Technique"
+          },
+          "title": "Techniques",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "author",
+        "topic",
+        "segments",
+        "techniques"
+      ],
+      "title": "ReferenceAnalysis",
+      "type": "object"
+    },
+    "ReferenceAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 2000000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ReferenceAnswer",
+      "type": "object"
+    },
+    "ReferenceCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Url",
+          "type": "string"
+        },
+        "subtitles": {
+          "maxLength": 2000000,
+          "title": "Subtitles",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "subtitles"
+      ],
+      "title": "ReferenceCreate",
+      "type": "object"
+    },
+    "ReferenceEpisodeCreate": {
+      "additionalProperties": false,
+      "description": "«Новая тема по этой структуре» (`structure_clone`) или «Своя версия этой темы»\n(`own_version`).",
+      "properties": {
+        "mode": {
+          "enum": [
+            "structure_clone",
+            "own_version"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ReferenceEpisodeCreate",
+      "type": "object"
+    },
+    "ReferenceMetrics": {
+      "description": "Метрики референса — считает код по репликам и разбору; средней длины кадра нет (нужно\nвидео).",
+      "properties": {
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "words": {
+          "title": "Words",
+          "type": "integer"
+        },
+        "pace_wpm": {
+          "title": "Pace Wpm",
+          "type": "number"
+        },
+        "norm_wpm": {
+          "title": "Norm Wpm",
+          "type": "integer"
+        },
+        "pace_delta": {
+          "title": "Pace Delta",
+          "type": "number"
+        },
+        "facts_total": {
+          "title": "Facts Total",
+          "type": "integer"
+        },
+        "facts_per_min": {
+          "title": "Facts Per Min",
+          "type": "number"
+        },
+        "holds_until_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Holds Until S"
+        },
+        "retention_hooks_s": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Retention Hooks S",
+          "type": "array"
+        },
+        "segments_total": {
+          "title": "Segments Total",
+          "type": "integer"
+        },
+        "ranks_total": {
+          "title": "Ranks Total",
+          "type": "integer"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SegmentMetrics"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "duration_s",
+        "words",
+        "pace_wpm",
+        "norm_wpm",
+        "pace_delta",
+        "facts_total",
+        "facts_per_min",
+        "holds_until_s",
+        "retention_hooks_s",
+        "segments_total",
+        "ranks_total",
+        "segments"
+      ],
+      "title": "ReferenceMetrics",
+      "type": "object"
+    },
+    "ReferencePrompt": {
+      "description": "Промпт разбора для кнопки «Скопировать»; обмен открыт (`run_id`).",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "prompt_id",
+        "version",
+        "run_id"
+      ],
+      "title": "ReferencePrompt",
+      "type": "object"
+    },
+    "ReferenceVideo": {
+      "description": "Референс в ответах API: разбор и метрики — когда разобран.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "author": {
+          "title": "Author",
+          "type": "string"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "cues": {
+          "title": "Cues",
+          "type": "integer"
+        },
+        "subtitles": {
+          "title": "Subtitles",
+          "type": "string"
+        },
+        "analysis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceAnalysis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "analyzed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Analyzed At"
+        }
+      },
+      "required": [
+        "id",
+        "channel",
+        "url",
+        "title",
+        "author",
+        "duration_s",
+        "cues",
+        "subtitles",
+        "analysis",
+        "metrics",
+        "created_at",
+        "analyzed_at"
+      ],
+      "title": "ReferenceVideo",
+      "type": "object"
+    },
+    "SegmentMetrics": {
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "hook",
+            "promise",
+            "rank",
+            "retention",
+            "finale",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "start_s": {
+          "title": "Start S",
+          "type": "number"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "words": {
+          "title": "Words",
+          "type": "integer"
+        },
+        "pace_wpm": {
+          "title": "Pace Wpm",
+          "type": "number"
+        },
+        "facts": {
+          "title": "Facts",
+          "type": "integer"
+        },
+        "facts_per_min": {
+          "title": "Facts Per Min",
+          "type": "number"
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "label",
+        "start_s",
+        "duration_s",
+        "words",
+        "pace_wpm",
+        "facts",
+        "facts_per_min"
+      ],
+      "title": "SegmentMetrics",
+      "type": "object"
+    },
+    "Technique": {
+      "description": "Приём подачи своими словами и сколько раз он встречается.",
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text",
+        "count"
+      ],
+      "title": "Technique",
+      "type": "object"
+    }
+  }
+}

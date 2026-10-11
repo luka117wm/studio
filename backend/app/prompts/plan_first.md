@@ -1,6 +1,6 @@
 ---
 id: plan_first
-version: 1
+version: 2
 task: plan
 model_hint: opus
 ---
@@ -25,6 +25,12 @@ The voice-over of all parts together should fill the target length at this pace 
 {{reference_json}}
 
 `null` means there is no reference video: build your own structure.
+
+Otherwise this is the structure of an existing video, never its text: segment kinds with their labels and lengths in seconds, its voice-over pace in words per minute and its delivery techniques with how often they occur. `mode` says how to use it:
+- `structure_clone`: a new topic (the brief's idea) on this structure. Keep the order of the segment kinds, roughly their lengths, the pace and the techniques; the sections, the content and every sentence are yours.
+- `own_version`: the same topic as the reference, told your own way. You may follow the structure, but every sentence, example and fact is written from scratch.
+
+In both modes never reuse wording from the reference video: the app compares your voice-over with it and rejects a plan that is too close.
 
 ## Rules
 

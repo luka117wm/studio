@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.api.bridge import PlanSourceDep
 from app.api.channels import read_profile
-from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep
+from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep, ReferenceConfigDep
 from app.api.director import (
     PartsPending,
     identity_items,
@@ -35,6 +35,7 @@ from app.api.episodes import (
     mark_plan_approved,
     require_episode,
 )
+from app.api.references import reference_text, structure_for
 from app.cost.budget import (
     ANIMATION_STAGE,
     BudgetLevel,
@@ -47,6 +48,7 @@ from app.models.channel import ChannelProfile
 from app.models.director import Director, StrictModel
 from app.models.formats import FormatPreset, FormatsConfig
 from app.models.project import Project
+from app.models.reference import ReferenceConfig, SimilarityReport
 from app.models.validators import DirectorValidationError, ValidationItem, validate_director
 from app.pipeline.bridge import (
     BridgeAnswerError,
@@ -63,7 +65,13 @@ from app.pipeline.bridge import (
 from app.pipeline.bridge.runs import AnswerStatus
 from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
-from app.pipeline.script.approve import ApprovalSubject, approval_problems, refusal
+from app.pipeline.research.similarity import similarity
+from app.pipeline.script.approve import (
+    ApprovalSubject,
+    ReferenceText,
+    approval_problems,
+    refusal,
+)
 from app.pipeline.script.estimate import PlanEstimate, plan_estimate
 from app.pipeline.script.plan_bridge import (
     PROMPT_FIRST,
@@ -153,6 +161,8 @@ class _Plan:
     staged: list[Director]
     preset_total: int
     shots_per_part: int
+    # Структура референса для части 1 (без текста реплик, принцип 11); не по референсу — None
+    reference: dict[str, object] | None
 
 
 def _load(
@@ -170,6 +180,7 @@ def _load(
         staged=staged_parts(paths, episode),
         preset_total=formats.plan.parts_total(preset),
         shots_per_part=formats.plan.shots_per_part,
+        reference=structure_for(db, paths, formats, project.brief),
     )
 
 
@@ -178,7 +189,9 @@ def _render(plan: _Plan, prompts: PromptLibrary, part: int) -> tuple[RenderedPro
     brief, spp = plan.project.brief, plan.shots_per_part
     if part == 1:
         rng = part_range(1, plan.preset_total, spp, plan.preset.shots, 0)
-        context = first_context(plan.profile, plan.preset, plan.episode.id, brief, rng)
+        context = first_context(
+            plan.profile, plan.preset, plan.episode.id, brief, rng, plan.reference
+        )
         return prompts.render(PROMPT_FIRST, context), rng
     accepted = [d for d in plan.staged if d.meta.part < part]
     total = plan.staged[0].meta.parts_total
@@ -408,8 +421,43 @@ async def get_estimate(
     )
 
 
+def _reference_check(
+    db: sqlite3.Connection, project: Project, config: ReferenceConfig
+) -> ReferenceText | None:
+    """Текст референса выпуска и правило сходства; выпуск не по референсу — None."""
+    reference_id = project.brief.reference_id if project.brief else None
+    text = None if reference_id is None else reference_text(db, reference_id)
+    if text is None:
+        return None
+    return ReferenceText(text=text, ngram=config.ngram, threshold=config.max_similarity)
+
+
+@router.get("/projects/{episode_id}/similarity")
+async def get_similarity(
+    episode_id: str, paths: PathsDep, db: DbDep, config: ReferenceConfigDep
+) -> SimilarityReport:
+    """Сходство VO действующего плана с текстом референса (принцип 11). Нет плана или выпуск не по
+    референсу — `similarity: null` с причиной."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    reference = _reference_check(db, project, config)
+    if reference is None:
+        return SimilarityReport(
+            similarity=None, reason="Выпуск не по референсу — сравнивать не с чем."
+        )
+    director = read_version(paths, episode, project.director_version)
+    if director is None:
+        return SimilarityReport(similarity=None, reason="Плана ещё нет — сравнивать нечего.")
+    plan = effective_plan(director, project)
+    vo = [shot.vo for shot in plan.shots if shot.status != "removed"]
+    found = similarity(vo, reference.text, reference.ngram, reference.threshold)
+    return SimilarityReport(similarity=found, reason=None)
+
+
 @router.post("/episodes/{episode_id}/approve")
-async def approve_plan(episode_id: str, paths: PathsDep, db: DbDep) -> EpisodeListItem:
+async def approve_plan(
+    episode_id: str, paths: PathsDep, db: DbDep, config: ReferenceConfigDep
+) -> EpisodeListItem:
     """«Утвердить план»: проверки → `approved_version` и `approved_at` в project.json → стадия
     `generate`. Отказ — 409, `detail` — `ApprovalRefusal`. Повтор для утверждённой версии — 200
     без записи. Джобов не ставит, бюджет не резервирует (M6).
@@ -428,6 +476,7 @@ async def approve_plan(episode_id: str, paths: PathsDep, db: DbDep) -> EpisodeLi
         plan=None if director is None else effective_plan(director, project),
         staged_parts=[part.meta.part for part in staged],
         parts_total=staged[0].meta.parts_total if staged else 0,
+        reference=_reference_check(db, project, config),
     )
     problems = approval_problems(subject)
     if problems:

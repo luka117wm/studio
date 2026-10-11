@@ -25,6 +25,12 @@ from app.api.formats import FormatPreview
 from app.api.ideas import IdeasAnswerBody, IdeasAnswerResult, IdeasPrompt, IdeasPromptBody
 from app.api.jobs import JobCreate, JobList
 from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
+from app.api.references import (
+    ReferenceAnswer,
+    ReferenceCreate,
+    ReferenceEpisodeCreate,
+    ReferencePrompt,
+)
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
@@ -33,6 +39,7 @@ from app.models.channel import ChannelPatch, ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
 from app.models.idea import Idea, IdeaCreate, IdeaPatch
 from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
+from app.models.reference import ReferenceVideo, SimilarityReport
 from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.pipeline.script.approve import ApprovalRefusal
@@ -107,6 +114,14 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (PlanCheck, "serialization"),
         (PlanEstimate, "serialization"),
         (ApprovalRefusal, "serialization"),
+        (SimilarityReport, "serialization"),
+    ],
+    "reference": [
+        (ReferenceVideo, "serialization"),
+        (ReferencePrompt, "serialization"),
+        (ReferenceCreate, "validation"),
+        (ReferenceAnswer, "validation"),
+        (ReferenceEpisodeCreate, "validation"),
     ],
 }
 

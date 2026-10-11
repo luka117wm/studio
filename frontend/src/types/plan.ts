@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:fbad23b82ec6d40ece7ab0d98e24d185ad1343ac7a53b0313eb7b6e22ed95fbe
+ * @generated sha256:0a549f88feb48e0cb6ff3ea6592b09da9c99a2c496b40a2a73845764c41d734d
  */
 export interface AnimateSpec {
   recommended: boolean
@@ -11,7 +11,7 @@ export interface AnimateSpec {
 }
 
 export interface ApprovalProblem {
-  check: 'stage' | 'plan' | 'vo' | 'prompt'
+  check: 'stage' | 'plan' | 'vo' | 'prompt' | 'similarity'
   shot_id: string | null
   message: string
 }
@@ -258,6 +258,29 @@ export interface ShotChange {
   stale: boolean
   drawn_at: string | null
   price: number | null
+}
+
+/**
+ * Сходство VO плана с текстом референса (принцип 11): доля n-грамм плана, найденных в
+ * субтитрах.
+ */
+export interface Similarity {
+  ratio: number
+  threshold: number
+  ngram: number
+  ok: boolean
+  matched: number
+  total: number
+  phrases: string[]
+}
+
+/**
+ * `GET /api/projects/{id}/similarity`: сходство или почему его нет (нет плана, выпуск не по
+ * референсу).
+ */
+export interface SimilarityReport {
+  similarity: Similarity | null
+  reason: string | null
 }
 
 /**

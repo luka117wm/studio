@@ -170,7 +170,7 @@ def test_full_cycle_imports_v001_from_bridge(
     first = client.post(PROMPT, params={"part": 1})
     assert first.status_code == 200, first.text
     prompt = first.json()
-    assert (prompt["prompt_id"], prompt["version"]) == ("plan_first", 1)
+    assert (prompt["prompt_id"], prompt["version"]) == ("plan_first", 2)
     assert (prompt["part"], prompt["parts_total"]) == (1, 3)
     assert (prompt["first_shot"], prompt["last_shot"]) == ("s001", "s004")
 

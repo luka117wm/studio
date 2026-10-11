@@ -1,0 +1,68 @@
+prompt: reference, version: 1
+
+You are analysing how a history video on YouTube is built, for the channel "Cursus" (format: every_rank). The channel wants to learn the video's structure, not to copy it: the app keeps only the structure you describe and never passes the video's text on. Read the subtitles below and describe the structure as JSON.
+
+## Our channel
+
+Length and voice-over pace of one of our videos (minutes, words per minute):
+
+{
+  "minutes": {
+    "min": 18,
+    "target": 20,
+    "max": 25
+  },
+  "words_per_minute": 150
+}
+
+## The video
+
+Duration: 03:00 (180 seconds).
+
+Subtitles, one cue per line with its start time:
+
+[00:00] You are seventeen, and the first thing the navy hands you is not a sword. It is an oar.
+[00:06] Three hundred men pull together below deck, and none of them can see where the ship is going.
+[00:13] Before this video ends, you will stand on the stern and give the order to ram.
+[00:20] Every rank on a Roman warship had its own pay, its own food and its own way to die.
+[00:28] We will climb all of them, one bench at a time, from the bottom of the hull to the captain's chair.
+[00:40] The rower sits on a narrow bench with a leather cushion, and he keeps the stroke by the beat of the piper.
+[00:52] He is a free man, not a slave, and he is paid in silver, about as much as a farm labourer on land.
+[01:05] Miss the rhythm, and the oar behind you breaks your back. Rowers learned the beat before they learned the sea.
+[01:20] But one rower in every crew was watching the deck above, waiting for a chance to climb.
+[01:30] The marine stands on that deck in armour, ready to board the enemy once the beaks lock together.
+[01:45] He earns more than the rower, eats meat twice a week, and is the first man the archers aim at.
+[02:10] The helmsman holds two steering oars at the stern and reads the water like a farmer reads the sky.
+[02:25] Above them all is the trierarch, the captain, who answers for the ship with his own money and his name.
+[02:45] So when the order to ram comes, it travels down three hundred backs at once. Now you know whose voice it is.
+
+## Rules
+
+1. Answer with exactly one ```json code block. A short note outside the block is fine; a second JSON block is not.
+2. `title` and `author` are the video's title and channel as far as the text tells; use empty strings if it does not.
+3. `topic` is what the video is about, in your own words, in one line.
+4. `segments` splits the video into parts, in order:
+   - `kind` is one of `hook` (the opening that grabs attention), `promise` (what the viewer will get), `rank` (one step of the hierarchy, or one main block), `retention` (a short moment that keeps the viewer watching: a teaser, a question, a cliffhanger), `finale` (the ending), `other`;
+   - `label` is a short name for the part, in your own words;
+   - `start` is where the part begins: seconds or `mm:ss`. The first part starts within the first 30 seconds, starts go in order and stay within the duration;
+   - `facts` is how many concrete historical claims the part makes.
+   Give at least two segments.
+5. `techniques` lists delivery techniques the video repeats, in your own words, with `count`: how many times each occurs, at least 1.
+6. Never quote the subtitles: no sentence or phrase from them may appear anywhere in your answer.
+7. All texts are in English.
+
+## Shape of the answer
+
+```json
+{
+  "title": "…",
+  "author": "…",
+  "topic": "…",
+  "segments": [
+    { "kind": "hook | promise | rank | retention | finale | other", "label": "…", "start": "00:00", "facts": 0 }
+  ],
+  "techniques": [
+    { "text": "…", "count": 1 }
+  ]
+}
+```

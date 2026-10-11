@@ -193,7 +193,7 @@ API доступен только с ключом `ANTHROPIC_API_KEY`, и в M4 
 
 | Шаблон | Контекст |
 |---|---|
-| `plan_first` | `channel_name`, `format`; `preset_json` — минуты, разделы, кадры, темп; `brief_json` — заявка без `idea_id` и `reference_id`; `reference_json` — структура референса, до M4.10 `null`; `meta_json` — `channel`, `episode_id`, `format`, `language`, `target_minutes`, `part`, `parts_total`; `part`, `parts_total`, `first_shot`, `last_shot` |
+| `plan_first` | `channel_name`, `format`; `preset_json` — минуты, разделы, кадры, темп; `brief_json` — заявка без `idea_id` и `reference_id`; `reference_json` — структура референса выпуска (`reference_structure`: режим, сегменты, темп, приёмы; без текста реплик, принцип 11) или `null`; `meta_json` — `channel`, `episode_id`, `format`, `language`, `target_minutes`, `part`, `parts_total`; `part`, `parts_total`, `first_shot`, `last_shot` |
 | `plan_next` | `channel_name`, `format`, `brief_json`; `accepted_json` — конспект принятых частей: `parts_received`, `shots_so_far`, `last_shot {id, section, vo}`, `sections`, id эпох `periods` и обликов `appearances`; `meta_json` — то же плюс `working_title` части 1; `part`, `parts_total`, `first_shot`, `last_shot` |
 
 Правила в тексте промптов:
@@ -256,6 +256,13 @@ API доступен только с ключом `ANTHROPIC_API_KEY`, и в M4 
 Обмен привязан к каналу, выпуска у него нет: открытый обмен ищется по `task` и `channel` (`latest_runs(channel=…)`).
 Ответ принимается по идее: битая и дубль пропускаются, причины — в `errors` обмена `applied`; ни одной принятой —
 422 и `failed`. Контекст промпта, правила дублей и API — `docs/research.md`, «Идеи».
+
+## Референс
+
+Задача `reference` (M4.10): промпт `reference` по субтитрам референса — `POST /api/references/{id}/prompt`,
+ответ — `POST /api/references/{id}/answer`. Обмен привязан к референсу (`target_id`). Ответ проверяется целиком:
+любая ошибка сегмента — 422 и `failed`, разбор не меняется. Контекст, проверки и метрики — `docs/research.md`,
+«Референс». В промпт плана от референса идёт только структура (`plan_first` v2, принцип 11).
 
 ## Почему нет строк расхода
 
