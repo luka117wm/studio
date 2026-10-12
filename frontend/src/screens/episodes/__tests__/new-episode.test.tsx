@@ -62,7 +62,7 @@ describe('диалог «Новый выпуск»', () => {
     await waitFor(() => expect(backlog.disabled).toBe(false))
     expect(within(dialog).getByText('7 идей')).toBeTruthy()
     expect((within(dialog).getByRole('radio', { name: 'С нуля' }) as HTMLInputElement).checked).toBe(true)
-    expect(within(dialog).getByText('ссылку на ролик добавите в сценарии')).toBeTruthy()
+    expect(within(dialog).getByText('разобрать ролик на вкладке «Референс»')).toBeTruthy()
     // Otto: одна идея в бэклоге
     await userEvent.click(within(dialog).getByRole('radio', { name: "Otto's Timeline" }))
     expect(await within(dialog).findByText('1 идея')).toBeTruthy()
@@ -91,6 +91,19 @@ describe('диалог «Новый выпуск»', () => {
     expect(episode).toMatchObject({ title: 'Every Rank in the Venetian Arsenal', stage: 'idea' })
   })
 
+  test('«Из референса» не создаёт выпуск, а ведёт на вкладку «Референс» выбранного канала', async () => {
+    const { stub } = renderApp('/episodes')
+    const dialog = await openDialog()
+    await userEvent.click(within(dialog).getByRole('radio', { name: "Otto's Timeline" }))
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Из референса' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Открыть вкладку «Референс»' }))
+
+    await waitFor(() => expect(`${window.location.pathname}${window.location.search}`).toBe('/ideas?tab=reference'))
+    expect(posts(stub.fetch)).toEqual([])
+    expect(useUiStore.getState().channel).toBe('otto')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   test('пустой бэклог канала — пункт выключен с подсказкой', async () => {
     const api = createMockApi()
     // Единственную идею Otto убрали
@@ -105,12 +118,11 @@ describe('диалог «Новый выпуск»', () => {
   test('«Создать выпуск» → POST с origin и slot: "next_free", тост с датой из ответа, переход на сценарий', async () => {
     const { stub } = renderApp('/episodes')
     const dialog = await openDialog()
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'Из референса' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Создать выпуск' }))
 
     await waitFor(() => expect(window.location.pathname).toBe('/episodes/c11/script'))
     expect(posts(stub.fetch)).toEqual([
-      { url: '/api/episodes', body: { channel: 'cursus', origin: 'reference', slot: 'next_free' } },
+      { url: '/api/episodes', body: { channel: 'cursus', origin: 'blank', slot: 'next_free' } },
     ])
     expect(screen.getAllByRole('status').some((el) => el.textContent?.startsWith('Выпуск создан: Cursus, слот 23 сентября'))).toBe(true)
     expect(useUiStore.getState()).toMatchObject({ channel: 'cursus', episodeId: 'c11' })

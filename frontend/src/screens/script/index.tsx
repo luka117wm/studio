@@ -29,7 +29,9 @@ import { FactCheck } from './FactCheck'
 import { JsonEditor } from './JsonEditor'
 import { discardJsonDraft, hasJsonDraft } from './jsonDrafts'
 import { PlanTable } from './PlanTable'
+import { ReferenceNote } from './ReferenceNote'
 import { ScriptSheet } from './ScriptSheet'
+import { SimilarityPanel } from './SimilarityPanel'
 
 export type ScriptMode = 'script' | 'plan' | 'json'
 
@@ -134,6 +136,9 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
               <BridgePanel episodeId={episode.id} hasIdea={brief.idea.trim() !== ''} />
               {plan.data && <FactCheck facts={plan.data.facts} onShot={goToShot} />}
               {plan.data && <EstimatePanel episodeId={episode.id} planStamp={plan.dataUpdatedAt} />}
+              {project.data?.brief?.reference_id && (
+                <SimilarityPanel episodeId={episode.id} planStamp={plan.data ? plan.dataUpdatedAt : 0} />
+              )}
             </div>
             <ApprovePlan episodeId={episode.id} plan={plan.data} parts={parts.data} onShot={goToShot} />
           </div>
@@ -222,6 +227,7 @@ function Center({
               План приходит из чата частями по 26 кадров: заполните заявку, скопируйте промпт справа и вставьте ответ чата.
             </p>
           </div>
+          <ReferenceNote brief={brief} />
           <BriefForm value={brief} onChange={onBrief} />
         </section>
       ) : (
@@ -266,6 +272,7 @@ function BriefBlock({ brief, onBrief }: { brief: EpisodeBrief; onBrief: (next: E
         </Button>
         {!open && <span className="min-w-0 flex-1 truncate text-12 text-muted">{brief.idea}</span>}
       </div>
+      <ReferenceNote brief={brief} />
       {open && <BriefForm value={brief} onChange={onBrief} />}
     </section>
   )

@@ -1,8 +1,8 @@
 /* Экран 2 «Идеи» (артборд 2). Вкладка «Тренды»: семена ниши 300 слева, бэклог в центре (вместо радара — его нет без
-   ключа YouTube, устав M4), «Идеи из чата» 340 справа с мостом. Вкладка «Референс» — M4.11. Вкладка — в адресе
+   ключа YouTube, устав M4), «Идеи из чата» 340 справа с мостом. Вкладка «Референс» — `ReferenceTab` (M4.11). Вкладка — в адресе
    `?tab=`. Идеи и семена у каждого канала свои (правило 6 handoff): в «Все каналы» экран просит выбрать канал.
    Статус-строка: «Идей в бэклоге 7, слот 21 сентября свободен» — ближайший пустой слот после сегодняшнего. */
-import { FileSearch, Layers, MessagesSquare, Sprout } from 'lucide-react'
+import { Layers, MessagesSquare, Sprout } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { Slot } from '@/types/slot'
 import { useChannels, useIdeas, useSlots, type ChannelId } from '../../api/queries'
@@ -16,6 +16,7 @@ import { EmptyState, SegmentedControl } from '../../ui'
 import { formatCount, plural } from '../episodes/board'
 import { Backlog } from './Backlog'
 import { ChatIdeas } from './ChatIdeas'
+import { ReferenceTab } from './ReferenceTab'
 import { backlogOf } from './ideaView'
 import { SeedsPanel } from './SeedsPanel'
 import { useStartEpisode } from './useStartEpisode'
@@ -38,7 +39,12 @@ export function IdeasScreen(_props: { params: RouteParams }) {
   return <ChannelIdeas key={scope} channel={scope} tab={tab} view={view} />
 }
 
+/** Вкладки — отдельные компоненты: у каждой своя шапка и строка статуса (эффект родителя иначе перетёр бы детей) */
 function ChannelIdeas({ channel, tab, view }: { channel: ChannelId; tab: Tab; view: ReactNode }) {
+  return tab === 'reference' ? <ReferenceTab channel={channel} view={view} /> : <TrendsTab channel={channel} view={view} />
+}
+
+function TrendsTab({ channel, view }: { channel: ChannelId; view: ReactNode }) {
   const ideas = useIdeas(channel)
   const slots = useSlots()
   const { start, busyId } = useStartEpisode(channel)
@@ -46,32 +52,16 @@ function ChannelIdeas({ channel, tab, view }: { channel: ChannelId; tab: Tab; vi
   const proposed = ideas.data?.filter((idea) => idea.status === 'proposed').length ?? null
   useStatusNote(backlog === null ? null : statusNote(backlog, slots.data))
 
-  const header = {
-    title: 'Идеи',
-    view,
-    actions:
-      backlog === null ? undefined : (
-        <span className="text-12 text-muted">{`Бэклог: ${formatCount(backlog)} ${plural(backlog, IDEAS)}`}</span>
-      ),
-  }
-
-  if (tab === 'reference') {
-    return (
-      <ScreenLayout header={header}>
-        <div className="flex flex-1 items-center justify-center p-4">
-          <EmptyState
-            icon={FileSearch}
-            title="Разбор референса"
-            description="Здесь появится разбор ролика-референса: структура, темп и приёмы подачи — и новая тема по этой структуре."
-          />
-        </div>
-      </ScreenLayout>
-    )
-  }
-
   return (
     <ScreenLayout
-      header={header}
+      header={{
+        title: 'Идеи',
+        view,
+        actions:
+          backlog === null ? undefined : (
+            <span className="text-12 text-muted">{`Бэклог: ${formatCount(backlog)} ${plural(backlog, IDEAS)}`}</span>
+          ),
+      }}
       left={{ kind: 'seeds', title: 'Семена ниши', icon: Sprout, children: <SeedsPanel channel={channel} /> }}
       right={{
         kind: 'clusters',

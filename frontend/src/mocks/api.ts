@@ -20,8 +20,10 @@ import type {
   PlanParts,
   PlanPrompt,
   PlanShot,
+  SimilarityReport,
   ValidationItem,
 } from '@/types/plan'
+import type { ReferenceAnalysis, ReferenceMetrics, ReferenceVideo } from '@/types/reference'
 import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
@@ -642,6 +644,107 @@ export const IDEAS: Idea[] = [
   idea(12, { channel: 'otto', status: 'backlog', title: 'A Day in Pompeii Before the Eruption', score: 70, source: 'manual' }),
 ]
 
+/* ---- Референс артборда 2 (M4.11): «Every Rank on a Roman Warship», 22:41, 10 сегментов ---- */
+
+type Kind = ReferenceAnalysis['segments'][number]['kind']
+
+/** Сегменты артборда: вид, подпись, длительность в секундах, фактов */
+const WARSHIP: [Kind, string, number, number][] = [
+  ['hook', 'Хук', 22, 1],
+  ['promise', 'Обещание', 43, 2],
+  ['rank', 'Ранг 1', 168, 12],
+  ['retention', 'Крючок', 26, 0],
+  ['rank', 'Ранг 2', 196, 13],
+  ['rank', 'Ранг 3', 214, 13],
+  ['retention', 'Крючок', 31, 1],
+  ['rank', 'Ранг 4', 232, 14],
+  ['rank', 'Ранг 5', 258, 8],
+  ['finale', 'Финал', 171, 3],
+]
+
+/** Метрики как у `metrics()` бэкенда; слова сегмента — по его доле длительности (у мока нет реплик) */
+function metricsOf(analysis: ReferenceAnalysis, duration: number, words: number, norm: number): ReferenceMetrics {
+  const starts = analysis.segments.map((seg) => seg.start)
+  const rows = analysis.segments.map((seg, i) => {
+    const length = (starts[i + 1] ?? duration) - seg.start
+    const segWords = Math.round((words * length) / duration)
+    return {
+      index: i + 1,
+      kind: seg.kind,
+      label: seg.label,
+      start_s: seg.start,
+      duration_s: length,
+      words: segWords,
+      pace_wpm: Math.round((segWords / (length / 60)) * 10) / 10,
+      facts: seg.facts,
+      facts_per_min: Math.round((seg.facts / (length / 60)) * 100) / 100,
+    }
+  })
+  const factsTotal = rows.reduce((sum, row) => sum + row.facts, 0)
+  const perMin = factsTotal / (duration / 60)
+  const holding = rows.filter((row) => perMin && row.facts / (row.duration_s / 60) >= 0.7 * perMin)
+  const last = holding[holding.length - 1]
+  const pace = words / (duration / 60)
+  return {
+    duration_s: duration,
+    words,
+    pace_wpm: Math.round(pace * 10) / 10,
+    norm_wpm: norm,
+    pace_delta: Math.round(((pace - norm) / norm) * 1000) / 1000,
+    facts_total: factsTotal,
+    facts_per_min: Math.round(perMin * 100) / 100,
+    holds_until_s: last ? last.start_s + last.duration_s : null,
+    retention_hooks_s: rows.filter((row) => row.kind === 'retention').map((row) => row.start_s),
+    segments_total: rows.length,
+    ranks_total: rows.filter((row) => row.kind === 'rank').length,
+    segments: rows,
+  }
+}
+
+const WARSHIP_ANALYSIS: ReferenceAnalysis = {
+  title: 'Every Rank on a Roman Warship',
+  author: 'Gradus',
+  topic: 'How rank, pay and danger were split on a Roman war galley',
+  segments: WARSHIP.reduce<ReferenceAnalysis['segments']>((list, [kind, label, , facts], i) => {
+    const start = WARSHIP.slice(0, i).reduce((sum, [, , length]) => sum + length, 0)
+    return [...list, { kind, label, start, facts }]
+  }, []),
+  // Приёмы подачи артборда
+  techniques: [
+    { text: 'Ранг называется голосом и повторяется в конце блока', count: 10 },
+    { text: 'Возврат к одному герою между рангами', count: 6 },
+    { text: 'Цена ошибки: что бывает, если не справился', count: 5 },
+    { text: 'Сравнение жалованья в конце каждого ранга', count: 9 },
+  ],
+}
+
+/** Начало текста субтитров — материал чужой, на экране только превью */
+const WARSHIP_SUBTITLES =
+  '1\n00:00:00,000 --> 00:00:05,200\nYou are seventeen, and the navy hands you an oar.\n\n2\n00:00:05,200 --> 00:00:11,000\nThree hundred men pull below deck and none of them can see.\n'
+
+export const REFERENCES: ReferenceVideo[] = [
+  {
+    id: 'ref0001',
+    channel: 'cursus',
+    url: 'youtube.com/watch?v=gradus-roman-warship',
+    title: WARSHIP_ANALYSIS.title,
+    author: WARSHIP_ANALYSIS.author,
+    duration_s: 1361,
+    cues: 412,
+    subtitles: WARSHIP_SUBTITLES,
+    analysis: WARSHIP_ANALYSIS,
+    metrics: metricsOf(WARSHIP_ANALYSIS, 1361, 3357, 150),
+    created_at: `${TODAY}T08:50:00+00:00`,
+    analyzed_at: `${TODAY}T08:54:00+00:00`,
+  },
+]
+
+const NO_TIMECODES = 'Не похоже на субтитры: нет таймкодов. Вставьте SRT, VTT или расшифровку с YouTube.'
+const clockSeconds = (text: string) => {
+  const parts = text.split(':').map(Number)
+  return parts.reduce((sum, part) => sum * 60 + part, 0)
+}
+
 const IDEA_STATUS: Record<Idea['status'], string> = { proposed: 'предложена', backlog: 'в бэклоге', used: 'взята в выпуск', dropped: 'отброшена' }
 const IDEA_MOVES: Record<Idea['status'], Idea['status'][]> = { proposed: ['backlog', 'dropped'], backlog: ['dropped'], dropped: ['backlog'], used: [] }
 const titleKey = (title: string) => title.toLowerCase().split(/\s+/).filter(Boolean).join(' ')
@@ -733,6 +836,112 @@ export function createMockApi() {
   let runs = 0
   const profiles = structuredClone(channels) as ChannelProfile[]
   const ideas: Idea[] = structuredClone(IDEAS)
+  const references: ReferenceVideo[] = structuredClone(REFERENCES)
+
+  /** Создание референса: таймкоды есть — реплики и длительность по ним, нет — 422 как у бэкенда */
+  function createReference(body: { channel: ChannelId; url?: string; subtitles: string }): MockResponse {
+    const lines = body.subtitles.split('\n')
+    const timed = lines.filter((line) => /-->/.test(line) || /^\s*\d{1,2}:\d{2}(?::\d{2})?\b/.test(line))
+    const stamps = [...body.subtitles.matchAll(/(\d{1,2}:)?\d{1,2}:\d{2}/g)].map((m) => clockSeconds(m[0]))
+    if (!timed.length || !stamps.length) return fail(422, NO_TIMECODES)
+    const number = Math.max(0, ...references.map((r) => Number(r.id.slice(3)))) + 1
+    const reference: ReferenceVideo = {
+      id: `ref${String(number).padStart(4, '0')}`,
+      channel: body.channel,
+      url: (body.url ?? '').trim(),
+      title: '',
+      author: '',
+      duration_s: Math.max(...stamps) || 1,
+      cues: timed.length,
+      subtitles: body.subtitles,
+      analysis: null,
+      metrics: null,
+      created_at: NOW,
+      analyzed_at: null,
+    }
+    references.unshift(reference)
+    return ok(reference, 201)
+  }
+
+  /** Разбор чата: JSON с сегментами (не меньше двух) → разбор и метрики; иначе 422 `BridgeError` */
+  function analyzeReference(reference: ReferenceVideo, text: string): MockResponse {
+    const start = text.indexOf('{')
+    let data: unknown = null
+    try {
+      data = start < 0 ? null : JSON.parse(text.slice(start, text.lastIndexOf('}') + 1))
+    } catch {
+      data = null
+    }
+    const hint = 'Скопируйте ошибки в чат и попросите прислать разбор исправленным, целиком одним блоком ```json.'
+    const segments = isPlainObject(data) && Array.isArray(data.segments) ? (data.segments as Record<string, unknown>[]) : []
+    if (segments.length < 2) {
+      return {
+        status: 422,
+        body: { message: 'Разбор не прошёл проверку: 1 ошибка.', hint, errors: [{ path: 'segments', message: 'сегментов меньше двух — разбор слишком грубый' }] } satisfies BridgeError,
+      }
+    }
+    const raw = data as Record<string, unknown>
+    const analysis: ReferenceAnalysis = {
+      title: String(raw.title ?? ''),
+      author: String(raw.author ?? ''),
+      topic: String(raw.topic ?? ''),
+      segments: segments.map((seg) => ({
+        kind: seg.kind as Kind,
+        label: String(seg.label),
+        start: typeof seg.start === 'number' ? seg.start : clockSeconds(String(seg.start)),
+        facts: Number(seg.facts ?? 0),
+      })),
+      techniques: Array.isArray(raw.techniques) ? (raw.techniques as ReferenceAnalysis['techniques']) : [],
+    }
+    const norm = formats[reference.channel].preset.words_per_minute
+    Object.assign(reference, {
+      title: analysis.title,
+      author: analysis.author,
+      analysis,
+      metrics: metricsOf(analysis, reference.duration_s, Math.round((reference.duration_s / 60) * 140), norm),
+      analyzed_at: NOW,
+    })
+    return ok(reference)
+  }
+
+  /** Выпуск по референсу, как `POST /api/references/{id}/episodes`: разбора нет — 409 */
+  function episodeFromReference(reference: ReferenceVideo, mode: 'structure_clone' | 'own_version'): MockResponse {
+    if (!reference.analysis) return fail(409, 'Сначала разберите референс: скопируйте промпт разбора и вставьте ответ чата.')
+    created += 1
+    const episode: EpisodeListItem = {
+      id: `${reference.channel[0]}${String(10 + created).padStart(2, '0')}`,
+      channel: reference.channel,
+      title: 'Новый выпуск',
+      short_title: null,
+      origin: 'reference',
+      stage: 'script',
+      status: 'queued',
+      slot_date: nextFree(),
+      created_at: NOW,
+      updated_at: NOW,
+      summary: summary({}),
+    }
+    state.push(episode)
+    projectOf(episode).brief = {
+      ...emptyBrief,
+      idea: mode === 'own_version' ? reference.analysis.topic : '',
+      reference_id: reference.id,
+      reference_mode: mode,
+    }
+    return ok(episode, 201)
+  }
+
+  /** Сходство плана выпуска по референсу: у мока — 3 % при пороге 10 %, если план есть */
+  function similarityOf(episode: EpisodeListItem): MockResponse {
+    if (!projectOf(episode).brief?.reference_id) {
+      return ok({ similarity: null, reason: 'Выпуск не по референсу — сравнивать не с чем.' } satisfies SimilarityReport)
+    }
+    if (!effectivePlan(episode)) return ok({ similarity: null, reason: 'Плана ещё нет — сравнивать нечего.' } satisfies SimilarityReport)
+    return ok({
+      similarity: { ratio: 0.03, threshold: 0.1, ngram: 5, ok: true, matched: 3, total: 100, phrases: [] },
+      reason: null,
+    } satisfies SimilarityReport)
+  }
 
   /** Следующий номер идеи: глобальный, как у бэкенда */
   const nextIdeaId = () => `i${String(Math.max(0, ...ideas.map((i) => Number(i.id.slice(1)))) + 1).padStart(4, '0')}`
@@ -1288,6 +1497,23 @@ export function createMockApi() {
         count,
       } satisfies IdeasPrompt)
     }
+    if (method === 'GET' && path === '/references') {
+      return ok(references.filter((r) => !channel || r.channel === channel))
+    }
+    if (method === 'POST' && path === '/references') return createReference(body as { channel: ChannelId; url?: string; subtitles: string })
+    if (parts[0] === 'references' && parts[1]) {
+      const reference = references.find((r) => r.id === decodeURIComponent(parts[1]!))
+      if (!reference) return fail(404, `Референс «${parts[1]}» не найден.`)
+      if (method === 'GET' && parts.length === 2) return ok(reference)
+      if (method === 'POST' && parts[2] === 'prompt') {
+        runs += 1
+        return ok({ text: `Analyse the structure of the video "${reference.url}".`, prompt_id: 'reference', version: 1, run_id: `run-${runs}` })
+      }
+      if (method === 'POST' && parts[2] === 'answer') return analyzeReference(reference, (body as { text: string }).text)
+      if (method === 'POST' && parts[2] === 'episodes') {
+        return episodeFromReference(reference, (body as { mode: 'structure_clone' | 'own_version' }).mode)
+      }
+    }
     if (method === 'POST' && path === '/ideas/answer') {
       const request = body as { channel: Idea['channel']; text: string }
       return ideasAnswer(request.channel, request.text)
@@ -1373,6 +1599,7 @@ export function createMockApi() {
       }
       if (method === 'GET' && rest === 'plan') return ok(effectivePlan(episode))
       if (method === 'GET' && rest === 'estimate') return estimateOf(episode)
+      if (method === 'GET' && rest === 'similarity') return similarityOf(episode)
       if (method === 'POST' && rest === 'director/validate') {
         const items = checkDirector(episode, body)
         return ok({ ok: !items.length, errors: items.map((item) => item.message), items } satisfies PlanCheck)

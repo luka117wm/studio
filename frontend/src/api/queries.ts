@@ -10,7 +10,16 @@ import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobEventData, JobList } from '@/types/job'
-import type { EffectivePlan, PlanAnswerResult, PlanCheck, PlanEstimate, PlanParts, PlanPrompt } from '@/types/plan'
+import type {
+  EffectivePlan,
+  PlanAnswerResult,
+  PlanCheck,
+  PlanEstimate,
+  PlanParts,
+  PlanPrompt,
+  SimilarityReport,
+} from '@/types/plan'
+import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
 import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { ApiError, api } from './client'
@@ -40,12 +49,16 @@ export const qk = {
   bridgeSettings: ['bridge', 'settings'] as const,
   /** Идеи канала всех статусов: экран делит их на бэклог, убранные и «Идеи из чата» */
   ideas: (channel: ChannelId) => ['ideas', channel] as const,
+  /** Референсы канала с разбором и метриками (docs/research.md, «Референс») */
+  references: (channel: ChannelId) => ['references', channel] as const,
   project: (id: string) => ['projects', id] as const,
   /** Действующий план и набор частей моста выпуска */
   plan: (id: string) => ['projects', id, 'plan'] as const,
   planParts: (id: string) => ['projects', id, 'plan', 'parts'] as const,
   /** Смета плана; `stamp` — время ответа плана: перезапрос плана после любой правки тянет новую смету */
   estimate: (id: string, stamp: number) => ['projects', id, 'plan', 'estimate', stamp] as const,
+  /** Сходство VO плана с референсом; `stamp` — как у сметы, `'list'` — без привязки к экрану плана */
+  similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
 }
@@ -141,6 +154,57 @@ export function useIdeas(channel: ChannelId | null) {
     queryFn: ({ signal }) => api.get<Idea[]>('/ideas', { signal, query: { channel } }),
     enabled: channel !== null,
   })
+}
+
+/** Референсы канала, новые первыми: с разбором и метриками — их считает бэкенд, фронт только раскладывает */
+export function useReferences(channel: ChannelId) {
+  return useQuery({
+    queryKey: qk.references(channel),
+    queryFn: ({ signal }) => api.get<ReferenceVideo[]>('/references', { signal, query: { channel } }),
+  })
+}
+
+/** Один референс (заявка выпуска на экране 3): пока грузится — из списка канала, если он уже есть */
+export function useReference(id: string | null) {
+  const client = useQueryClient()
+  return useQuery<ReferenceVideo>({
+    queryKey: ['references', 'one', id ?? ''] as const,
+    queryFn: ({ signal }) => api.get<ReferenceVideo>(`/references/${segment(id ?? '')}`, { signal }),
+    enabled: id !== null,
+    placeholderData: () => {
+      for (const [, list] of client.getQueriesData<ReferenceVideo[]>({ queryKey: ['references'] })) {
+        const found = Array.isArray(list) ? list.find((r) => r.id === id) : undefined
+        if (found) return found
+      }
+      return undefined
+    },
+  })
+}
+
+/** Сходство VO действующего плана с референсом выпуска (принцип 11). `planStamp` — время ответа плана: правка
+ *  кадра перезапрашивает план, а с ним и сходство; `'list'` — для списка выпусков на вкладке «Референс» */
+export function useSimilarity(id: string | null, planStamp: number | 'list' = 'list') {
+  return useQuery({
+    queryKey: qk.similarity(id ?? '', planStamp),
+    queryFn: ({ signal }) => api.get<SimilarityReport>(`/projects/${segment(id ?? '')}/similarity`, { signal }),
+    enabled: id !== null,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Выпуски канала по этому референсу: `origin: reference` и `brief.reference_id` в project.json. Отдельного
+ *  списка на бэкенде нет — таких выпусков единицы, project.json читается по каждому */
+export function useReferenceEpisodes(channel: ChannelId, referenceId: string | null) {
+  const episodes = useEpisodes(channel)
+  const candidates = (episodes.data ?? []).filter((e) => e.origin === 'reference')
+  const projects = useQueries({
+    queries: candidates.map((episode) => ({
+      queryKey: qk.project(episode.id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => api.get<Project>(`/projects/${segment(episode.id)}`, { signal }),
+      enabled: referenceId !== null,
+    })),
+  })
+  return candidates.filter((_, i) => referenceId !== null && projects[i]?.data?.brief?.reference_id === referenceId)
 }
 
 /** Источник плана и доступность Claude API — для сегментов «Claude API / Мост через чат» */
@@ -376,6 +440,47 @@ export function useApprovePlan(id: string) {
       storeEpisode(client, episode, false)
       void client.invalidateQueries({ queryKey: qk.project(id) })
     },
+  })
+}
+
+/** Референс канала из субтитров; «не похоже на субтитры» — 422 с текстом бэкенда */
+export function useCreateReference(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: Omit<ReferenceCreate, 'channel'>) => api.post<ReferenceVideo>('/references', { ...body, channel }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: qk.references(channel) }),
+  })
+}
+
+/** Промпт разбора референса; бэкенд открывает обмен моста `reference` */
+export function useReferencePrompt(id: string) {
+  return useMutation({
+    mutationFn: () => api.post<ReferencePrompt>(`/references/${segment(id)}/prompt`),
+  })
+}
+
+/** Ответ чата → разбор референса; ошибка — 422 `BridgeError` с номерами сегментов */
+export function useApplyReferenceAnswer(channel: ChannelId, id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) =>
+      api.post<ReferenceVideo>(`/references/${segment(id)}/answer`, { text }, { timeoutMs: 60_000 }),
+    onSuccess: (reference) => {
+      client.setQueryData<ReferenceVideo[]>(qk.references(channel), (list) =>
+        list?.map((r) => (r.id === reference.id ? reference : r)),
+      )
+      void client.invalidateQueries({ queryKey: ['references'] })
+    },
+  })
+}
+
+/** «Новая тема по этой структуре» / «Своя версия этой темы»: выпуск по референсу в ближайшем свободном слоте */
+export function useCreateEpisodeFromReference(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (mode: ReferenceEpisodeCreate['mode']) =>
+      api.post<EpisodeListItem>(`/references/${segment(id)}/episodes`, { mode }),
+    onSuccess: (episode) => storeEpisode(client, episode, true),
   })
 }
 

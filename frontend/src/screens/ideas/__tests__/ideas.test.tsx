@@ -254,11 +254,11 @@ describe('экран', () => {
     expect(useUiStore.getState().channel).toBe('otto')
   })
 
-  test('вкладка «Референс» в адресе — пустое состояние до разбора', async () => {
+  test('вкладка «Референс» в адресе — своя раскладка без семян и бэклога', async () => {
     await open()
     await userEvent.click(screen.getByRole('radio', { name: 'Референс' }))
     expect(window.location.search).toBe('?tab=reference')
-    expect(screen.getByText('Разбор референса')).toBeTruthy()
+    expect(await screen.findByRole('region', { name: 'Карта структуры' })).toBeTruthy()
     expect(screen.queryByRole('complementary', { name: 'Семена ниши' })).toBeNull()
   })
 })

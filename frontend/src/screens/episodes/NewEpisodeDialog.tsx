@@ -1,7 +1,7 @@
 /* Диалог «Новый выпуск» (артборд 1): канал, пресет формата со сметой, откуда начать. Выпуск создаётся в ближайшем
    свободном слоте (`slot: "next_free"`, docs/slots.md), после создания открывается сценарий. Названия в диалоге нет —
-   выпуск переименовывается в шапке (решение 2 устава M3); из идеи — название и заявка идеи (M4.9). Монтируется на
-   время открытия: состояние каждый раз новое. */
+   выпуск переименовывается в шапке (решение 2 устава M3); из идеи — название и заявка идеи (M4.9); «Из референса»
+   ведёт на вкладку «Референс» экрана идей (M4.11). Монтируется на время открытия: состояние каждый раз новое. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { FormatPreview } from '@/types/channel'
 import type { EpisodeCreate } from '@/types/episode'
@@ -23,8 +23,8 @@ type Origin = NonNullable<EpisodeCreate['origin']>
 const SOURCES: readonly { value: Origin; label: string; hint: string }[] = [
   // Подпись — число идей бэклога выбранного канала; пустой бэклог выключает пункт (ниже)
   { value: 'backlog', label: 'Из бэклога идей', hint: '' },
-  // Поле ссылки появится со сценарием (M4); до него выпуск только помечается `origin: reference`
-  { value: 'reference', label: 'Из референса', hint: 'ссылку на ролик добавите в сценарии' },
+  // Выпуск по референсу создаётся на вкладке «Референс» после разбора (M4.11): здесь — только переход туда
+  { value: 'reference', label: 'Из референса', hint: 'разобрать ролик на вкладке «Референс»' },
   { value: 'blank', label: 'С нуля', hint: 'пустой сценарий и план' },
 ]
 
@@ -81,7 +81,15 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
     if (next) pick(next)
   }
 
+  const setScope = useUiStore((s) => s.setChannel)
+  const toReference = () => {
+    setScope(channel)
+    onClose()
+    navigate(`${paths.ideas}?tab=reference`)
+  }
+
   const submit = async () => {
+    if (source === 'reference') return toReference()
     setError(null)
     try {
       const body: EpisodeCreate = { channel, origin: source, slot: 'next_free' }
@@ -113,7 +121,7 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
             disabled={source === 'backlog' && ideaId === null}
             onClick={() => void submit()}
           >
-            Создать выпуск
+            {source === 'reference' ? 'Открыть вкладку «Референс»' : 'Создать выпуск'}
           </Button>
         </>
       }
