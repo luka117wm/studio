@@ -1,4 +1,5 @@
-/* Снимки оболочки: 11 маршрутов на трёх ширинах; при 1536 — диалог, меню, тост и восемь вкладок каталога (регрессия кита).
+/* Снимки оболочки: 11 маршрутов на трёх ширинах; при 1536 — диалог, меню, тост, восемь вкладок каталога (регрессия кита)
+   и режимы экранов 2 и 3: «План кадров», «JSON», вкладка «Референс» (M4.12).
    Данные — моки API (`./api`), часы — «сейчас» артборда 1 (11 сентября, 12:41), анимации выключены конфигом.
    Экраны выпуска открывают Pirate Ship из моков, экран 1 снимается в режиме «Все каналы». */
 import type { Page } from '@playwright/test'
@@ -33,6 +34,12 @@ async function open(page: Page, path: string) {
     await page.getByRole('radiogroup', { name: 'Фильтр канала' }).getByRole('radio', { name: 'Все' }).click()
     await expect(page.getByText('9 всего, 2 опубликовано')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Слоты публикации' }).getByRole('listitem')).toHaveCount(11)
+  }
+  // Экраны 2 и 3 — данные моков на месте, иначе снимок ловит экран до ответа API (L-027)
+  if (path === '/ideas') await expect(page.getByRole('region', { name: 'Бэклог идей' }).getByRole('article')).toHaveCount(7)
+  if (path === '/episodes/pirate/script') {
+    await expect(page.getByRole('article', { name: 'Лист сценария' })).toContainText('Cursus — Every Rank on a Pirate Ship')
+    await expect(page.getByRole('region', { name: 'Смета по плану' })).toContainText('Итого')
   }
   // Каталог состояний — отдельный чанк dev-сборки: без ожидания снимок ловил пустую рабочую зону (эталон M1.6)
   if (path === '/states') await expect(page.getByRole('heading', { name: 'Состояния', level: 1 })).toBeVisible()
@@ -102,4 +109,32 @@ test.describe('слои и каталог (только 1536)', () => {
       await expect(page).toHaveScreenshot(`catalog-${CATALOG_TABS.indexOf(tab) + 1}.png`)
     })
   }
+})
+
+test.describe('режимы экранов 2 и 3 (только 1536)', () => {
+  test.skip(({ viewport }) => viewport?.width !== 1536, 'режимы снимаются на базовой ширине')
+
+  test('план кадров', async ({ page }) => {
+    await open(page, '/episodes/pirate/script')
+    await page.getByRole('radiogroup', { name: 'Режим' }).getByRole('radio', { name: 'План кадров' }).click()
+    await expect(page.getByRole('row').filter({ hasText: 's062' })).toBeVisible()
+    await expect(page).toHaveScreenshot('03-script-plan.png')
+  })
+
+  test('JSON', async ({ page }) => {
+    await open(page, '/episodes/pirate/script')
+    await page.getByRole('radiogroup', { name: 'Режим' }).getByRole('radio', { name: 'JSON' }).click()
+    await expect(page.getByRole('textbox', { name: 'JSON плана' })).toBeVisible()
+    await expect(page.getByRole('complementary', { name: 'Проверка плана' })).toContainText('ошибок нет')
+    await expect(page).toHaveScreenshot('03-script-json.png')
+  })
+
+  test('вкладка «Референс»', async ({ page }) => {
+    await open(page, '/ideas?tab=reference')
+    const map = page.getByRole('region', { name: 'Карта структуры' })
+    await expect(map.getByRole('list', { name: 'Сегменты' }).getByRole('listitem')).toHaveCount(10)
+    await expect(map.getByRole('region', { name: 'Приёмы подачи' }).getByRole('listitem')).toHaveCount(4)
+    await expect(page.getByRole('region', { name: 'Сходство с референсом' })).toContainText('Выпусков по этому референсу ещё нет')
+    await expect(page).toHaveScreenshot('02-ideas-reference.png')
+  })
 })

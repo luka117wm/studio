@@ -1,0 +1,50 @@
+Sure — here is part 2 of 2, continuing from s004 in the same sections and adding the evening one.
+
+```json
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "otto",
+    "episode_id": "o11",
+    "working_title": "A Day in Pompeii Before the Eruption",
+    "format": "host",
+    "language": "en",
+    "target_minutes": 8,
+    "part": 2,
+    "parts_total": 2
+  },
+  "sections": [
+    { "id": "r3", "title": "Evening at the baths", "chapter": true, "vo_direction": "slower, quiet" }
+  ],
+  "shots": [
+    {
+      "id": "s004",
+      "section": "r3",
+      "vo": "At the baths the water is warm, the gossip is warmer, and the mountain is just scenery.",
+      "image": { "prompt": "Otto sits on a marble bench in a steamy bath hall, two men talking beside him", "period": "pompeii-79", "appearances": ["otto@pompeii-79"], "shot_size": "reaction" },
+      "motion": { "type": "push_in", "strength": 0.06, "ease": "in_out_cubic" },
+      "transition_in": { "type": "dip", "duration": 0.8 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [{ "prompt": "dripping water echo in a stone hall", "offset": 0.0, "duration": 3.0, "gain_db": -20 }],
+      "overlay": null
+    },
+    {
+      "id": "s005",
+      "section": "r3",
+      "vo": "Tomorrow, around one in the afternoon, a column of ash will climb out of Vesuvius. Tonight, nobody looks up.",
+      "image": { "prompt": "Otto on a rooftop at dusk looking at the town, the mountain small on the horizon", "period": "pompeii-79", "appearances": ["otto@pompeii-79"], "shot_size": "establishing" },
+      "motion": { "type": "pull_out", "strength": 0.12, "ease": "in_out_cubic" },
+      "transition_in": { "type": "crossfade", "duration": 1.0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    }
+  ],
+  "music": [{ "section": "r3", "mood": "low sustained strings, uneasy", "gain_db": -24 }],
+  "facts": [
+    { "claim": "The eruption column rose around 1 pm on the day after the traditional date of 23 August", "status": "disputed", "source_url": "https://example.org/vesuvius-79-date", "shot_id": "s005" }
+  ]
+}
+```
+
+That's the whole plan. If any shot runs long for the voice-over, tell me which one and I'll split it.
