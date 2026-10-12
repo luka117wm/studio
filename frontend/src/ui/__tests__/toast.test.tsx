@@ -25,6 +25,25 @@ describe('ToastStack', () => {
     expect(onDismiss).toHaveBeenCalledWith('a')
   })
 
+  test('новый тост не продлевает соседний; повтор с тем же id — новые 4 с', () => {
+    const onDismiss = vi.fn()
+    const first = { id: 'a', message: 'Часть 1 из 2 принята' }
+    const { rerender } = render(<ToastStack toasts={[first]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(3000))
+    const second = { id: 'b', message: 'План v001: +52 кадра' }
+    rerender(<ToastStack toasts={[first, second]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(1000))
+    expect(onDismiss.mock.calls).toEqual([['a']])
+
+    const again = { id: 'b', message: 'План v002: +52 кадра' }
+    act(() => vi.advanceTimersByTime(2000))
+    rerender(<ToastStack toasts={[again]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(3999))
+    expect(onDismiss.mock.calls).toEqual([['a']])
+    act(() => vi.advanceTimersByTime(1))
+    expect(onDismiss.mock.calls).toEqual([['a'], ['b']])
+  })
+
   test('пустой стек ничего не рендерит', () => {
     const { container } = render(<ToastStack toasts={[]} onDismiss={() => {}} />)
     expect(container.innerHTML).toBe('')
