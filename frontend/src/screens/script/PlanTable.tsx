@@ -245,9 +245,11 @@ function PlanRow({ episodeId, index, shot, planShot, section, cursor, editing, o
       : undefined
 
   return (
-    <div role="row" data-shot={shot.id} className={cn(GRID, 'min-h-7 items-start border-b border-row px-3 py-0.5 font-dense text-12')}>
+    <div role="row" data-shot={shot.id} className={cn(GRID, 'min-h-7 items-start border-b border-row-border px-3 pt-0.5 pb-px font-dense text-12')}>
       <div className={cn('flex h-6 items-center pr-2 font-script', shot.status === 'failed' ? 'text-failed-text' : 'text-muted')}>{shot.id}</div>
-      <div className="flex h-6 items-center truncate pr-2">{section}</div>
+      <div className="flex h-6 min-w-0 items-center pr-2">
+        <span className="truncate">{section}</span>
+      </div>
       {cell(
         'vo',
         <span className="truncate font-ui">{vo.value || '— пусто —'}</span>,
@@ -262,7 +264,9 @@ function PlanRow({ episodeId, index, shot, planShot, section, cursor, editing, o
         prompt.planValue,
         <TextEditor label={`Промпт кадра ${shot.id}`} value={prompt.value} onCommit={(v) => prompt.set(v)} onClose={onClose} script />,
       )}
-      <div className="flex h-6 items-center truncate pr-2 text-muted">{heroesLabel(shot.image.appearances)}</div>
+      <div className="flex h-6 min-w-0 items-center pr-2 text-muted">
+        <span className="truncate">{heroesLabel(shot.image.appearances)}</span>
+      </div>
       {cell(
         'size',
         <span className="truncate">{shotSizeLabel(size.value)}</span>,
