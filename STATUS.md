@@ -1100,6 +1100,30 @@ standard — одна строка в `providers.yaml`). У 5.5 мышление
 - Проверки: pytest 430, ruff (check, format), mypy; vitest 522, oxlint, build, `typegen:check`, `tokens:check`;
   e2e 53 + 40 пропусков, зелёные.
 
+### 42. M5.1 — Схемы канона, черновики и версии (2026-10-14, ветка `m5-canon`)
+
+- `models/canon.py`: `Style` (группы артборда 12: рендер, `optics`, `light`, `palette{rule, swatches}`, зерно и
+  композиция, `negative_global`), `Period` (`years{from, to}`, списки, `forbidden`), `Character` (`nature{personality,
+  posture, manner, face}`, `appearances[]`), `Appearance`. Одна модель на черновик и версию: поля пустые по
+  умолчанию, скелет из `id` — годный черновик. Форма — 422 по-русски (`PydanticCustomError`), правила публикации —
+  `publish_problems()`, 409 со всеми нарушениями через `\n`. Кириллица в полях промпта (всё, кроме `label`) и
+  пустые позиции списков не публикуются.
+- `storage/canon_store.py`: конверт `{based_on, published_at|saved_at, data}`; `publish` пишет `v<N+1>` через
+  новый `atomic.write_json_new` (`os.link` — существующий файл не заменить) и удаляет черновик; черновик, равный
+  последней версии, не публикуется; `draft_from` не затирает черновик; `resolve_style/period/appearance` →
+  `CanonRefError` со строчной буквы (M5.2 приставит кадр). Пути слоёв и якорей — в `paths.py` (`check_appearance_id`).
+- `api/canon.py`: сводка, `GET ?version=`, `PUT/POST/DELETE …/draft`, `POST …/publish` для `style`,
+  `periods/{id}`, `characters/{id}`; `CanonError` → `{detail}` 404/409. Сверх этапа, по решению: `DELETE …/draft`
+  и отказ публиковать неизменённый черновик. typegen: группы `canon` и `canon_draft` (L-031).
+- Контракт — `docs/canon_schema.md`; строка карты в `CLAUDE.md`. L-007 закреплён валидатором и ушёл в архив.
+- Живая проверка (uvicorn на временном `STUDIO_DATA_DIR`, seed): черновик эпохи без запретов → 409, `draft.json`
+  на месте → с запретами `v001.json` → правка → `v002`, sha256 `v001` тот же; 422 по-русски; канон Otto не виден Cursus.
+- Проверки: pytest 465 (+35 `test_canon.py`), ruff (check, format), mypy, `typegen:check`, `pnpm build` — зелёные.
+- Хвосты: `jq` в WSL нет, а «Команды проверки» M5.x идут через `| jq` — живая проверка шла через `python3 -m
+  json.tool` (поставить: `sudo apt install jq`). Существование эпохи облика (`appearance.period`) при публикации
+  персонажа не проверяется — его проверит резолв `canon_ref` в M5.2. Черновик из старой версии публикуется
+  новой версией (откат v001 → v003) — так задумано.
+
 ## Дальше
 
 Модуль **M3** закрыт 2026-09-29 (разделы 19–28), тег `m3`. Модуль **M4** закрыт 2026-10-13 (разделы 29–41), тег `m4`,
@@ -1109,8 +1133,8 @@ PR #4 `m4-script-bridge` → `main` ждёт слияния.
    пользователя: опорные портреты и кадры стиля — по-настоящему, Gemini Pro (`gemini-3-pro-image`, лист ~$1.61);
    мост — только черновик эпохи и «Дополнить запреты», стиль и облики — руками (принцип 13); проверка
    консистентности кадров — в M6; «Утвердить план» требует опубликованный канон и листы 6/6. Хвосты M1.6 (панель
-   480, шапка «уровень канала») и L-007 вошли в устав. **Следующая сессия — `M5.1`**, ветка `m5-canon` от `main`
-   (PR #4 и #5 влиты), стартовая фраза — в `docs/tasks/M5.md`. Claude Code — в `~/projects/studio`.
+   480, шапка «уровень канала») и L-007 вошли в устав. `M5.1` закрыт (раздел 42). **Следующая сессия — `M5.2`**,
+   ветка `m5-canon`, стартовая фраза — в `docs/tasks/M5.md`. Claude Code — в `~/projects/studio`.
 2. К API-сессии (когда будет ключ): кэш ответов LLM, мышление Opus 5.5, `ANTHROPIC_API_KEY`.
 
 Хвосты со своим модулем:

@@ -1,0 +1,768 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/canon",
+  "title": "canon",
+  "description": "Модели API Studio, группа «canon». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Appearance": {
+      "additionalProperties": false,
+      "description": "Облик: персонаж в одной эпохе и одном возрасте. Свой лист опорных портретов.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "period": {
+          "default": "",
+          "title": "Period",
+          "type": "string"
+        },
+        "age": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Age"
+        },
+        "build": {
+          "default": "",
+          "title": "Build",
+          "type": "string"
+        },
+        "face": {
+          "default": "",
+          "title": "Face",
+          "type": "string"
+        },
+        "hair": {
+          "default": "",
+          "title": "Hair",
+          "type": "string"
+        },
+        "clothing": {
+          "default": "",
+          "title": "Clothing",
+          "type": "string"
+        },
+        "wear": {
+          "default": "",
+          "title": "Wear",
+          "type": "string"
+        },
+        "props": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Props",
+          "type": "array"
+        },
+        "negative_local": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Local",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "period",
+        "age",
+        "build",
+        "face",
+        "hair",
+        "clothing",
+        "wear",
+        "props",
+        "negative_local"
+      ],
+      "title": "Appearance",
+      "type": "object"
+    },
+    "CanonCharacterItem": {
+      "additionalProperties": false,
+      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "appearances_count": {
+          "title": "Appearances Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "versions",
+        "draft",
+        "appearances_count"
+      ],
+      "title": "CanonCharacterItem",
+      "type": "object"
+    },
+    "CanonPeriodItem": {
+      "additionalProperties": false,
+      "description": "Подпись и число запретов — из черновика, а без него — из последней версии.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "forbidden_count": {
+          "title": "Forbidden Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "versions",
+        "draft",
+        "forbidden_count"
+      ],
+      "title": "CanonPeriodItem",
+      "type": "object"
+    },
+    "CanonStyleSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "versions",
+        "draft"
+      ],
+      "title": "CanonStyleSummary",
+      "type": "object"
+    },
+    "CanonSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/CanonStyleSummary"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/CanonPeriodItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/CanonCharacterItem"
+          },
+          "title": "Characters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "style",
+        "periods",
+        "characters"
+      ],
+      "title": "CanonSummary",
+      "type": "object"
+    },
+    "CanonVersionInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "published_at": {
+          "title": "Published At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "based_on",
+        "published_at"
+      ],
+      "title": "CanonVersionInfo",
+      "type": "object"
+    },
+    "Character": {
+      "additionalProperties": false,
+      "description": "Персонаж — один файл версии на всех обликов; ссылка на облик —\n`characters/<персонаж>/vNNN#<облик>`.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "nature": {
+          "$ref": "#/$defs/Nature",
+          "default": {
+            "personality": "",
+            "posture": "",
+            "manner": "",
+            "face": ""
+          }
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Appearance"
+          },
+          "title": "Appearances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "nature",
+        "appearances"
+      ],
+      "title": "Character",
+      "type": "object"
+    },
+    "CharacterDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Character"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "CharacterDoc",
+      "type": "object"
+    },
+    "Light": {
+      "additionalProperties": false,
+      "properties": {
+        "character": {
+          "default": "",
+          "title": "Character",
+          "type": "string"
+        },
+        "contrast": {
+          "default": "",
+          "title": "Contrast",
+          "type": "string"
+        },
+        "direction": {
+          "default": "",
+          "title": "Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character",
+        "contrast",
+        "direction"
+      ],
+      "title": "Light",
+      "type": "object"
+    },
+    "Nature": {
+      "additionalProperties": false,
+      "description": "Неизменяемое персонажа: одинаково во всех обликах.",
+      "properties": {
+        "personality": {
+          "default": "",
+          "title": "Personality",
+          "type": "string"
+        },
+        "posture": {
+          "default": "",
+          "title": "Posture",
+          "type": "string"
+        },
+        "manner": {
+          "default": "",
+          "title": "Manner",
+          "type": "string"
+        },
+        "face": {
+          "default": "",
+          "title": "Face",
+          "type": "string"
+        }
+      },
+      "required": [
+        "personality",
+        "posture",
+        "manner",
+        "face"
+      ],
+      "title": "Nature",
+      "type": "object"
+    },
+    "Optics": {
+      "additionalProperties": false,
+      "properties": {
+        "focal": {
+          "default": "",
+          "title": "Focal",
+          "type": "string"
+        },
+        "depth": {
+          "default": "",
+          "title": "Depth",
+          "type": "string"
+        },
+        "distortion": {
+          "default": "",
+          "title": "Distortion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "focal",
+        "depth",
+        "distortion"
+      ],
+      "title": "Optics",
+      "type": "object"
+    },
+    "Palette": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "default": "",
+          "title": "Rule",
+          "type": "string"
+        },
+        "swatches": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Swatch"
+          },
+          "title": "Swatches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rule",
+        "swatches"
+      ],
+      "title": "Palette",
+      "type": "object"
+    },
+    "Period": {
+      "additionalProperties": false,
+      "description": "Эпоха: факты времени и места, переиспользуются между выпусками. `forbidden` —\nанахронизмы: идут в negative каждого кадра эпохи (L-007).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "region": {
+          "default": "",
+          "title": "Region",
+          "type": "string"
+        },
+        "years": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Years"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "palette_shift": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Palette Shift",
+          "type": "array"
+        },
+        "materials": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Materials",
+          "type": "array"
+        },
+        "light_sources": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Light Sources",
+          "type": "array"
+        },
+        "architecture": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Architecture",
+          "type": "array"
+        },
+        "clothing": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Clothing",
+          "type": "array"
+        },
+        "props": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Props",
+          "type": "array"
+        },
+        "forbidden": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "region",
+        "years",
+        "palette_shift",
+        "materials",
+        "light_sources",
+        "architecture",
+        "clothing",
+        "props",
+        "forbidden"
+      ],
+      "title": "Period",
+      "type": "object"
+    },
+    "PeriodDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Period"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "PeriodDoc",
+      "type": "object"
+    },
+    "Style": {
+      "additionalProperties": false,
+      "description": "Стиль канала — один на канал, одинаков для всех выпусков (артборд 12, слой «Стиль»).",
+      "properties": {
+        "render": {
+          "default": "",
+          "title": "Render",
+          "type": "string"
+        },
+        "material": {
+          "default": "",
+          "title": "Material",
+          "type": "string"
+        },
+        "processing": {
+          "default": "",
+          "title": "Processing",
+          "type": "string"
+        },
+        "optics": {
+          "$ref": "#/$defs/Optics",
+          "default": {
+            "focal": "",
+            "depth": "",
+            "distortion": ""
+          }
+        },
+        "light": {
+          "$ref": "#/$defs/Light",
+          "default": {
+            "character": "",
+            "contrast": "",
+            "direction": ""
+          }
+        },
+        "palette": {
+          "$ref": "#/$defs/Palette",
+          "default": {
+            "rule": "",
+            "swatches": []
+          }
+        },
+        "grain": {
+          "default": "",
+          "title": "Grain",
+          "type": "string"
+        },
+        "composition": {
+          "default": "",
+          "title": "Composition",
+          "type": "string"
+        },
+        "negative_global": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Global",
+          "type": "array"
+        }
+      },
+      "required": [
+        "render",
+        "material",
+        "processing",
+        "optics",
+        "light",
+        "palette",
+        "grain",
+        "composition",
+        "negative_global"
+      ],
+      "title": "Style",
+      "type": "object"
+    },
+    "StyleDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Style"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "StyleDoc",
+      "type": "object"
+    },
+    "Swatch": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "hex": {
+          "title": "Hex",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "hex"
+      ],
+      "title": "Swatch",
+      "type": "object"
+    },
+    "Years": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "integer"
+        },
+        "to": {
+          "title": "To",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Years",
+      "type": "object"
+    }
+  }
+}

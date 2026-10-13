@@ -1,0 +1,51 @@
+{
+  "id": "caribbean-1716",
+  "label": "Карибы, 1716",
+  "region": "Caribbean Sea: Bahamas, Jamaica and the Spanish Main",
+  "years": { "from": 1714, "to": 1718 },
+  "palette_shift": ["sun-bleached canvas", "tarred black timber", "turquoise shallows"],
+  "materials": [
+    "oak and pine planking caulked with oakum and pitch",
+    "hemp rope",
+    "flax sailcloth",
+    "wrought iron",
+    "brass fittings",
+    "vegetable-tanned leather"
+  ],
+  "light_sources": ["tropical sun", "tallow candles", "horn-paned lanterns", "galley cooking fire"],
+  "architecture": [
+    "square-rigged sloops and brigantines",
+    "timber wharves on pilings",
+    "whitewashed stone forts with embrasures"
+  ],
+  "clothing": [
+    "loose linen shirts",
+    "canvas petticoat breeches",
+    "short wool jackets",
+    "tricorn hats",
+    "neckerchiefs",
+    "bare feet on deck"
+  ],
+  "props": [
+    "flintlock pistols",
+    "cutlasses",
+    "wooden buckets",
+    "powder kegs",
+    "leather cartridge cases",
+    "rope coils"
+  ],
+  "forbidden": [
+    "modern metal-framed eyeglasses",
+    "matchboxes",
+    "zippers",
+    "rubber boots",
+    "machine-knit beanies",
+    "percussion-cap firearms",
+    "revolvers",
+    "steam engines",
+    "electric light",
+    "plastic",
+    "printed T-shirts",
+    "wristwatches"
+  ]
+}

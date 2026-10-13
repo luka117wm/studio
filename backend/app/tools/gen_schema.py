@@ -35,6 +35,15 @@ from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
+from app.models.canon import (
+    CanonSummary,
+    Character,
+    CharacterDoc,
+    Period,
+    PeriodDoc,
+    Style,
+    StyleDoc,
+)
 from app.models.channel import ChannelPatch, ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
 from app.models.idea import Idea, IdeaCreate, IdeaPatch
@@ -123,6 +132,14 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (ReferenceAnswer, "validation"),
         (ReferenceEpisodeCreate, "validation"),
     ],
+    "canon": [
+        (CanonSummary, "serialization"),
+        (StyleDoc, "serialization"),
+        (PeriodDoc, "serialization"),
+        (CharacterDoc, "serialization"),
+    ],
+    # Тела `PUT …/draft` — отдельно (L-031): `Style`, `Period`, `Character` есть и в ответах.
+    "canon_draft": [(Style, "validation"), (Period, "validation"), (Character, "validation")],
 }
 
 log = logging.getLogger(__name__)

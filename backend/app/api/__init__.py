@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api import (
     bridge,
+    canon,
     channels,
     cost,
     director,
@@ -22,6 +23,7 @@ from app.api import (
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(channels.router)
+api_router.include_router(canon.router)
 api_router.include_router(episodes.router)
 api_router.include_router(slots.router)
 api_router.include_router(formats.router)

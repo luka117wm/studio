@@ -22,7 +22,31 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
     _write_atomic(path, data)
 
 
+def write_json_new(path: Path, data: Any) -> None:
+    """Как `write_json_atomic`, но только новым файлом: если `path` уже есть — FileExistsError,
+    файл не тронут. Для неизменяемых версий (канон): temp → fsync → link → unlink temp.
+    `os.replace` здесь не годится — он заменяет существующий файл молча."""
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    tmp = _write_temp(path, text.encode("utf-8"))
+    try:
+        os.link(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    _fsync_dir(path.parent)
+
+
 def _write_atomic(path: Path, data: bytes) -> None:
+    tmp = _write_temp(path, data)
+    try:
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    _fsync_dir(path.parent)
+
+
+def _write_temp(path: Path, data: bytes) -> Path:
+    """Temp-файл рядом с `path` (та же ФС — rename и link атомарны), данные уже на диске."""
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     tmp = Path(tmp_name)
@@ -31,11 +55,10 @@ def _write_atomic(path: Path, data: bytes) -> None:
             fh.write(data)
             fh.flush()
             os.fsync(fh.fileno())
-        os.replace(tmp, path)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
-    _fsync_dir(path.parent)
+    return tmp
 
 
 def read_json(path: Path) -> Any:
