@@ -11,8 +11,12 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from app.api.formats import estimate_episode
 from app.main import create_app
+from app.models.formats import load_formats
+from app.pipeline.script.estimate import BRIDGE_MODEL
 from app.providers.base import ConfigError
+from app.providers.gateway import build_gateway
 from app.settings import REPO_ROOT, Settings
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
@@ -48,8 +52,11 @@ def seeded_client(tmp_path: Path, config: Path) -> Iterator[TestClient]:
         yield client
 
 
-def expected(config: Path, channel_format: str) -> dict[str, tuple[str, int]]:
-    """Этап → (модель, микродоллары) по маршруту профиля по умолчанию и прайсу."""
+def expected(
+    config: Path, channel_format: str, *, bridge: bool = True
+) -> dict[str, tuple[str, int]]:
+    """Этап → (модель, микродоллары) по маршруту профиля по умолчанию и прайсу. При мосте
+    сценарий — условная модель моста и $0 (устав M4, решение 2)."""
     providers = yaml.safe_load((config / "providers.yaml").read_text(encoding="utf-8"))
     pricing = yaml.safe_load((config / "pricing.yaml").read_text(encoding="utf-8"))
     formats = yaml.safe_load((config / "formats.yaml").read_text(encoding="utf-8"))
@@ -81,6 +88,8 @@ def expected(config: Path, channel_format: str) -> dict[str, tuple[str, int]]:
             micro = usd * 1_000_000 * Decimal(quantity) / Decimal(price.get("per", 1))
             total += int(micro.quantize(Decimal(1), rounding=ROUND_HALF_UP))
         out[stage] = (entry["model"], total * calls[stage])
+    if bridge:
+        out["script"] = (BRIDGE_MODEL, 0)
     return out
 
 
@@ -104,6 +113,38 @@ def test_estimate_is_sum_of_stage_estimates(
     for cost in body["estimate"]["stages"]:
         assert cost["usd_micro"] == sum(line["usd_micro"] for line in cost["lines"])
     assert isinstance(body["stale_pricing"], bool)
+
+
+def test_bridge_script_line_is_zero_and_marked(tmp_path: Path) -> None:
+    """При мосте сценарий в смете — $0 без строк единиц и с пометкой; у платных этапов её нет."""
+    with seeded_client(tmp_path, CONFIG) as client:
+        body = client.get("/api/formats", params={"channel": "cursus"}).json()
+    script, *paid = body["estimate"]["stages"]
+    assert script == {
+        "stage": "script",
+        "provider": "bridge",
+        "model": BRIDGE_MODEL,
+        "lines": [],
+        "usd_micro": 0,
+        "stale_pricing": False,
+        "via": "bridge",
+    }
+    assert [cost["stage"] for cost in paid] == ["images", "voice"]
+    assert all("via" not in cost for cost in paid)
+    assert body["estimate"]["usd_micro"] == sum(cost["usd_micro"] for cost in paid)
+
+
+def test_api_plan_source_prices_script_route(tmp_path: Path) -> None:
+    """`plan_source: api` (после подключения API): сценарий — оценка маршрута `script`."""
+    settings = Settings(_env_file=None, studio_data_dir=tmp_path / "data")
+    gateway = build_gateway(settings, StudioPaths(settings.studio_data_dir))
+    formats = load_formats(CONFIG / "formats.yaml")
+    estimate = estimate_episode(
+        gateway, formats.formats["every_rank"], formats.estimate, plan_source="api"
+    )
+    got = {cost.stage: (cost.model, cost.usd_micro) for cost in estimate.stages}
+    assert got == expected(CONFIG, "every_rank", bridge=False)
+    assert estimate.stages[0].via is None
 
 
 def test_cursus_preset_matches_artboard(tmp_path: Path) -> None:

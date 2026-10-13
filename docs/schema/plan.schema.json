@@ -1,0 +1,1435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/plan",
+  "title": "plan",
+  "description": "Модели API Studio, группа «plan». Сгенерировано из Pydantic.",
+  "$defs": {
+    "AnimateSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "recommended": {
+          "default": false,
+          "title": "Recommended",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "seconds": {
+          "default": 4,
+          "maximum": 10,
+          "minimum": 2,
+          "title": "Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recommended",
+        "reason",
+        "prompt",
+        "seconds"
+      ],
+      "title": "AnimateSpec",
+      "type": "object"
+    },
+    "ApprovalProblem": {
+      "properties": {
+        "check": {
+          "enum": [
+            "stage",
+            "plan",
+            "vo",
+            "prompt",
+            "similarity"
+          ],
+          "title": "Check",
+          "type": "string"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Shot Id"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check",
+        "shot_id",
+        "message"
+      ],
+      "title": "ApprovalProblem",
+      "type": "object"
+    },
+    "ApprovalRefusal": {
+      "description": "Тело 409 «Утвердить план» (`detail`): сводка для пользователя и проблемы по кадрам.",
+      "properties": {
+        "code": {
+          "const": "plan_not_ready",
+          "default": "plan_not_ready",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/ApprovalProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "problems"
+      ],
+      "title": "ApprovalRefusal",
+      "type": "object"
+    },
+    "BridgeIssue": {
+      "description": "Одна ошибка внутри ответа: где (`shots[3].image.prompt`, `s012`) и что не так.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "message"
+      ],
+      "title": "BridgeIssue",
+      "type": "object"
+    },
+    "BridgeRun": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "task": {
+          "enum": [
+            "plan",
+            "ideas",
+            "reference"
+          ],
+          "title": "Task",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Id"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "integer"
+        },
+        "prompt_hash": {
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "part": {
+          "minimum": 1,
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "minimum": 1,
+          "title": "Parts Total",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "prompted",
+            "applied",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/BridgeIssue"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "answered_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Answered At"
+        }
+      },
+      "required": [
+        "id",
+        "task",
+        "channel",
+        "episode_id",
+        "target_id",
+        "prompt_id",
+        "prompt_version",
+        "prompt_hash",
+        "part",
+        "parts_total",
+        "status",
+        "errors",
+        "created_at",
+        "answered_at"
+      ],
+      "title": "BridgeRun",
+      "type": "object"
+    },
+    "BudgetOutlook": {
+      "description": "Уровень бюджета после выпуска: лимит, занятое до него, доля сметы, остаток.",
+      "properties": {
+        "level": {
+          "enum": [
+            "month",
+            "episode",
+            "animation"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "limit": {
+          "$ref": "#/$defs/Money"
+        },
+        "committed": {
+          "$ref": "#/$defs/Money"
+        },
+        "estimate": {
+          "$ref": "#/$defs/Money"
+        },
+        "remaining": {
+          "$ref": "#/$defs/Money"
+        },
+        "exceeded": {
+          "title": "Exceeded",
+          "type": "boolean"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "limit",
+        "committed",
+        "estimate",
+        "remaining",
+        "exceeded",
+        "message"
+      ],
+      "title": "BudgetOutlook",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "EffectivePlan": {
+      "additionalProperties": false,
+      "description": "Действующий план для экрана 3: текущая версия плюс ручные правки.\n\n`shots` — кадры версии по таймлайну, затем убранные (`status: removed`) с содержимым из\nпоследней версии, где они были (принцип 8).",
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "bridge",
+            "manual",
+            "api"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "approved_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Version"
+        },
+        "meta": {
+          "$ref": "#/$defs/Meta"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/Section"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "shots": {
+          "items": {
+            "$ref": "#/$defs/PlanShot"
+          },
+          "title": "Shots",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "title": "Facts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "source",
+        "approved_version",
+        "meta",
+        "sections",
+        "shots",
+        "facts"
+      ],
+      "title": "EffectivePlan",
+      "type": "object"
+    },
+    "EstimateLine": {
+      "description": "Строка сметы плана для экрана: что, сколько и почём.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cost": {
+          "$ref": "#/$defs/StageCost"
+        }
+      },
+      "required": [
+        "title",
+        "label",
+        "usd",
+        "cost"
+      ],
+      "title": "EstimateLine",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "claim": {
+          "title": "Claim",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "disputed",
+            "not_found"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "pattern": "^s\\d{3,}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Id"
+        }
+      },
+      "required": [
+        "claim",
+        "status",
+        "source_url"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "ImageSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "period": {
+          "title": "Period",
+          "type": "string"
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "shot_size": {
+          "enum": [
+            "establishing",
+            "action",
+            "reaction",
+            "detail"
+          ],
+          "title": "Shot Size",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt",
+        "period",
+        "appearances",
+        "shot_size"
+      ],
+      "title": "ImageSpec",
+      "type": "object"
+    },
+    "ImportResult": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "created": {
+          "title": "Created",
+          "type": "boolean"
+        },
+        "added": {
+          "title": "Added",
+          "type": "integer"
+        },
+        "changed": {
+          "title": "Changed",
+          "type": "integer"
+        },
+        "removed": {
+          "title": "Removed",
+          "type": "integer"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/ShotChange"
+          },
+          "title": "Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "created",
+        "added",
+        "changed",
+        "removed",
+        "changes"
+      ],
+      "title": "ImportResult",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "episode_id": {
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "title": "Episode Id",
+          "type": "string"
+        },
+        "working_title": {
+          "title": "Working Title",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "every_rank",
+            "host"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "language": {
+          "default": "en",
+          "title": "Language",
+          "type": "string"
+        },
+        "target_minutes": {
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Target Minutes",
+          "type": "integer"
+        },
+        "part": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Parts Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel",
+        "episode_id",
+        "working_title",
+        "format",
+        "language",
+        "target_minutes",
+        "part",
+        "parts_total"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "push_in",
+            "pull_out",
+            "pan_left",
+            "pan_right",
+            "tilt_up",
+            "tilt_down",
+            "static",
+            "drift"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "strength": {
+          "maximum": 0.25,
+          "minimum": 0.0,
+          "title": "Strength",
+          "type": "number"
+        },
+        "ease": {
+          "enum": [
+            "linear",
+            "in_out_sine",
+            "in_out_cubic",
+            "in_cubic",
+            "out_cubic"
+          ],
+          "title": "Ease",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "strength",
+        "ease"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "PlanAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 2000000,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "PlanAnswer",
+      "type": "object"
+    },
+    "PlanAnswerResult": {
+      "description": "Часть принята: что дальше — следующая часть или итог импорта версии.",
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "part": {
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "title": "Parts Total",
+          "type": "integer"
+        },
+        "shots_in_part": {
+          "title": "Shots In Part",
+          "type": "integer"
+        },
+        "received": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Received",
+          "type": "array"
+        },
+        "next_part": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Part"
+        },
+        "import_result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImportResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "part",
+        "parts_total",
+        "shots_in_part",
+        "received",
+        "next_part",
+        "import_result",
+        "warnings"
+      ],
+      "title": "PlanAnswerResult",
+      "type": "object"
+    },
+    "PlanCheck": {
+      "description": "Проверка плана без записи: `errors` — строки, как у импорта; `items` — они же по кадрам.",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ValidationItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok",
+        "errors",
+        "items"
+      ],
+      "title": "PlanCheck",
+      "type": "object"
+    },
+    "PlanEstimate": {
+      "description": "Смета действующего плана: `GET /api/projects/{id}/estimate`.",
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "plan_source": {
+          "enum": [
+            "bridge",
+            "api"
+          ],
+          "title": "Plan Source",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/EstimateLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "total": {
+          "$ref": "#/$defs/Money"
+        },
+        "budgets": {
+          "items": {
+            "$ref": "#/$defs/BudgetOutlook"
+          },
+          "title": "Budgets",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "stale_pricing": {
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "version",
+        "plan_source",
+        "lines",
+        "total",
+        "budgets",
+        "warnings",
+        "stale_pricing"
+      ],
+      "title": "PlanEstimate",
+      "type": "object"
+    },
+    "PlanParts": {
+      "description": "Состояние набора частей для панели моста на экране 3.",
+      "properties": {
+        "parts_total": {
+          "title": "Parts Total",
+          "type": "integer"
+        },
+        "shots_per_part": {
+          "title": "Shots Per Part",
+          "type": "integer"
+        },
+        "received": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Received",
+          "type": "array"
+        },
+        "next_part": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next Part"
+        },
+        "last_run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BridgeRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "parts_total",
+        "shots_per_part",
+        "received",
+        "next_part",
+        "last_run"
+      ],
+      "title": "PlanParts",
+      "type": "object"
+    },
+    "PlanPrompt": {
+      "description": "Промпт части для кнопки «Скопировать»; обмен открыт (`run_id`).",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "part": {
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "title": "Parts Total",
+          "type": "integer"
+        },
+        "first_shot": {
+          "title": "First Shot",
+          "type": "string"
+        },
+        "last_shot": {
+          "title": "Last Shot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "prompt_id",
+        "version",
+        "run_id",
+        "part",
+        "parts_total",
+        "first_shot",
+        "last_shot"
+      ],
+      "title": "PlanPrompt",
+      "type": "object"
+    },
+    "PlanShot": {
+      "additionalProperties": false,
+      "description": "Кадр действующего плана: поля версии с наложенной правкой и состояние из project.json.",
+      "properties": {
+        "id": {
+          "pattern": "^s\\d{3,}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "vo": {
+          "title": "Vo",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/ImageSpec"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "transition_in": {
+          "$ref": "#/$defs/Transition",
+          "default": {
+            "type": "cut",
+            "duration": 0.0
+          }
+        },
+        "animate": {
+          "$ref": "#/$defs/AnimateSpec",
+          "default": {
+            "recommended": false,
+            "reason": null,
+            "prompt": null,
+            "seconds": 4
+          }
+        },
+        "sfx": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SfxSpec"
+          },
+          "title": "Sfx",
+          "type": "array"
+        },
+        "overlay": {
+          "default": null,
+          "title": "Overlay",
+          "type": "null"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "queued",
+            "generating",
+            "done",
+            "failed",
+            "stale",
+            "removed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "stale_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stale Reasons",
+          "type": "array"
+        },
+        "duration_locked": {
+          "title": "Duration Locked",
+          "type": "boolean"
+        },
+        "prompt_locked": {
+          "title": "Prompt Locked",
+          "type": "boolean"
+        },
+        "overridden": {
+          "items": {
+            "enum": [
+              "vo",
+              "image.prompt",
+              "image.shot_size",
+              "motion",
+              "transition_in",
+              "animate",
+              "sfx"
+            ],
+            "type": "string"
+          },
+          "title": "Overridden",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "section",
+        "vo",
+        "image",
+        "motion",
+        "transition_in",
+        "animate",
+        "sfx",
+        "overlay",
+        "status",
+        "stale_reasons",
+        "duration_locked",
+        "prompt_locked",
+        "overridden"
+      ],
+      "title": "PlanShot",
+      "type": "object"
+    },
+    "Section": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "chapter": {
+          "default": true,
+          "title": "Chapter",
+          "type": "boolean"
+        },
+        "vo_direction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vo Direction"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "chapter",
+        "vo_direction"
+      ],
+      "title": "Section",
+      "type": "object"
+    },
+    "SfxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Offset",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "gain_db": {
+          "maximum": 0.0,
+          "minimum": -40.0,
+          "title": "Gain Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "prompt",
+        "offset",
+        "duration",
+        "gain_db"
+      ],
+      "title": "SfxSpec",
+      "type": "object"
+    },
+    "ShotChange": {
+      "additionalProperties": false,
+      "description": "Строка таблицы расхождений (ConflictBar, экран 10).",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Section"
+        },
+        "kind": {
+          "enum": [
+            "added",
+            "changed",
+            "removed"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "change": {
+          "title": "Change",
+          "type": "string"
+        },
+        "fields": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "drawn_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Drawn At"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price"
+        }
+      },
+      "required": [
+        "shot_id",
+        "section",
+        "kind",
+        "change",
+        "fields",
+        "stale",
+        "drawn_at",
+        "price"
+      ],
+      "title": "ShotChange",
+      "type": "object"
+    },
+    "Similarity": {
+      "description": "Сходство VO плана с текстом референса (принцип 11): доля n-грамм плана, найденных в\nсубтитрах.",
+      "properties": {
+        "ratio": {
+          "title": "Ratio",
+          "type": "number"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "ngram": {
+          "title": "Ngram",
+          "type": "integer"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "matched": {
+          "title": "Matched",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "phrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Phrases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ratio",
+        "threshold",
+        "ngram",
+        "ok",
+        "matched",
+        "total",
+        "phrases"
+      ],
+      "title": "Similarity",
+      "type": "object"
+    },
+    "SimilarityReport": {
+      "description": "`GET /api/projects/{id}/similarity`: сходство или почему его нет (нет плана, выпуск не по\nреференсу).",
+      "properties": {
+        "similarity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Similarity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "similarity",
+        "reason"
+      ],
+      "title": "SimilarityReport",
+      "type": "object"
+    },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
+      "type": "object"
+    },
+    "Transition": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "default": "cut",
+          "enum": [
+            "cut",
+            "crossfade",
+            "dip"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "duration": {
+          "default": 0.0,
+          "maximum": 1.5,
+          "minimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "duration"
+      ],
+      "title": "Transition",
+      "type": "object"
+    },
+    "ValidationItem": {
+      "additionalProperties": false,
+      "description": "Ошибка плана структурно: кадр (`null` — не про кадр), путь поля и строка из `errors`.",
+      "properties": {
+        "shot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Shot Id"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_id",
+        "path",
+        "message"
+      ],
+      "title": "ValidationItem",
+      "type": "object"
+    }
+  }
+}

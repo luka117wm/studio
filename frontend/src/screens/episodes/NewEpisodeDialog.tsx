@@ -1,29 +1,34 @@
 /* Диалог «Новый выпуск» (артборд 1): канал, пресет формата со сметой, откуда начать. Выпуск создаётся в ближайшем
    свободном слоте (`slot: "next_free"`, docs/slots.md), после создания открывается сценарий. Названия в диалоге нет —
-   выпуск переименовывается в шапке (решение 2 устава M3). Монтируется на время открытия: состояние каждый раз новое. */
+   выпуск переименовывается в шапке (решение 2 устава M3); из идеи — название и заявка идеи (M4.9); «Из референса»
+   ведёт на вкладку «Референс» экрана идей (M4.11). Монтируется на время открытия: состояние каждый раз новое. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import type { FormatPreview } from '@/types/channel'
 import type { EpisodeCreate } from '@/types/episode'
-import { useChannelName, useCreateEpisode, useFormat, type ChannelId } from '../../api/queries'
+import { useChannelName, useCreateEpisode, useFormat, useIdeas, type ChannelId } from '../../api/queries'
 import { channelLook } from '../../app/channelLook'
-import { formatSlotDate, formatUsd } from '../../app/format'
+import { formatUsd } from '../../app/format'
 import { navigate } from '../../app/navigation'
 import { paths } from '../../app/routes'
 import { useModalScope } from '../../app/useHotkey'
 import { useUiStore } from '../../store/uiStore'
-import { Button, Dialog, Radio, Skeleton, cn } from '../../ui'
-import { plural } from './board'
+import { Button, Dialog, Radio, Select, Skeleton, cn } from '../../ui'
+import { backlogOf } from '../ideas/ideaView'
+import { createdToast, plural } from './board'
 
 const CHANNELS: readonly ChannelId[] = ['cursus', 'otto']
 
 type Origin = NonNullable<EpisodeCreate['origin']>
 
-const SOURCES: readonly { value: Origin; label: string; hint: string; disabled?: boolean }[] = [
-  { value: 'backlog', label: 'Из бэклога идей', hint: 'появится с экраном идей', disabled: true },
-  // Поле ссылки появится со сценарием (M4); до него выпуск только помечается `origin: reference`
-  { value: 'reference', label: 'Из референса', hint: 'ссылку на ролик добавите в сценарии' },
+const SOURCES: readonly { value: Origin; label: string; hint: string }[] = [
+  // Подпись — число идей бэклога выбранного канала; пустой бэклог выключает пункт (ниже)
+  { value: 'backlog', label: 'Из бэклога идей', hint: '' },
+  // Выпуск по референсу создаётся на вкладке «Референс» после разбора (M4.11): здесь — только переход туда
+  { value: 'reference', label: 'Из референса', hint: 'разобрать ролик на вкладке «Референс»' },
   { value: 'blank', label: 'С нуля', hint: 'пустой сценарий и план' },
 ]
+
+const IDEAS = ['идея', 'идеи', 'идей'] as const
 
 const minutesRange = ({ preset }: FormatPreview) => `${preset.minutes.min}–${preset.minutes.max} мин`
 
@@ -44,6 +49,14 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const channelName = useChannelName(channel)
   const format = useFormat(channel)
+  const ideas = useIdeas(channel)
+  const backlog = backlogOf(ideas.data)
+  // Выбранная идея; нет в бэклоге канала (смена канала) — первая по оценке
+  const [pickedIdea, setPickedIdea] = useState<string | null>(null)
+  const ideaId = backlog.some((idea) => idea.id === pickedIdea) ? pickedIdea : (backlog[0]?.id ?? null)
+  const backlogEmpty = ideas.data !== undefined && backlog.length === 0
+  // Пустой бэклог нового канала выключает пункт — выбор уходит на «С нуля»
+  const source: Origin = origin === 'backlog' && backlogEmpty ? 'blank' : origin
   const create = useCreateEpisode()
   const ids = { channel: useId(), preset: useId(), origin: useId() }
   const cards = useRef<Partial<Record<ChannelId, HTMLButtonElement | null>>>({})
@@ -68,12 +81,21 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
     if (next) pick(next)
   }
 
+  const setScope = useUiStore((s) => s.setChannel)
+  const toReference = () => {
+    setScope(channel)
+    onClose()
+    navigate(`${paths.ideas}?tab=reference`)
+  }
+
   const submit = async () => {
+    if (source === 'reference') return toReference()
     setError(null)
     try {
-      const episode = await create.mutateAsync({ channel, origin, slot: 'next_free' })
-      const slot = episode.slot_date ? `слот ${formatSlotDate(episode.slot_date, { long: true })}` : 'слот не назначен'
-      pushToast({ id: `created-${episode.id}`, message: `Выпуск создан: ${channelName}, ${slot}`, status: 'ready' })
+      const body: EpisodeCreate = { channel, origin: source, slot: 'next_free' }
+      if (source === 'backlog' && ideaId) body.idea_id = ideaId
+      const episode = await create.mutateAsync(body)
+      pushToast({ id: `created-${episode.id}`, message: createdToast(channelName, episode.slot_date), status: 'ready' })
       openEpisode(episode)
       onClose()
       navigate(paths.stage(episode.id, 'script'))
@@ -92,8 +114,14 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
           <Button variant="ghost" onClick={onClose}>
             Отмена
           </Button>
-          <Button variant="primary" loading={create.isPending} loadingLabel="Создаю…" onClick={() => void submit()}>
-            Создать выпуск
+          <Button
+            variant="primary"
+            loading={create.isPending}
+            loadingLabel="Создаю…"
+            disabled={source === 'backlog' && ideaId === null}
+            onClick={() => void submit()}
+          >
+            {source === 'reference' ? 'Открыть вкладку «Референс»' : 'Создать выпуск'}
           </Button>
         </>
       }
@@ -150,23 +178,42 @@ export function NewEpisodeDialog({ onClose }: { onClose: () => void }) {
             Откуда начать
           </span>
           <div role="radiogroup" aria-labelledby={ids.origin} className="flex flex-col gap-1">
-            {SOURCES.map((source) => (
-              <div
-                key={source.value}
-                className={cn('flex h-8 min-w-0 items-center gap-2 rounded-control px-2', origin === source.value && 'bg-raised')}
-              >
-                <Radio
-                  name={ids.origin}
-                  value={source.value}
-                  checked={origin === source.value}
-                  onChange={() => setOrigin(source.value)}
-                  label={source.label}
-                  disabled={source.disabled}
-                  className="shrink-0"
-                />
-                <span className="truncate text-11 text-muted">{source.hint}</span>
-              </div>
-            ))}
+            {SOURCES.map((option) => {
+              const fromBacklog = option.value === 'backlog'
+              const hint = !fromBacklog
+                ? option.hint
+                : ideas.data === undefined
+                  ? 'загружаю бэклог'
+                  : backlogEmpty
+                    ? `В бэклоге ${channelName} нет идей`
+                    : `${backlog.length} ${plural(backlog.length, IDEAS)}`
+              return (
+                <div key={option.value} className={cn('flex flex-col gap-1 rounded-control', source === option.value && 'bg-raised')}>
+                  <div className="flex h-8 min-w-0 items-center gap-2 px-2">
+                    <Radio
+                      name={ids.origin}
+                      value={option.value}
+                      checked={source === option.value}
+                      onChange={() => setOrigin(option.value)}
+                      label={option.label}
+                      disabled={fromBacklog && (ideas.data === undefined || backlogEmpty)}
+                      className="shrink-0"
+                    />
+                    <span className="truncate text-11 text-muted">{hint}</span>
+                  </div>
+                  {fromBacklog && source === 'backlog' && (
+                    <div className="px-2 pb-2">
+                      <Select
+                        ariaLabel="Идея из бэклога"
+                        value={ideaId}
+                        onChange={setPickedIdea}
+                        options={backlog.map((idea) => ({ value: idea.id, label: idea.title }))}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 

@@ -109,11 +109,13 @@
 
 | Этап | Запрос |
 |---|---|
-| `script` | вход `script_input_tokens`, выход `слова × script_output_tokens_per_word` |
+| `script` | при мосте (`plan_source: bridge`, M4.6) — $0 без вызова, строка с `via: "bridge"`; при `api` — вход `script_input_tokens`, выход `слова × script_output_tokens_per_word` |
 | `images` | `shots` отдельных вызовов по одной картинке (округление — на вызов, как в журнале) |
 | `voice` | `слова × voice_chars_per_word` символов |
 
-Ответ `FormatPreview`: `channel`, `format`, `preset`, `estimate = {stages: [Cost], usd_micro}` (у каждой строки —
-этап, провайдер, `model`, строки единиц), `stale_pricing` — цена хотя бы одной модели сметы сверялась давно.
-404 — канала нет (`python -m app.tools.seed`), 422 — неизвестный канал. Смена `default_profile` в
+Ответ `FormatPreview`: `channel`, `format`, `preset`, `estimate = {stages: [StageCost], usd_micro}` (у каждой строки —
+этап, провайдер, `model`, строки единиц; у строки моста — `via: "bridge"`, `docs/providers.md`), `stale_pricing` — цена
+хотя бы одной модели сметы сверялась давно. Источник плана — действующий: без доступного API — мост, и сценарий в
+итог не входит (устав M4, решение 2).
+404 — канала нет (`PYTHONPATH=backend uv run python -m app.tools.seed`), 422 — неизвестный канал. Смена `default_profile` в
 `providers.yaml` или цены в `pricing.yaml` меняет сумму без правок кода.

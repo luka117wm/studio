@@ -18,18 +18,32 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
+from app.api.bridge import BridgeSettings
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
+from app.api.ideas import IdeasAnswerBody, IdeasAnswerResult, IdeasPrompt, IdeasPromptBody
 from app.api.jobs import JobCreate, JobList
+from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
+from app.api.references import (
+    ReferenceAnswer,
+    ReferenceCreate,
+    ReferenceEpisodeCreate,
+    ReferencePrompt,
+)
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
-from app.models.channel import ChannelProfile
+from app.models.channel import ChannelPatch, ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
-from app.models.project import DirectorVersionInfo, Project
-from app.pipeline.director_import import ImportResult
+from app.models.idea import Idea, IdeaCreate, IdeaPatch
+from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
+from app.models.reference import ReferenceVideo, SimilarityReport
+from app.pipeline.bridge import BridgeError, BridgeRun
+from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.script.approve import ApprovalRefusal
+from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
 from app.settings import REPO_ROOT
 
@@ -44,10 +58,18 @@ Mode = Literal["validation", "serialization"]
 API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
     "project": [
         (Project, "serialization"),
+        (EpisodeBrief, "serialization"),
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
     ],
-    "channel": [(ChannelProfile, "serialization"), (FormatPreview, "serialization")],
+    # Тело PATCH — отдельно: `EpisodeBrief`, `ShotOverride`, `SfxSpec` в двух режимах в одной
+    # группе pydantic назвал бы `…-Input`/`…-Output`, и тип ответа сменил бы имя.
+    "project_patch": [(ProjectPatch, "validation")],
+    "channel": [
+        (ChannelProfile, "serialization"),
+        (FormatPreview, "serialization"),
+        (ChannelPatch, "validation"),
+    ],
     "episode": [
         (Episode, "serialization"),
         (EpisodeListItem, "serialization"),
@@ -69,6 +91,38 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (BudgetRefusal, "serialization"),
     ],
     "provider": [(KeyStatus, "serialization")],
+    "bridge": [
+        (BridgeSettings, "serialization"),
+        (BridgeRun, "serialization"),
+        (BridgeError, "serialization"),
+    ],
+    "idea": [
+        (Idea, "serialization"),
+        (IdeasPrompt, "serialization"),
+        (IdeasAnswerResult, "serialization"),
+        (IdeaCreate, "validation"),
+        (IdeaPatch, "validation"),
+        (IdeasPromptBody, "validation"),
+        (IdeasAnswerBody, "validation"),
+    ],
+    "plan": [
+        (PlanPrompt, "serialization"),
+        (PlanAnswer, "validation"),
+        (PlanAnswerResult, "serialization"),
+        (PlanParts, "serialization"),
+        (EffectivePlan, "serialization"),
+        (PlanCheck, "serialization"),
+        (PlanEstimate, "serialization"),
+        (ApprovalRefusal, "serialization"),
+        (SimilarityReport, "serialization"),
+    ],
+    "reference": [
+        (ReferenceVideo, "serialization"),
+        (ReferencePrompt, "serialization"),
+        (ReferenceCreate, "validation"),
+        (ReferenceAnswer, "validation"),
+        (ReferenceEpisodeCreate, "validation"),
+    ],
 }
 
 log = logging.getLogger(__name__)

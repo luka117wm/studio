@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/director.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:d2a75467b427620efb2810ed65335c6b27611b402dffe3d3db9cad3719803590
+ * @generated sha256:8c80c68fc6cfe063ba42d85fa97025cd6f3548302142709b7c0e3fb9faa46d1c
  */
 export interface AnimateSpec {
   recommended?: boolean
@@ -55,6 +55,7 @@ export interface Fact {
   claim: string
   status: 'verified' | 'disputed' | 'not_found'
   source_url?: string | null
+  shot_id?: string | null
 }
 
 export interface ImageSpec {

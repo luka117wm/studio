@@ -24,8 +24,8 @@ export interface SidePanel {
 }
 
 export interface ScreenLayoutProps {
-  /** Заголовок экрана 52px: title 18/600, note 12, действия справа */
-  header?: { title: string; note?: string; actions?: ReactNode }
+  /** Заголовок экрана 52px: title 18/600, note 12, переключатель вида (SegmentedControl), действия справа */
+  header?: { title: string; note?: string; view?: ReactNode; actions?: ReactNode }
   /** Полоса под заголовком на всю ширину, 72 (очереди генерации) */
   strip?: { title: string; children: ReactNode }
   left?: SidePanel & { kind: LeftPanelKind }
@@ -62,6 +62,7 @@ export function ScreenLayout({ header, strip, left, right, wide, bottom, childre
         <header className="flex h-shell-screen-header shrink-0 items-center gap-4 border-b border-line px-4">
           <h1 className="text-18 font-semibold text-ink">{header.title}</h1>
           {header.note && <span className="text-12 text-muted">{header.note}</span>}
+          {header.view}
           {header.actions && <div className="ml-auto flex items-center gap-2">{header.actions}</div>}
         </header>
       )}

@@ -22,6 +22,11 @@ formats:
     shots: 40
     words_per_minute: 150
 
+# План через мост (M4.2): чат пишет director.json частями по shots_per_part кадров, частей —
+# ceil(shots пресета / shots_per_part): Cursus 100 → 4, Otto 40 → 2. Правила — docs/bridge.md, «План».
+plan:
+  shots_per_part: 26
+
 # Объём запросов сметы выпуска (GET /api/formats): слова VO = target × words_per_minute.
 estimate:
   # Символов голоса на слово VO — с пробелом и пунктуацией.

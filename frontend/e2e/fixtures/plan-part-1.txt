@@ -1,0 +1,78 @@
+Here is part 1 of 2 of the director plan. I kept the image prompts to action, composition and camera angle only, as requested — the look comes from your canon.
+
+```json
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "otto",
+    "episode_id": "o11",
+    "working_title": "A Day in Pompeii Before the Eruption",
+    "format": "host",
+    "language": "en",
+    "target_minutes": 8,
+    "part": 1,
+    "parts_total": 2
+  },
+  "brief": {
+    "idea": "A Day in Pompeii Before the Eruption",
+    "angle": "Otto spends the last ordinary day in Pompeii, from the bakery at dawn to the baths at dusk",
+    "hook_promise": "Nobody in this town knows what tomorrow is",
+    "reference_mode": "none",
+    "sources": [{ "title": "Pliny the Younger, Letters 6.16 and 6.20", "url": "https://example.org/pliny-letters" }]
+  },
+  "sections": [
+    { "id": "r1", "title": "Dawn at the bakery", "chapter": true, "vo_direction": "warm, curious" },
+    { "id": "r2", "title": "The forum", "chapter": true, "vo_direction": null }
+  ],
+  "shots": [
+    {
+      "id": "s001",
+      "section": "r1",
+      "vo": "It is the twenty-third of August, and Pompeii smells of bread before the sun is up.",
+      "image": { "prompt": "Otto stands at a stone counter as a baker slides round loaves out of a domed oven", "period": "pompeii-79", "appearances": ["otto@pompeii-79"], "shot_size": "establishing" },
+      "motion": { "type": "push_in", "strength": 0.08, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0.0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [{ "prompt": "crackling wood fire in a brick oven", "offset": 0.0, "duration": 3.0, "gain_db": -18 }],
+      "overlay": null
+    },
+    {
+      "id": "s002",
+      "section": "r1",
+      "vo": "Every loaf is stamped with the baker's name, so nobody can sell his bread as their own.",
+      "image": { "prompt": "close view of hands pressing a bronze stamp into raw dough on a floured board", "period": "pompeii-79", "appearances": [], "shot_size": "detail" },
+      "motion": { "type": "pan_right", "strength": 0.06, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0.0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s003",
+      "section": "r2",
+      "vo": "By mid-morning the forum is full of people arguing about an election that is still three months away.",
+      "image": { "prompt": "wide view of a crowded forum, Otto weaving between merchants under painted election slogans", "period": "pompeii-79", "appearances": ["otto@pompeii-79"], "shot_size": "action" },
+      "motion": { "type": "pull_out", "strength": 0.1, "ease": "in_out_cubic" },
+      "transition_in": { "type": "crossfade", "duration": 0.5 },
+      "animate": { "recommended": true, "reason": "crowd motion sells the busy market", "prompt": "people walk and gesture across the forum", "seconds": 4 },
+      "sfx": [{ "prompt": "busy market crowd murmur", "offset": 0.0, "duration": 4.0, "gain_db": -20 }],
+      "overlay": null
+    }
+  ],
+  "music": [{ "section": "r1", "mood": "light plucked strings, morning", "gain_db": -24 }],
+  "thumbnail": { "concepts": [{ "prompt": "Otto holding a loaf of bread, a smoking mountain far behind him", "text": "THE LAST NORMAL DAY" }] },
+  "publish": {
+    "titles": ["I Spent the Last Normal Day in Pompeii", "Pompeii, One Day Before", "24 Hours in Pompeii Before Vesuvius"],
+    "description": "Otto wakes up in Pompeii on the 23rd of August, 79 AD.",
+    "tags": ["pompeii", "roman history", "vesuvius"],
+    "category_id": "27",
+    "synthetic_media": true,
+    "made_for_kids": false
+  },
+  "facts": [
+    { "claim": "Pompeian bakers stamped loaves with their name", "status": "verified", "source_url": "https://example.org/pompeii-bread-stamps", "shot_id": "s002" }
+  ]
+}
+```
+
+When you're ready, send me the prompt for part 2 and I'll continue from s004.

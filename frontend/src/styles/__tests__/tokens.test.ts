@@ -3,7 +3,8 @@
 //  1. копия tokens.css не разошлась с design/handoff;
 //  2. hex-литералов нет нигде в src, кроме tokens.css;
 //  3. theme.css ссылается только на существующие токены и не содержит hex;
-//  4. Tailwind собирает утилиты из моста и не знает дефолтной палитры/шкалы.
+//  4. Tailwind собирает утилиты из моста и не знает дефолтной палитры/шкалы;
+//  5. каждая утилита цвета и рамки из исходников собирается — опечатка в имени токена не проходит молча.
 import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
@@ -114,6 +115,25 @@ describe('мост в Tailwind', () => {
     for (const cls of ['.bg-red-500', '.text-white', '.text-sm', '.rounded-md', '.shadow-md', '.font-sans']) {
       expect(css).not.toContain(cls)
     }
+  })
+
+  // Неизвестный цвет Tailwind молча пропускает: `border-row` вместо `border-row-border` дал рамку цвета текста (M4.12)
+  test('каждая утилита цвета и рамки в исходниках собирается', async () => {
+    const UTILITY = /(?<![\w-])((?:border|bg|text|ring|outline|divide|fill|stroke|caret|decoration)-[a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?![\w[/-])/g
+    const COMMENT = /\/\*[\s\S]*?\*\/|(?<!:)\/\/.*$/gm
+    // Слова в текстах интерфейса, похожие на утилиту
+    const PROSE = new Set(['text-to-speech'])
+    const used = new Map<string, string>()
+    for (const file of sourceFiles()) {
+      if (!file.endsWith('.tsx') && !file.endsWith('.ts')) continue
+      if (file.includes('__tests__')) continue
+      for (const match of read(file).replace(COMMENT, '').matchAll(UTILITY)) {
+        if (!PROSE.has(match[1]!) && !used.has(match[1]!)) used.set(match[1]!, relative(FRONTEND, file))
+      }
+    }
+    const css = await build([...used.keys()])
+    const missing = [...used].filter(([cls]) => !css.includes(`.${cls}{`) && !css.includes(`.${cls}:`)).map(([cls, file]) => `${cls} (${file})`)
+    expect(missing).toEqual([])
   })
 
   test('preflight берёт шрифты из токенов', async () => {

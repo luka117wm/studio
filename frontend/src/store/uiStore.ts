@@ -25,6 +25,8 @@ export interface UiState {
   /** Окно горячих клавиш («?» и кнопка в шапке) */
   helpOpen: boolean
   save: SaveState
+  /** Строка экрана в середине статус-строки («Идей в бэклоге 7, слот 21 сентября свободен»); null — нет */
+  statusNote: string | null
   setChannel: (channel: ChannelScope) => void
   /** Открытие выпуска ставит его канал: каналы изолированы (правило 6 handoff). Единственное место правила. */
   openEpisode: (episode: { id: string; channel: ChannelId }) => void
@@ -34,6 +36,7 @@ export interface UiState {
   dismissToast: (id: string) => void
   setHelpOpen: (open: boolean) => void
   setSave: (save: SaveState) => void
+  setStatusNote: (note: string | null) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -43,6 +46,7 @@ export const useUiStore = create<UiState>()((set) => ({
   toasts: [],
   helpOpen: false,
   save: { kind: 'idle' },
+  statusNote: null,
   setChannel: (channel) => set({ channel }),
   openEpisode: (episode) => set({ episodeId: episode.id, channel: episode.channel }),
   closeEpisode: () => set({ episodeId: null }),
@@ -51,4 +55,5 @@ export const useUiStore = create<UiState>()((set) => ({
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setSave: (save) => set({ save }),
+  setStatusNote: (statusNote) => set({ statusNote }),
 }))

@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/project_patch",
+  "title": "project_patch",
+  "description": "Модели API Studio, группа «project_patch». Сгенерировано из Pydantic.",
+  "$defs": {
+    "AnimateOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "recommended": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seconds"
+        }
+      },
+      "title": "AnimateOverride",
+      "type": "object"
+    },
+    "EpisodeBrief": {
+      "additionalProperties": false,
+      "description": "Заявка выпуска — вход промпта плана (устав M4, решение 5). Заполняется на экране 3 или\nиз идеи / референса. Что вернул чат — `director.brief`, это другая модель.",
+      "properties": {
+        "idea": {
+          "default": "",
+          "title": "Idea",
+          "type": "string"
+        },
+        "angle": {
+          "default": "",
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "default": "",
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "idea_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Id"
+        },
+        "reference_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Id"
+        },
+        "reference_mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "structure_clone",
+            "own_version"
+          ],
+          "title": "Reference Mode",
+          "type": "string"
+        }
+      },
+      "title": "EpisodeBrief",
+      "type": "object"
+    },
+    "ImageOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "shot_size": {
+          "anyOf": [
+            {
+              "enum": [
+                "establishing",
+                "action",
+                "reaction",
+                "detail"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Size"
+        }
+      },
+      "title": "ImageOverride",
+      "type": "object"
+    },
+    "MotionOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "push_in",
+                "pull_out",
+                "pan_left",
+                "pan_right",
+                "tilt_up",
+                "tilt_down",
+                "static",
+                "drift"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Strength"
+        },
+        "ease": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "in_out_sine",
+                "in_out_cubic",
+                "in_cubic",
+                "out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ease"
+        }
+      },
+      "title": "MotionOverride",
+      "type": "object"
+    },
+    "ProjectPatch": {
+      "additionalProperties": false,
+      "description": "Тело `PATCH /api/projects/{id}`: только то, что правит человек. Остальное в project.json\nпишет пайплайн (импорт плана, генерация, выравнивание, учёт расходов).",
+      "properties": {
+        "brief": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpisodeBrief"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shots": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ShotPatch"
+          },
+          "default": {},
+          "title": "Shots",
+          "type": "object"
+        }
+      },
+      "title": "ProjectPatch",
+      "type": "object"
+    },
+    "SfxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Offset",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "gain_db": {
+          "maximum": 0.0,
+          "minimum": -40.0,
+          "title": "Gain Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "prompt",
+        "duration",
+        "gain_db"
+      ],
+      "title": "SfxSpec",
+      "type": "object"
+    },
+    "ShotOverride": {
+      "additionalProperties": false,
+      "description": "Ручные правки полей кадра поверх плана. `sfx` заменяется целиком.",
+      "properties": {
+        "vo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vo"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MotionOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transition_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransitionOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "animate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimateOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sfx": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SfxSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sfx"
+        }
+      },
+      "title": "ShotOverride",
+      "type": "object"
+    },
+    "ShotPatch": {
+      "additionalProperties": false,
+      "description": "Правка состояния кадра в PATCH. Поле не прислано — не меняется (мёрдж идёт по сырому\nтелу); `null` в правке поля — сброс этой правки, `user_override: null` — сброс всех.",
+      "properties": {
+        "duration_locked": {
+          "default": false,
+          "title": "Duration Locked",
+          "type": "boolean"
+        },
+        "prompt_locked": {
+          "default": false,
+          "title": "Prompt Locked",
+          "type": "boolean"
+        },
+        "user_override": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShotOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ShotPatch",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "TransitionOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "cut",
+                "crossfade",
+                "dip"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration"
+        }
+      },
+      "title": "TransitionOverride",
+      "type": "object"
+    }
+  }
+}

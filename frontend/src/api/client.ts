@@ -1,7 +1,9 @@
 // Клиент бэкенда: fetch только к `/api`, JSON, таймаут, ошибки в виде {status, message} для UI.
 // Текст ошибки приходит с бэкенда (что случилось и что сделать); клиент пишет свой только когда
 // ответа нет вовсе — сеть или таймаут. Провайдеров и очередей во фронте нет (CLAUDE.md, «Стек»).
+import type { BridgeError } from '@/types/bridge'
 import type { BudgetRefusal } from '@/types/cost'
+import type { ApprovalRefusal, ValidationItem } from '@/types/plan'
 
 export const API_BASE = '/api'
 export const DEFAULT_TIMEOUT_MS = 15_000
@@ -50,19 +52,28 @@ function buildUrl(path: string, query: Query = {}): string {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** Строка ошибки валидации FastAPI/Pydantic: `payload.steps: Input should be greater than 0`. */
+/** Строка ошибки валидации: у английских сообщений FastAPI/Pydantic — путь впереди (`payload.steps: Input should be
+ *  greater than 0`); русские сообщения бэкенда («кадр s003: …», «Лишнее поле brief.title — …») место называют сами. */
 function validationLine(item: unknown): string {
   if (typeof item === 'string') return item
   if (!isRecord(item)) return String(item)
   const text = typeof item.msg === 'string' ? item.msg : String(item.message ?? '')
   const loc = Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : ''
-  return loc ? `${loc}: ${text}` : text
+  return loc && !/[А-Яа-яЁё]/.test(text) ? `${loc}: ${text}` : text
 }
 
-/** Текст ошибки из тела ответа FastAPI: `detail` строкой, `detail.message` (409 бюджета),
+/** Описание ошибки в теле ответа: `detail` у ошибок FastAPI, а у ошибки моста (`BridgeError`, docs/bridge.md) —
+ *  само тело, `{message, hint, errors}` в корне. */
+function detailOf(body: unknown): unknown {
+  if (!isRecord(body)) return body
+  if ('detail' in body) return body.detail ?? null
+  return typeof body.message === 'string' ? body : null
+}
+
+/** Текст ошибки из тела ответа: `detail` строкой, `detail.message` (409 бюджета, ошибка моста),
  *  список ошибок валидации (422) или `detail.errors` (импорт плана). */
 export function errorMessage(status: number, body: unknown): string {
-  const detail = isRecord(body) ? body.detail : undefined
+  const detail = isRecord(body) ? detailOf(body) : undefined
   if (typeof detail === 'string' && detail) return detail
   if (Array.isArray(detail) && detail.length) return detail.map(validationLine).join('; ')
   if (isRecord(detail)) {
@@ -134,7 +145,7 @@ async function request<T>(
 
   if (!response.ok) {
     if (GATEWAY_STATUSES.has(response.status) && !isRecord(payload)) throw new ApiError(0, BACKEND_DOWN_MESSAGE)
-    const detail = isRecord(payload) ? (payload.detail ?? null) : payload
+    const detail = detailOf(payload)
     throw new ApiError(response.status, errorMessage(response.status, payload), detail)
   }
   return payload as T
@@ -144,6 +155,29 @@ async function request<T>(
 export function budgetRefusal(error: unknown): BudgetRefusal | null {
   if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
   return error.detail.code === 'budget_exceeded' ? (error.detail as unknown as BudgetRefusal) : null
+}
+
+/** Отказ «Утвердить план» (409 `ApprovalRefusal` в `detail`, docs/episodes.md): сводка и проблемы по кадрам;
+ *  иначе null. */
+export function approvalRefusal(error: unknown): ApprovalRefusal | null {
+  if (!(error instanceof ApiError) || error.status !== 409 || !isRecord(error.detail)) return null
+  return error.detail.code === 'plan_not_ready' ? (error.detail as unknown as ApprovalRefusal) : null
+}
+
+/** План не прошёл проверку импорта (422 `{errors, items}` от `POST …/director`): ошибки по кадрам и полям;
+ *  иначе null — ошибка без адресов (сборка частей) показывается текстом `message`. */
+export function planRejection(error: unknown): ValidationItem[] | null {
+  if (!(error instanceof ApiError) || error.status !== 422 || !isRecord(error.detail)) return null
+  const { items } = error.detail
+  return Array.isArray(items) && items.length ? (items as ValidationItem[]) : null
+}
+
+/** Ответ моста отклонён (422 `BridgeError`: текст, подсказка, ошибки по кадрам); иначе null. */
+export function bridgeError(error: unknown): BridgeError | null {
+  if (!(error instanceof ApiError) || error.status !== 422 || !isRecord(error.detail)) return null
+  const { message, hint, errors } = error.detail
+  if (typeof message !== 'string' || typeof hint !== 'string' || !Array.isArray(errors)) return null
+  return error.detail as unknown as BridgeError
 }
 
 /** Типизированный доступ к `/api`: тип ответа — из `@/types/*` (сгенерированы из Pydantic). */

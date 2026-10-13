@@ -10,10 +10,11 @@ describe('ToastStack', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  test('показывает три, остальное — «и ещё N»', () => {
+  test('показывает три новых, старые — «и ещё N» над ними', () => {
     render(<ToastStack toasts={items} onDismiss={() => {}} />)
-    expect(screen.getAllByRole('status')).toHaveLength(3)
-    expect(screen.getByText('и ещё 2')).toBeTruthy()
+    expect(screen.getAllByRole('status').map((t) => t.textContent)).toEqual(['Тост cСкрыть', 'Тост dСкрыть', 'Тост eСкрыть'])
+    const more = screen.getByText('и ещё 2')
+    expect(more.compareDocumentPosition(screen.getAllByRole('status')[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   test('автоскрытие через 4 с', () => {
@@ -23,6 +24,25 @@ describe('ToastStack', () => {
     expect(onDismiss).not.toHaveBeenCalled()
     act(() => vi.advanceTimersByTime(1))
     expect(onDismiss).toHaveBeenCalledWith('a')
+  })
+
+  test('новый тост не продлевает соседний; повтор с тем же id — новые 4 с', () => {
+    const onDismiss = vi.fn()
+    const first = { id: 'a', message: 'Часть 1 из 2 принята' }
+    const { rerender } = render(<ToastStack toasts={[first]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(3000))
+    const second = { id: 'b', message: 'План v001: +52 кадра' }
+    rerender(<ToastStack toasts={[first, second]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(1000))
+    expect(onDismiss.mock.calls).toEqual([['a']])
+
+    const again = { id: 'b', message: 'План v002: +52 кадра' }
+    act(() => vi.advanceTimersByTime(2000))
+    rerender(<ToastStack toasts={[again]} onDismiss={onDismiss} />)
+    act(() => vi.advanceTimersByTime(3999))
+    expect(onDismiss.mock.calls).toEqual([['a']])
+    act(() => vi.advanceTimersByTime(1))
+    expect(onDismiss.mock.calls).toEqual([['a'], ['b']])
   })
 
   test('пустой стек ничего не рендерит', () => {

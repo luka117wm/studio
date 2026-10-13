@@ -4,6 +4,61 @@
   "title": "project",
   "description": "Модели API Studio, группа «project». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnimateOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "recommended": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seconds"
+        }
+      },
+      "title": "AnimateOverride",
+      "type": "object"
+    },
     "Asset": {
       "additionalProperties": false,
       "properties": {
@@ -95,6 +150,16 @@
           "title": "Parts",
           "type": "integer"
         },
+        "source": {
+          "default": "manual",
+          "enum": [
+            "bridge",
+            "manual",
+            "api"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
         "shots": {
           "minimum": 0,
           "title": "Shots",
@@ -121,12 +186,130 @@
         "hash",
         "imported_at",
         "parts",
+        "source",
         "shots",
         "added",
         "changed",
         "removed"
       ],
       "title": "DirectorVersionInfo",
+      "type": "object"
+    },
+    "EpisodeBrief": {
+      "additionalProperties": false,
+      "description": "Заявка выпуска — вход промпта плана (устав M4, решение 5). Заполняется на экране 3 или\nиз идеи / референса. Что вернул чат — `director.brief`, это другая модель.",
+      "properties": {
+        "idea": {
+          "default": "",
+          "title": "Idea",
+          "type": "string"
+        },
+        "angle": {
+          "default": "",
+          "title": "Angle",
+          "type": "string"
+        },
+        "hook_promise": {
+          "default": "",
+          "title": "Hook Promise",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "idea_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Id"
+        },
+        "reference_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference Id"
+        },
+        "reference_mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "structure_clone",
+            "own_version"
+          ],
+          "title": "Reference Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "idea",
+        "angle",
+        "hook_promise",
+        "notes",
+        "sources",
+        "idea_id",
+        "reference_id",
+        "reference_mode"
+      ],
+      "title": "EpisodeBrief",
+      "type": "object"
+    },
+    "ImageOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt"
+        },
+        "shot_size": {
+          "anyOf": [
+            {
+              "enum": [
+                "establishing",
+                "action",
+                "reaction",
+                "detail"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Size"
+        }
+      },
+      "title": "ImageOverride",
       "type": "object"
     },
     "ImportResult": {
@@ -171,6 +354,66 @@
       "title": "ImportResult",
       "type": "object"
     },
+    "MotionOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "push_in",
+                "pull_out",
+                "pan_left",
+                "pan_right",
+                "tilt_up",
+                "tilt_down",
+                "static",
+                "drift"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "strength": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Strength"
+        },
+        "ease": {
+          "anyOf": [
+            {
+              "enum": [
+                "linear",
+                "in_out_sine",
+                "in_out_cubic",
+                "in_cubic",
+                "out_cubic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ease"
+        }
+      },
+      "title": "MotionOverride",
+      "type": "object"
+    },
     "Project": {
       "additionalProperties": false,
       "properties": {
@@ -192,6 +435,17 @@
           "title": "Channel",
           "type": "string"
         },
+        "brief": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EpisodeBrief"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "director_version": {
           "anyOf": [
             {
@@ -212,6 +466,31 @@
           "default": {},
           "title": "Director Versions",
           "type": "object"
+        },
+        "approved_version": {
+          "anyOf": [
+            {
+              "pattern": "^v\\d{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Version"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
         },
         "shots": {
           "additionalProperties": {
@@ -255,6 +534,7 @@
         "schema",
         "episode_id",
         "channel",
+        "brief",
         "director_version",
         "director_versions",
         "shots",
@@ -264,6 +544,40 @@
         "updated_at"
       ],
       "title": "Project",
+      "type": "object"
+    },
+    "SfxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "offset": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Offset",
+          "type": "number"
+        },
+        "duration": {
+          "exclusiveMinimum": 0.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "gain_db": {
+          "maximum": 0.0,
+          "minimum": -40.0,
+          "title": "Gain Db",
+          "type": "number"
+        }
+      },
+      "required": [
+        "prompt",
+        "offset",
+        "duration",
+        "gain_db"
+      ],
+      "title": "SfxSpec",
       "type": "object"
     },
     "ShotChange": {
@@ -349,6 +663,85 @@
       "title": "ShotChange",
       "type": "object"
     },
+    "ShotOverride": {
+      "additionalProperties": false,
+      "description": "Ручные правки полей кадра поверх плана. `sfx` заменяется целиком.",
+      "properties": {
+        "vo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vo"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MotionOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transition_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransitionOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "animate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnimateOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sfx": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SfxSpec"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sfx"
+        }
+      },
+      "title": "ShotOverride",
+      "type": "object"
+    },
     "ShotState": {
       "additionalProperties": false,
       "properties": {
@@ -379,15 +772,13 @@
         "user_override": {
           "anyOf": [
             {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/$defs/ShotOverride"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "User Override"
+          "default": null
         },
         "stale_reasons": {
           "default": [],
@@ -406,6 +797,25 @@
         "stale_reasons"
       ],
       "title": "ShotState",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "title": "Source",
       "type": "object"
     },
     "Timing": {
@@ -443,6 +853,42 @@
         "source"
       ],
       "title": "Timing",
+      "type": "object"
+    },
+    "TransitionOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "cut",
+                "crossfade",
+                "dip"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration"
+        }
+      },
+      "title": "TransitionOverride",
       "type": "object"
     }
   }

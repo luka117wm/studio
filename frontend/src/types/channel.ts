@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/channel.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:05ff4c03b84076a933c73125f43f731d42e7392cd14d5968396495209019b922
+ * @generated sha256:75fee57aaad63694660301830250ff5481ce4aa4210f5dd658645ddf6984784f
  */
 /**
  * Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).
@@ -12,24 +12,32 @@ export interface Budgets {
   animation_usd: number
 }
 
+/**
+ * Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.
+ */
+export interface ChannelPatch {
+  seeds: string[]
+}
+
 export interface ChannelProfile {
   id: 'cursus' | 'otto'
   name: string
   format: 'every_rank' | 'host'
   budgets: Budgets
   voice_quota: VoiceQuota
+  voice: ChannelVoice
+  seeds: string[]
 }
 
 /**
- * Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.
+ * Голос канала для плана (устав M4, решение 4): код подставляет его в `director.voice`.
+ *
+ * Модель голоса — маршрут `voice` в `config/providers.yaml`, не профиль (принцип 5). Голос
+ * выбирается в модуле голоса, до него — `unset`.
  */
-export interface Cost {
-  stage: string
-  provider: string
-  model: string
-  lines: CostLine[]
-  usd_micro: number
-  stale_pricing: boolean
+export interface ChannelVoice {
+  voice_id: string
+  pace_wpm: number | null
 }
 
 export interface CostLine {
@@ -43,7 +51,7 @@ export interface CostLine {
  * Смета выпуска: цена этапа на маршруте профиля по умолчанию и итог, микродоллары.
  */
 export interface EpisodeEstimate {
-  stages: Cost[]
+  stages: StageCost[]
   usd_micro: number
 }
 
@@ -68,6 +76,20 @@ export interface FormatPreview {
   preset: FormatPreset
   estimate: EpisodeEstimate
   stale_pricing: boolean
+}
+
+/**
+ * Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;
+ * у платного этапа поля нет.
+ */
+export interface StageCost {
+  stage: string
+  provider: string
+  model: string
+  lines: CostLine[]
+  usd_micro: number
+  stale_pricing: boolean
+  via?: 'bridge' | null
 }
 
 export interface VoiceQuota {

@@ -1,0 +1,34 @@
+Here are three ideas for Cursus. I checked them against your backlog and the episode titles you listed, but the third one looks close to an existing idea, so feel free to drop it.
+
+```json
+{
+  "ideas": [
+    {
+      "title": "Every Rank in a Medieval Mill",
+      "angle": "Мельница как маленькое государство: мальчик у жёрнова, подмастерье, мельник и сеньор, которому платят за каждый мешок.",
+      "hook_promise": "Почему мельника ненавидела вся деревня",
+      "summary": "От мальчика у жёрнова до сеньора с монополией на помол.",
+      "score": 76,
+      "score_reason": "Неожиданная тема, понятная иерархия"
+    },
+    {
+      "title": "Every Rank in a Byzantine Court",
+      "angle": "Двор как лестница титулов: евнухи, логофеты и император, к которому подходят только на коленях.",
+      "hook_promise": "Восемнадцать ступеней до императора",
+      "summary": "Титулы, одежда и право голоса при дворе Константинополя.",
+      "score": 72,
+      "score_reason": "Мало конкурентов, сильный визуал"
+    },
+    {
+      "title": "Every Rank in a Roman Legion",
+      "angle": "От новобранца до легата.",
+      "hook_promise": "Одна лопата на всех",
+      "summary": "Восемь ступеней легиона.",
+      "score": 70,
+      "score_reason": "Проверенная тема"
+    }
+  ]
+}
+```
+
+If you want more ideas around monasteries or guilds, ask and I'll send another batch.

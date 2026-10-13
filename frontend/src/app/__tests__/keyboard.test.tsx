@@ -60,6 +60,27 @@ describe('реестр', () => {
     expect(() => register({ ...base, id: 'd', keys: 'Mod+E' })).not.toThrow()
   })
 
+  test('то же сочетание в той же области под другим id — предупреждение с обоими владельцами', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const base = { scope: 'screen' as const, group: 'Тест', handler: () => {} }
+    const off = [
+      register({ ...base, id: 'first', keys: 'Mod+E', description: 'Первое' }),
+      register({ ...base, id: 'second', keys: 'Mod+e', description: 'Второе' }),
+    ]
+    expect(warn).toHaveBeenCalledTimes(1)
+    const message = String(warn.mock.calls[0]?.[0])
+    expect(message).toContain('«first» — Первое')
+    expect(message).toContain('«second» — Второе')
+
+    // Другая область, другой модификатор и замена своей же записи — не дубли
+    off.push(register({ ...base, id: 'modal-e', keys: 'Mod+E', scope: 'modal', description: 'В диалоге' }))
+    off.push(register({ ...base, id: 'alt-e', keys: 'Mod+Alt+E', description: 'С Alt' }))
+    off.push(register({ ...base, id: 'first', keys: 'Mod+E', description: 'Первое снова' }))
+    expect(warn).toHaveBeenCalledTimes(2) // `first` заменена на месте, но `second` всё ещё держит Mod+E
+    off.forEach((unregister) => unregister())
+    warn.mockRestore()
+  })
+
   test('isEditable: поля ввода, но не кнопки и чекбоксы', () => {
     const input = document.createElement('input')
     const checkbox = document.createElement('input')
@@ -149,6 +170,26 @@ describe('оболочка', () => {
     expect(window.location.pathname).toBe('/episodes/pirate/publish')
     await userEvent.keyboard('{Control>}1{/Control}')
     expect(window.location.pathname).toBe('/ideas')
+  })
+
+  test('⌘⇧1…⌘⇧3 — режимы экрана 3 в адресе и статус-строке; ⌘3 по-прежнему этап', async () => {
+    await renderAt('/episodes/pirate/script')
+    const modes = await screen.findByRole('radiogroup', { name: 'Режим' }, { timeout: 3000 })
+    const status = screen.getByRole('status')
+    for (const hint of ['сценарий', 'план', 'JSON']) expect(status.textContent).toContain(hint)
+
+    await userEvent.keyboard('{Control>}{Shift>}2{/Shift}{/Control}')
+    expect(window.location.search).toBe('?mode=plan')
+    expect(within(modes).getByRole('radio', { name: 'План кадров' }).getAttribute('aria-checked')).toBe('true')
+    await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}')
+    expect(window.location.search).toBe('?mode=json')
+    expect(await screen.findByRole('textbox', { name: 'JSON плана' }, { timeout: 3000 })).toBeTruthy()
+    await userEvent.keyboard('{Control>}{Shift>}1{/Shift}{/Control}')
+    expect(window.location.search).toBe('')
+    expect(within(modes).getByRole('radio', { name: 'Сценарий' }).getAttribute('aria-checked')).toBe('true')
+
+    await userEvent.keyboard('{Control>}3{/Control}')
+    expect(window.location.pathname).toBe('/episodes/pirate/generate')
   })
 
   test('⌥3 сворачивает инспектор на монтаже и ничего не делает на «Выпусках»', async () => {

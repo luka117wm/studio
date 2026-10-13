@@ -5,21 +5,25 @@
   стоп-лист). Вызывается самой моделью `Director`, поэтому обойти их через `model_validate` нельзя.
 - `validate_director(data)` — точка входа для сырого JSON: переводит и структурные ошибки pydantic,
   и доменные в русские строки вида «кадр s047: <что не так>, ожидалось <что>» и отдаёт все разом.
+
+Каждой строке ошибки соответствует `ValidationItem` (кадр, путь поля, та же строка) — для ссылок
+«к кадру» в редакторе плана; строки (`errors`) — контракт M2.2, их вид не меняется.
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.settings import REPO_ROOT
 
 if TYPE_CHECKING:
-    from app.models.director import Director
+    from app.models.director import Director, Shot
 
 STOPLIST_PATH = REPO_ROOT / "config" / "prompt_stoplist.yaml"
 
@@ -40,11 +44,27 @@ TYPE_EXPECTATIONS = {
 }
 
 
-class DirectorValidationError(ValueError):
-    """Все ошибки плана разом: `errors` — по строке на ошибку, `str()` — они же построчно."""
+class ValidationItem(BaseModel):
+    """Ошибка плана структурно: кадр (`null` — не про кадр), путь поля и строка из `errors`."""
 
-    def __init__(self, errors: list[str]) -> None:
+    model_config = ConfigDict(extra="forbid")
+
+    shot_id: str | None
+    path: str
+    message: str
+
+
+class DirectorValidationError(ValueError):
+    """Все ошибки плана разом: `errors` — по строке на ошибку, `str()` — они же построчно;
+    `items` — те же ошибки структурно, в том же порядке."""
+
+    def __init__(self, errors: list[str], items: list[ValidationItem] | None = None) -> None:
         self.errors = errors
+        self.items = (
+            items
+            if items is not None
+            else [ValidationItem(shot_id=None, path="", message=e) for e in errors]
+        )
         super().__init__("\n".join(errors))
 
 
@@ -96,86 +116,140 @@ def _duplicates(ids: list[str]) -> list[str]:
     return dupes
 
 
+@dataclass(frozen=True)
+class ShotContext:
+    """С чем сверяется кадр: разделы плана, ключи `canon_ref` (None — блока нет), стоп-лист."""
+
+    sections: Sequence[str]
+    periods: set[str] | None
+    appearances: set[str] | None
+    stoplist: tuple[tuple[str, str], ...]
+
+    @classmethod
+    def of(cls, d: "Director") -> "ShotContext":
+        return cls(
+            sections=[s.id for s in d.sections],
+            periods=set(d.canon_ref.periods) if d.canon_ref else None,
+            appearances=set(d.canon_ref.appearances) if d.canon_ref else None,
+            stoplist=load_stoplist(),
+        )
+
+
 def check_director(d: "Director") -> list[str]:
     """Все доменные ошибки плана в стабильном порядке; пустой список — план корректен."""
-    errors: list[str] = []
-    meta = d.meta
+    return [item.message for item in check_director_items(d)]
 
+
+def check_director_items(d: "Director") -> list[ValidationItem]:
+    """`check_director` структурно: строка, кадр и путь поля."""
+    items: list[ValidationItem] = []
+
+    def add(message: str, path: str, shot_id: str | None = None) -> None:
+        items.append(ValidationItem(shot_id=shot_id, path=path, message=message))
+
+    meta = d.meta
     if meta.part > meta.parts_total:
-        errors.append(
+        add(
             f"meta: part = {meta.part} больше parts_total = {meta.parts_total}, "
-            "ожидалось part ≤ parts_total"
+            "ожидалось part ≤ parts_total",
+            "meta.part",
         )
     if meta.part == 1:
         if d.canon_ref is None:
-            errors.append("canon_ref: блок отсутствует, ожидалось обязательный блок в части 1")
+            add("canon_ref: блок отсутствует, ожидалось обязательный блок в части 1", "canon_ref")
         if d.voice is None:
-            errors.append("voice: блок отсутствует, ожидалось обязательный блок в части 1")
+            add("voice: блок отсутствует, ожидалось обязательный блок в части 1", "voice")
 
     if d.canon_ref is not None:
         for key, ref in d.canon_ref.periods.items():
             if not PERIOD_REF.fullmatch(ref):
-                errors.append(f"canon_ref: periods[{key}] = «{ref}», ожидалось periods/<id>/vNNN")
+                add(
+                    f"canon_ref: periods[{key}] = «{ref}», ожидалось periods/<id>/vNNN",
+                    f"canon_ref.periods.{key}",
+                )
         for key, ref in d.canon_ref.appearances.items():
             if not APPEARANCE_REF.fullmatch(ref):
-                errors.append(
+                add(
                     f"canon_ref: appearances[{key}] = «{ref}», "
-                    "ожидалось characters/<id>/vNNN#<облик>"
+                    "ожидалось characters/<id>/vNNN#<облик>",
+                    f"canon_ref.appearances.{key}",
                 )
 
-    section_ids = [s.id for s in d.sections]
-    for dup in _duplicates(section_ids):
-        errors.append(f"раздел {dup}: id повторяется, ожидалось уникальный id раздела")
+    context = ShotContext.of(d)
+    for dup in _duplicates(list(context.sections)):
+        add(f"раздел {dup}: id повторяется, ожидалось уникальный id раздела", "sections")
     for dup in _duplicates([s.id for s in d.shots]):
-        errors.append(f"кадр {dup}: id повторяется, ожидалось уникальный id кадра")
-
-    known_sections = set(section_ids)
-    known_periods = set(d.canon_ref.periods) if d.canon_ref else None
-    known_appearances = set(d.canon_ref.appearances) if d.canon_ref else None
-    stoplist = load_stoplist()
+        add(f"кадр {dup}: id повторяется, ожидалось уникальный id кадра", "id", dup)
 
     for shot in d.shots:
-        prefix = f"кадр {shot.id}"
-        if shot.section not in known_sections:
-            errors.append(
-                f"{prefix}: раздел «{shot.section}» не найден, "
-                f"ожидалось один из {_listing(section_ids)}"
-            )
-        if not shot.vo.strip():
-            errors.append(f"{prefix}: пустой vo, ожидалось текст закадрового голоса")
-        if not shot.image.prompt.strip():
-            errors.append(f"{prefix}: пустой image.prompt, ожидалось действие и композиция кадра")
-        if shot.animate.recommended and not (shot.animate.prompt or "").strip():
-            errors.append(
-                f"{prefix}: animate.recommended = true без animate.prompt, "
-                "ожидалось описание движения для анимации"
-            )
-        if known_periods is not None and shot.image.period not in known_periods:
-            errors.append(
-                f"{prefix}: image.period «{shot.image.period}» нет в canon_ref.periods, "
-                f"ожидалось один из {_listing(sorted(known_periods))}"
-            )
-        if known_appearances is not None:
-            for appearance in shot.image.appearances:
-                if appearance not in known_appearances:
-                    errors.append(
-                        f"{prefix}: облик «{appearance}» нет в canon_ref.appearances, "
-                        f"ожидалось один из {_listing(sorted(known_appearances))}"
-                    )
-        for token, category in find_style_tokens(shot.image.prompt, stoplist):
-            errors.append(
-                f"{prefix}: в image.prompt стилевой токен «{token}» ({category}), "
-                "ожидалось только действие, композиция и ракурс — стиль задаёт канон"
-            )
+        items.extend(check_shot(shot, context))
 
     for i, cue in enumerate(d.music):
-        if cue.section not in known_sections:
-            errors.append(
+        if cue.section not in context.sections:
+            add(
                 f"music[{i}]: раздел «{cue.section}» не найден, "
-                f"ожидалось один из {_listing(section_ids)}"
+                f"ожидалось один из {_listing(list(context.sections))}",
+                f"music.{i}.section",
             )
 
-    return errors
+    # Факт части может ссылаться на кадр другой части — ссылки проверяет сборка целого плана.
+    if meta.parts_total == 1:
+        shot_ids = {s.id for s in d.shots}
+        for i, fact in enumerate(d.facts):
+            if fact.shot_id is not None and fact.shot_id not in shot_ids:
+                add(
+                    f"facts[{i}]: кадр «{fact.shot_id}» не найден, ожидалось id кадра этого плана",
+                    f"facts.{i}.shot_id",
+                )
+
+    return items
+
+
+def check_shot(shot: "Shot", context: ShotContext) -> list[ValidationItem]:
+    """Доменные ошибки одного кадра: те же для кадра плана и для кадра с ручной правкой."""
+    items: list[ValidationItem] = []
+    prefix = f"кадр {shot.id}"
+
+    def add(path: str, text: str) -> None:
+        items.append(ValidationItem(shot_id=shot.id, path=path, message=f"{prefix}: {text}"))
+
+    if shot.section not in context.sections:
+        add(
+            "section",
+            f"раздел «{shot.section}» не найден, "
+            f"ожидалось один из {_listing(list(context.sections))}",
+        )
+    if not shot.vo.strip():
+        add("vo", "пустой vo, ожидалось текст закадрового голоса")
+    if not shot.image.prompt.strip():
+        add("image.prompt", "пустой image.prompt, ожидалось действие и композиция кадра")
+    if shot.animate.recommended and not (shot.animate.prompt or "").strip():
+        add(
+            "animate.prompt",
+            "animate.recommended = true без animate.prompt, "
+            "ожидалось описание движения для анимации",
+        )
+    if context.periods is not None and shot.image.period not in context.periods:
+        add(
+            "image.period",
+            f"image.period «{shot.image.period}» нет в canon_ref.periods, "
+            f"ожидалось один из {_listing(sorted(context.periods))}",
+        )
+    if context.appearances is not None:
+        for appearance in shot.image.appearances:
+            if appearance not in context.appearances:
+                add(
+                    "image.appearances",
+                    f"облик «{appearance}» нет в canon_ref.appearances, "
+                    f"ожидалось один из {_listing(sorted(context.appearances))}",
+                )
+    for token, category in find_style_tokens(shot.image.prompt, context.stoplist):
+        add(
+            "image.prompt",
+            f"в image.prompt стилевой токен «{token}» ({category}), "
+            "ожидалось только действие, композиция и ракурс — стиль задаёт канон",
+        )
+    return items
 
 
 def _listing(values: list[str]) -> str:
@@ -212,7 +286,8 @@ def _item_at(data: Mapping[str, Any], collection: str, index: int) -> Any:
     return None
 
 
-def _describe(err: Mapping[str, Any], path: str) -> str:
+def describe_error(err: Mapping[str, Any], path: str) -> str:
+    """Одна структурная ошибка pydantic → «<путь> = <значение> …, ожидалось …» по-русски."""
     kind = str(err["type"])
     ctx = err.get("ctx") or {}
     value = err.get("input")
@@ -247,15 +322,51 @@ def _describe(err: Mapping[str, Any], path: str) -> str:
 
 def format_pydantic_errors(exc: ValidationError, data: Mapping[str, Any]) -> list[str]:
     """Ошибки pydantic → русские строки с ID кадра; доменные (`director_domain`) — как есть."""
-    messages: list[str] = []
+    return [item.message for item in describe_pydantic_errors(exc, data)]
+
+
+def describe_pydantic_errors(exc: ValidationError, data: Mapping[str, Any]) -> list[ValidationItem]:
+    """`format_pydantic_errors` структурно: у доменных ошибок кадр и путь — из `check_director`."""
+    items: list[ValidationItem] = []
     for err in exc.errors(include_url=False):
         if err["type"] == "director_domain":
-            messages.extend((err.get("ctx") or {})["messages"])
+            ctx = err.get("ctx") or {}
+            items.extend(ValidationItem.model_validate(item) for item in ctx["items"])
             continue
-        prefix, path = _locate(tuple(err["loc"]), data)
-        description = _describe(err, path)
-        messages.append(f"{prefix}: {description}" if prefix else description)
-    return messages
+        loc = tuple(err["loc"])
+        prefix, path = _locate(loc, data)
+        description = describe_error(err, path)
+        items.append(
+            ValidationItem(
+                shot_id=_shot_id_at(loc, data),
+                path=path if prefix.startswith("кадр") else ".".join(str(p) for p in loc),
+                message=f"{prefix}: {description}" if prefix else description,
+            )
+        )
+    return items
+
+
+def describe_shot_errors(exc: ValidationError, shot_id: str) -> list[ValidationItem]:
+    """Структурные ошибки одного кадра (`Shot`) — в том же виде, что у кадра в плане."""
+    items: list[ValidationItem] = []
+    for err in exc.errors(include_url=False):
+        path = ".".join(str(p) for p in err["loc"])
+        items.append(
+            ValidationItem(
+                shot_id=shot_id,
+                path=path,
+                message=f"кадр {shot_id}: {describe_error(err, path)}",
+            )
+        )
+    return items
+
+
+def _shot_id_at(loc: tuple[int | str, ...], data: Mapping[str, Any]) -> str | None:
+    if len(loc) >= 2 and loc[0] == "shots" and isinstance(loc[1], int):
+        item = _item_at(data, "shots", loc[1])
+        shot_id = item.get("id") if isinstance(item, Mapping) else None
+        return shot_id if isinstance(shot_id, str) and shot_id else None
+    return None
 
 
 def validate_director(data: Mapping[str, Any]) -> "Director":
@@ -265,4 +376,5 @@ def validate_director(data: Mapping[str, Any]) -> "Director":
     try:
         return Director.model_validate(data)
     except ValidationError as exc:
-        raise DirectorValidationError(format_pydantic_errors(exc, data)) from None
+        items = describe_pydantic_errors(exc, data)
+        raise DirectorValidationError([item.message for item in items], items) from None

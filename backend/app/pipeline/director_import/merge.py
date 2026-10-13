@@ -10,7 +10,7 @@ import json
 from typing import Any, Literal
 
 from app.models.director import CanonRef, Director, Shot, StrictModel
-from app.models.project import DirectorVersionInfo, Project, ShotState
+from app.models.project import DirectorVersionInfo, Project, ShotState, VersionSource
 from app.models.validators import validate_director
 from app.pipeline.director_import.stale import (
     CanonChanges,
@@ -242,6 +242,7 @@ def merge_into_project(
     parts: int,
     created: bool,
     now: str,
+    source: VersionSource = "manual",
 ) -> tuple[Project, ImportResult]:
     """Новая версия плана поверх project.json: возвращает новый Project и отчёт расхождений.
 
@@ -313,6 +314,8 @@ def merge_into_project(
         hash=canonical_hash(new),
         imported_at=known.imported_at if known else now,
         parts=parts,
+        # Источник — откуда версия пришла впервые, как и `imported_at`.
+        source=known.source if known else source,
         shots=len(new.shots),
         added=added,
         changed=changed,

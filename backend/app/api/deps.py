@@ -1,4 +1,5 @@
-"""Общие зависимости роутеров: пути, соединение с БД на запрос, пул джобов, gateway провайдеров."""
+"""Общие зависимости роутеров: пути, БД на запрос, пул джобов, gateway, шаблоны промптов моста,
+пресеты формата, настройки сходства с референсом."""
 
 import sqlite3
 from typing import Annotated
@@ -7,6 +8,8 @@ from fastapi import Depends, Request
 
 from app.jobs.worker import JobPool
 from app.models.formats import FormatsConfig
+from app.models.reference import ReferenceConfig
+from app.pipeline.bridge import PromptLibrary
 from app.providers.gateway import Gateway
 from app.storage.db import get_db
 from app.storage.paths import StudioPaths
@@ -27,13 +30,25 @@ def get_gateway(request: Request) -> Gateway:
     return gateway
 
 
+def get_prompts(request: Request) -> PromptLibrary:
+    prompts: PromptLibrary = request.app.state.prompts
+    return prompts
+
+
 def get_formats(request: Request) -> FormatsConfig:
     formats: FormatsConfig = request.app.state.formats
     return formats
 
 
+def get_reference_config(request: Request) -> ReferenceConfig:
+    config: ReferenceConfig = request.app.state.reference
+    return config
+
+
 PathsDep = Annotated[StudioPaths, Depends(get_paths)]
+ReferenceConfigDep = Annotated[ReferenceConfig, Depends(get_reference_config)]
 FormatsDep = Annotated[FormatsConfig, Depends(get_formats)]
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
+PromptsDep = Annotated[PromptLibrary, Depends(get_prompts)]
 JobsDep = Annotated[JobPool, Depends(get_jobs)]
 DbDep = Annotated[sqlite3.Connection, Depends(get_db)]

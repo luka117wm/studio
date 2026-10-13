@@ -32,6 +32,24 @@
       "title": "Budgets",
       "type": "object"
     },
+    "ChannelPatch": {
+      "additionalProperties": false,
+      "description": "Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.",
+      "properties": {
+        "seeds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Seeds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "seeds"
+      ],
+      "title": "ChannelPatch",
+      "type": "object"
+    },
     "ChannelProfile": {
       "additionalProperties": false,
       "properties": {
@@ -60,6 +78,21 @@
         },
         "voice_quota": {
           "$ref": "#/$defs/VoiceQuota"
+        },
+        "voice": {
+          "$ref": "#/$defs/ChannelVoice",
+          "default": {
+            "voice_id": "unset",
+            "pace_wpm": null
+          }
+        },
+        "seeds": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Seeds",
+          "type": "array"
         }
       },
       "required": [
@@ -67,52 +100,43 @@
         "name",
         "format",
         "budgets",
-        "voice_quota"
+        "voice_quota",
+        "voice",
+        "seeds"
       ],
       "title": "ChannelProfile",
       "type": "object"
     },
-    "Cost": {
-      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
+    "ChannelVoice": {
+      "additionalProperties": false,
+      "description": "Голос канала для плана (устав M4, решение 4): код подставляет его в `director.voice`.\n\nМодель голоса — маршрут `voice` в `config/providers.yaml`, не профиль (принцип 5). Голос\nвыбирается в модуле голоса, до него — `unset`.",
       "properties": {
-        "stage": {
-          "title": "Stage",
+        "voice_id": {
+          "default": "unset",
+          "minLength": 1,
+          "title": "Voice Id",
           "type": "string"
         },
-        "provider": {
-          "title": "Provider",
-          "type": "string"
-        },
-        "model": {
-          "title": "Model",
-          "type": "string"
-        },
-        "lines": {
-          "items": {
-            "$ref": "#/$defs/CostLine"
-          },
-          "title": "Lines",
-          "type": "array"
-        },
-        "usd_micro": {
-          "title": "Usd Micro",
-          "type": "integer"
-        },
-        "stale_pricing": {
-          "default": false,
-          "title": "Stale Pricing",
-          "type": "boolean"
+        "pace_wpm": {
+          "anyOf": [
+            {
+              "maximum": 200,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pace Wpm"
         }
       },
       "required": [
-        "stage",
-        "provider",
-        "model",
-        "lines",
-        "usd_micro",
-        "stale_pricing"
+        "voice_id",
+        "pace_wpm"
       ],
-      "title": "Cost",
+      "title": "ChannelVoice",
       "type": "object"
     },
     "CostLine": {
@@ -165,7 +189,7 @@
       "properties": {
         "stages": {
           "items": {
-            "$ref": "#/$defs/Cost"
+            "$ref": "#/$defs/StageCost"
           },
           "title": "Stages",
           "type": "array"
@@ -293,6 +317,62 @@
         "stale_pricing"
       ],
       "title": "FormatPreview",
+      "type": "object"
+    },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
       "type": "object"
     },
     "VoiceQuota": {

@@ -2,7 +2,7 @@
 // Клиент /api на замоканном fetch: URL и тело, разбор ответа, ошибки бэкенда как {status, message}.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Episode } from '@/types/episode'
-import { api, ApiError, budgetRefusal } from '../client'
+import { api, ApiError, approvalRefusal, bridgeError, budgetRefusal, planRejection } from '../client'
 
 type Handler = (url: string, init: RequestInit) => Promise<Response>
 
@@ -82,6 +82,32 @@ describe('api', () => {
     expect(budgetRefusal(new Error('x'))).toBeNull()
   })
 
+  test('409 утверждения плана: сводка в message, проблемы по кадрам — в detail', async () => {
+    const detail = {
+      code: 'plan_not_ready',
+      message: '2 кадра без VO: s003, s007 — допишите на листе сценария или в таблице плана и утвердите снова.',
+      problems: [
+        { check: 'vo', shot_id: 's003', message: 'кадр s003: пустой VO — допишите текст закадрового голоса' },
+        { check: 'vo', shot_id: 's007', message: 'кадр s007: пустой VO — допишите текст закадрового голоса' },
+      ],
+    }
+    mockFetch(async () => json(409, { detail }))
+    const error = await failure(api.post('/episodes/c01/approve'))
+    expect(error.message).toBe(detail.message)
+    expect(approvalRefusal(error)?.problems.map((p) => p.shot_id)).toEqual(['s003', 's007'])
+    expect(budgetRefusal(error)).toBeNull()
+    expect(approvalRefusal(new ApiError(409, 'Слот занят', 'text'))).toBeNull()
+  })
+
+  test('422 импорта плана: строки ошибок в message, адреса — planRejection', async () => {
+    const items = [{ shot_id: 's003', path: 'vo', message: 'кадр s003: пустой vo, ожидалось текст закадрового голоса' }]
+    mockFetch(async () => json(422, { detail: { errors: items.map((i) => i.message), items } }))
+    const error = await failure(api.post('/projects/c01/director', {}))
+    expect(error.message).toBe(items[0]!.message)
+    expect(planRejection(error)).toEqual(items)
+    expect(planRejection(new ApiError(422, 'x', { errors: ['сборка'] }))).toBeNull()
+  })
+
   test('422 валидации: строки по полям без "body"', async () => {
     const detail = [
       { type: 'greater_than', loc: ['body', 'payload', 'steps'], msg: 'Input should be greater than 0' },
@@ -92,10 +118,32 @@ describe('api', () => {
     expect(error.message).toBe('payload.steps: Input should be greater than 0; kind: Field required')
   })
 
+  test('422 правки кадра: русское сообщение без технического пути', async () => {
+    const detail = [
+      { type: 'shot_override', loc: ['shots', 's003', 'user_override', 'image', 'prompt'], msg: 'кадр s003: в image.prompt стилевой токен «8k»' },
+    ]
+    mockFetch(async () => json(422, { detail }))
+    const error = await failure(api.patch('/projects/pirate', {}))
+    expect(error.message).toBe('кадр s003: в image.prompt стилевой токен «8k»')
+  })
+
   test('422 импорта плана: detail.errors', async () => {
     mockFetch(async () => json(422, { detail: { errors: ['s001: пустой vo', 's002: нет раздела'] } }))
     const error = await failure(api.post('/projects/pirate/director', {}))
     expect(error.message).toBe('s001: пустой vo; s002: нет раздела')
+  })
+
+  test('422 моста: BridgeError в корне тела, без detail', async () => {
+    const body = {
+      message: 'Часть 1 не прошла проверку: 1 ошибка.',
+      hint: 'Попросите чат исправить кадр s003.',
+      errors: [{ path: 's003', message: 'кадр s003: в image.prompt стилевой токен «8k» (render)' }],
+    }
+    mockFetch(async () => json(422, body))
+    const error = await failure(api.post('/projects/c01/plan/answer', { text: '{}' }))
+    expect(error.message).toBe('Часть 1 не прошла проверку: 1 ошибка.')
+    expect(bridgeError(error)).toEqual(body)
+    expect(bridgeError(new ApiError(422, 'x', { errors: ['s001'] }))).toBeNull()
   })
 
   test('ответ без описания — статус и куда смотреть', async () => {

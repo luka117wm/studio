@@ -11,8 +11,9 @@ from fastapi.testclient import TestClient
 
 from app.api import episodes as episodes_api
 from app.api.episodes import EpisodeCreate
+from app.models.project import merge_patch
 from app.settings import Settings
-from app.storage.atomic import write_json_atomic
+from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
@@ -335,11 +336,13 @@ def test_summary_from_plan_ledger_and_jobs(seeded: TestClient, paths: StudioPath
     seeded.post("/api/episodes", json={"channel": "cursus", "id": episode_id})
     seeded.post("/api/episodes", json={"channel": "cursus"})
     write_json_atomic(paths.director_version_path("cursus", episode_id, 1), director)
+    # Версию и статусы кадров пишет пайплайн (импорт, генерация), не PATCH — кладём в файл.
     shots = {f"s{n:03d}": {"status": "done"} for n in range(1, 7)} | {"s007": {"status": "failed"}}
-    patched = seeded.patch(
-        f"/api/projects/{episode_id}", json={"director_version": "v001", "shots": shots}
+    project_path = paths.project_path("cursus", episode_id)
+    write_json_atomic(
+        project_path,
+        merge_patch(read_json(project_path), {"director_version": "v001", "shots": shots}),
     )
-    assert patched.status_code == 200, patched.text
 
     conn = connect(paths.db_path)
     try:
@@ -403,43 +406,36 @@ def test_broken_project_json_does_not_break_list(seeded: TestClient, paths: Stud
 
 def test_patch_project_merges_and_keeps_rest(seeded: TestClient, paths: StudioPaths) -> None:
     seeded.post("/api/episodes", json=PIRATE)
+    plan = json.loads(DIRECTOR_FIXTURE.read_text(encoding="utf-8"))
+    plan["meta"]["episode_id"] = "pirate"
+    assert seeded.post("/api/projects/pirate/director", json=plan).status_code == 200
+
     first = seeded.patch(
-        "/api/projects/pirate",
-        json={"shots": {"s001": {"duration_locked": True}, "s002": {"status": "done"}}},
+        "/api/projects/pirate", json={"shots": {"s001": {"duration_locked": True}}}
     )
     assert first.status_code == 200, first.text
-    assert first.json()["shots"] == {
-        "s001": {
-            "status": "todo",
-            "duration_locked": True,
-            "prompt_locked": False,
-            "user_override": None,
-            "stale_reasons": [],
-        },
-        "s002": {
-            "status": "done",
-            "duration_locked": False,
-            "prompt_locked": False,
-            "user_override": None,
-            "stale_reasons": [],
-        },
+    assert first.json()["shots"]["s001"] == {
+        "status": "queued",
+        "duration_locked": True,
+        "prompt_locked": False,
+        "user_override": None,
+        "stale_reasons": [],
     }
 
     second = seeded.patch(
         "/api/projects/pirate",
         json={
-            "director_version": "v001",
+            "brief": {"idea": "Pirates"},
             "shots": {"s001": {"user_override": {"motion": {"strength": 0.12}}}},
-            "cost": {"script": 380_000},
         },
     )
     assert second.status_code == 200, second.text
     project = second.json()
     assert project["director_version"] == "v001"
+    assert project["brief"]["idea"] == "Pirates"
     assert project["shots"]["s001"]["duration_locked"] is True
     assert project["shots"]["s001"]["user_override"] == {"motion": {"strength": 0.12}}
-    assert project["shots"]["s002"]["status"] == "done"
-    assert project["cost"] == {"script": 380_000}
+    assert project["shots"]["s002"] == first.json()["shots"]["s002"]
     assert project["updated_at"] >= first.json()["updated_at"]
 
     on_disk = json.loads(paths.project_path("cursus", "pirate").read_text(encoding="utf-8"))
@@ -456,10 +452,12 @@ def test_patch_project_rejects_invalid(seeded: TestClient, paths: StudioPaths) -
     assert seeded.patch("/api/projects/pirate", json={"cost": {"script": -1}}).status_code == 422
     identity = seeded.patch("/api/projects/pirate", json={"channel": "otto"})
     assert identity.status_code == 422
-    assert "channel" in identity.json()["detail"]
+    assert identity.json()["detail"][0]["msg"] == (
+        "Поле channel задаётся при создании выпуска и не меняется — уберите его из запроса."
+    )
+    # С M4.3 в теле PATCH только `ProjectPatch`: те же значения identity-полей — тоже 422.
+    assert seeded.patch("/api/projects/pirate", json={"channel": "cursus"}).status_code == 422
     assert seeded.patch("/api/projects/nope", json={}).status_code == 404
 
     # Ни одна отклонённая правка не тронула файл.
     assert paths.project_path("cursus", "pirate").read_text(encoding="utf-8") == before
-    # Те же значения identity-полей — не ошибка.
-    assert seeded.patch("/api/projects/pirate", json={"channel": "cursus"}).status_code == 200

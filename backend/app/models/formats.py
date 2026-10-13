@@ -50,8 +50,19 @@ class EstimateVolumes(StrictModel):
     script_output_tokens_per_word: float = Field(gt=0)
 
 
+class PlanConfig(StrictModel):
+    """План через мост приходит частями по `shots_per_part` кадров (устав M4, решение 3)."""
+
+    shots_per_part: int = Field(ge=1)
+
+    def parts_total(self, preset: FormatPreset) -> int:
+        """Частей на выпуск пресета: `ceil(shots / shots_per_part)`."""
+        return -(-preset.shots // self.shots_per_part)
+
+
 class FormatsConfig(StrictModel):
     formats: dict[EpisodeFormat, FormatPreset]
+    plan: PlanConfig
     estimate: EstimateVolumes
 
     @model_validator(mode="after")

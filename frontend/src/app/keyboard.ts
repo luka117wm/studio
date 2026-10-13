@@ -135,11 +135,29 @@ function emit(): void {
   for (const l of listeners) l()
 }
 
-/** Регистрирует сочетание; повторный id заменяет запись на том же месте. Возвращает функцию снятия. */
+function canonicalKeys(combo: Combo): string {
+  return `${combo.mod ? 'Mod+' : ''}${combo.alt ? 'Alt+' : ''}${combo.shift ? 'Shift+' : ''}${combo.key}`
+}
+
+/** Регистрирует сочетание; повторный id заменяет запись на том же месте. Возвращает функцию снятия.
+ *  То же сочетание в той же области под другим id — в dev предупреждение: срабатывает только первое. */
 export function register(hotkey: Hotkey): () => void {
   const combo = parseCombo(hotkey.keys)
-  const canonical = `${combo.mod ? 'Mod+' : ''}${combo.shift ? 'Shift+' : ''}${combo.key}`
-  if (RESERVED.has(canonical)) throw new Error(`Сочетание ${hotkey.keys} перехватывает браузерное — запрещено`)
+  const canonical = canonicalKeys(combo)
+  if (RESERVED.has(canonical.replace('Alt+', ''))) {
+    throw new Error(`Сочетание ${hotkey.keys} перехватывает браузерное — запрещено`)
+  }
+  if (import.meta.env.DEV) {
+    const owner = Array.from(entries.values()).find(
+      (h) => h.id !== hotkey.id && h.scope === hotkey.scope && canonicalKeys(parseCombo(h.keys)) === canonical,
+    )
+    if (owner) {
+      console.warn(
+        `Сочетание ${hotkey.keys} (${hotkey.scope}) уже занято: «${owner.id}» — ${owner.description}; ` +
+          `«${hotkey.id}» — ${hotkey.description}. Срабатывает первое зарегистрированное.`,
+      )
+    }
+  }
   entries.set(hotkey.id, hotkey)
   emit()
   return () => {

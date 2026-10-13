@@ -13,13 +13,18 @@ from pathlib import Path
 from typing import Any, Literal, get_args
 
 import yaml
-from pydantic import Field, ValidationError, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.models.director import StrictModel
 from app.providers.base import ConfigError, Provider, RequestKind, Route, RouteError
 
 Profile = Literal["economy", "standard", "premium"]
 PROFILES: tuple[Profile, ...] = get_args(Profile)
+# Откуда приходят ответы Claude для плана, идей и референса (устав M4, решение 2): мост через
+# чат или Anthropic API. Без ключа `api` недоступен — `docs/bridge.md`.
+PlanSource = Literal["bridge", "api"]
+PLAN_SOURCES: tuple[PlanSource, ...] = get_args(PlanSource)
 
 
 class CatalogEntry(StrictModel):
@@ -46,8 +51,20 @@ class StageConfig(StrictModel):
 
 class ProvidersConfig(StrictModel):
     default_profile: Profile
+    plan_source: PlanSource = "bridge"
     forbidden_models: list[str] = Field(min_length=1)
     stages: dict[str, StageConfig] = Field(min_length=1)
+
+    @field_validator("plan_source", mode="before")
+    @classmethod
+    def _known_plan_source(cls, value: Any) -> Any:
+        if value not in PLAN_SOURCES:
+            raise PydanticCustomError(
+                "plan_source_unknown",
+                "plan_source: «{value}» — неизвестный источник плана, допустимо: {known}.",
+                {"value": value, "known": ", ".join(PLAN_SOURCES)},
+            )
+        return value
 
     @model_validator(mode="after")
     def _no_forbidden_models(self) -> "ProvidersConfig":

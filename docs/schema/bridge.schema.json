@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/bridge",
+  "title": "bridge",
+  "description": "Модели API Studio, группа «bridge». Сгенерировано из Pydantic.",
+  "$defs": {
+    "BridgeApiStatus": {
+      "properties": {
+        "available": {
+          "title": "Available",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "available",
+        "reason"
+      ],
+      "title": "BridgeApiStatus",
+      "type": "object"
+    },
+    "BridgeError": {
+      "description": "Тело ответа 422 на неверный ответ чата. Тексты — для пользователя, по-русски.",
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "hint": {
+          "title": "Hint",
+          "type": "string"
+        },
+        "errors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BridgeIssue"
+          },
+          "title": "Errors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "message",
+        "hint",
+        "errors"
+      ],
+      "title": "BridgeError",
+      "type": "object"
+    },
+    "BridgeIssue": {
+      "description": "Одна ошибка внутри ответа: где (`shots[3].image.prompt`, `s012`) и что не так.",
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "message"
+      ],
+      "title": "BridgeIssue",
+      "type": "object"
+    },
+    "BridgeRun": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "task": {
+          "enum": [
+            "plan",
+            "ideas",
+            "reference"
+          ],
+          "title": "Task",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "cursus",
+            "otto"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "episode_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Episode Id"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Id"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "integer"
+        },
+        "prompt_hash": {
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "part": {
+          "minimum": 1,
+          "title": "Part",
+          "type": "integer"
+        },
+        "parts_total": {
+          "minimum": 1,
+          "title": "Parts Total",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "prompted",
+            "applied",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/BridgeIssue"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "answered_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Answered At"
+        }
+      },
+      "required": [
+        "id",
+        "task",
+        "channel",
+        "episode_id",
+        "target_id",
+        "prompt_id",
+        "prompt_version",
+        "prompt_hash",
+        "part",
+        "parts_total",
+        "status",
+        "errors",
+        "created_at",
+        "answered_at"
+      ],
+      "title": "BridgeRun",
+      "type": "object"
+    },
+    "BridgeSettings": {
+      "properties": {
+        "plan_source": {
+          "enum": [
+            "bridge",
+            "api"
+          ],
+          "title": "Plan Source",
+          "type": "string"
+        },
+        "api": {
+          "$ref": "#/$defs/BridgeApiStatus"
+        }
+      },
+      "required": [
+        "plan_source",
+        "api"
+      ],
+      "title": "BridgeSettings",
+      "type": "object"
+    }
+  }
+}

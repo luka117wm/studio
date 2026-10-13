@@ -2,18 +2,23 @@
 
 Смета считается на каждый запрос через `Gateway.estimate` маршрутами профиля по умолчанию
 (принципы 5, 6): смена профиля в `providers.yaml` или цены в `pricing.yaml` меняет сумму без
-правок кода. Правила — `docs/slots.md`, раздел «Пресеты формата».
+правок кода. Сценарий при мосте через чат — $0 с `via: bridge` (устав M4, решение 2). Правила —
+`docs/slots.md`, раздел «Пресеты формата».
 """
 
 import math
 
 from fastapi import APIRouter, HTTPException
 
+from app.api.bridge import PlanSourceDep
 from app.api.deps import DbDep, FormatsDep, GatewayDep
 from app.models.director import Channel, EpisodeFormat, StrictModel
 from app.models.formats import EstimateVolumes, FormatPreset
-from app.providers.base import CHARS_PER_TOKEN, Cost, ImageRequest, SpeechRequest, TextRequest
+from app.pipeline.script.estimate import StageCost, script_cost, stage_cost
+from app.providers.base import ImageRequest, SpeechRequest
 from app.providers.gateway import Gateway
+from app.providers.registry import PlanSource
+from app.tools.seed import SEED_COMMAND
 
 router = APIRouter(tags=["formats"])
 
@@ -21,7 +26,7 @@ router = APIRouter(tags=["formats"])
 class EpisodeEstimate(StrictModel):
     """Смета выпуска: цена этапа на маршруте профиля по умолчанию и итог, микродоллары."""
 
-    stages: list[Cost]
+    stages: list[StageCost]
     usd_micro: int
 
 
@@ -34,30 +39,13 @@ class FormatPreview(StrictModel):
     stale_pricing: bool
 
 
-def _times(cost: Cost, calls: int) -> Cost:
-    """Цена `calls` одинаковых вызовов: у каждого своё округление, как в журнале."""
-    lines = [
-        line.model_copy(
-            update={"quantity": line.quantity * calls, "usd_micro": line.usd_micro * calls}
-        )
-        for line in cost.lines
-    ]
-    return cost.model_copy(update={"lines": lines, "usd_micro": cost.usd_micro * calls})
-
-
 def estimate_episode(
-    gateway: Gateway, preset: FormatPreset, volumes: EstimateVolumes
+    gateway: Gateway, preset: FormatPreset, volumes: EstimateVolumes, plan_source: PlanSource
 ) -> EpisodeEstimate:
     """Запросы того же объёма, что у выпуска: цена зависит только от количества единиц.
     Слова VO — целевые минуты × темп; кадры — `shots` отдельных вызовов."""
     words = preset.minutes.target * preset.words_per_minute
-    script = gateway.estimate(
-        "script",
-        TextRequest(
-            prompt="x" * (volumes.script_input_tokens * CHARS_PER_TOKEN),
-            max_output_tokens=math.ceil(words * volumes.script_output_tokens_per_word),
-        ),
-    )
+    script = script_cost(gateway, volumes, words, plan_source)
     image = gateway.estimate("images", ImageRequest(prompt="shot"))
     voice = gateway.estimate(
         "voice",
@@ -65,23 +53,27 @@ def estimate_episode(
             text="x" * math.ceil(words * volumes.voice_chars_per_word), voice_id="estimate"
         ),
     )
-    stages = [script, _times(image, preset.shots), voice]
+    stages = [script, stage_cost(image, preset.shots), stage_cost(voice)]
     return EpisodeEstimate(stages=stages, usd_micro=sum(cost.usd_micro for cost in stages))
 
 
 @router.get("/formats")
 async def get_format(
-    channel: Channel, db: DbDep, gateway: GatewayDep, formats: FormatsDep
+    channel: Channel,
+    db: DbDep,
+    gateway: GatewayDep,
+    formats: FormatsDep,
+    plan_source: PlanSourceDep,
 ) -> FormatPreview:
     row = db.execute("SELECT format FROM channels WHERE id = ?", (channel,)).fetchone()
     if row is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Канал «{channel}» не найден. Создайте каналы: python -m app.tools.seed",
+            detail=f"Канал «{channel}» не найден. Создайте каналы: {SEED_COMMAND}",
         )
     episode_format = row["format"]
     preset = formats.formats[episode_format]
-    estimate = estimate_episode(gateway, preset, formats.estimate)
+    estimate = estimate_episode(gateway, preset, formats.estimate, plan_source)
     return FormatPreview(
         channel=channel,
         format=episode_format,

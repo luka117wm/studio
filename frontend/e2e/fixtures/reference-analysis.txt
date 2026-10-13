@@ -1,0 +1,24 @@
+I went through the subtitles and split the video by its structure. I did not quote the text — the labels and techniques below are my own wording.
+
+```json
+{
+  "title": "Every Rank in a Medieval Mill",
+  "author": "Sample",
+  "topic": "Who earns what around a village water mill",
+  "segments": [
+    { "kind": "hook", "label": "Хук", "start": "0:00", "facts": 0 },
+    { "kind": "promise", "label": "Обещание", "start": "0:06", "facts": 0 },
+    { "kind": "rank", "label": "Ранг 1", "start": "0:15", "facts": 2 },
+    { "kind": "retention", "label": "Крючок", "start": "1:10", "facts": 0 },
+    { "kind": "rank", "label": "Ранг 2", "start": "1:25", "facts": 2 },
+    { "kind": "finale", "label": "Финал", "start": "2:30", "facts": 1 }
+  ],
+  "techniques": [
+    { "text": "Ранг называется в первой фразе блока", "count": 2 },
+    { "text": "Опасность работы как цена ранга", "count": 1 },
+    { "text": "Обещание раскрыть, кого ненавидят, держит до финала", "count": 1 }
+  ]
+}
+```
+
+The structure is short, so the retention hook carries most of the weight before rank 2.

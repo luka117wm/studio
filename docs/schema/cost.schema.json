@@ -383,6 +383,7 @@
       "type": "object"
     },
     "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
       "properties": {
         "usd_micro": {
           "title": "Usd Micro",

@@ -25,7 +25,9 @@
 | `docs/episodes.md` | выпуск: стадия, статус, происхождение, формат id, API и сводка карточки | этап с выпусками, доской или слотами |
 | `docs/slots.md`, `config/formats.yaml` | расписание и состояния слотов, назначение; пресеты формата и смета выпуска | этап со слотами, диалогом «Новый выпуск» или сметой |
 | `docs/schema/*.schema.json` | JSON Schema моделей API — источник `frontend/src/types/`; генерируется, не править | не читать — типы в `frontend/src/types/` |
+| `docs/bridge.md` | мост через чат: шаблоны промптов и front-matter, разбор ответа чата, журнал обменов, `plan_source`, план частями | этап с промптом, ответом чата или задачей моста |
 | `docs/jobs.md` | очередь джобов и поток SSE: статусы, API, контракт обработчика, ретраи, формат событий | этап с джобами или прогрессом |
+| `docs/research.md`, `config/reference.yaml` | идеи канала: статусы, семена, промпт и ответ чата, выпуск из идеи; референс: субтитры, разбор, метрики, выпуск по структуре, сходство | этап с идеями, бэклогом или референсом |
 | `docs/canon_schema.md`, `docs/prompt_assembly.md` | схемы канона; порядок и разделители сборки промпта | появятся в модуле канона |
 | `docs/motion_spec.md` | формулы движения камеры и переходов; менять только по правилу принципа 2 | появится в модуле движения |
 | `docs/providers.md`, `config/providers.yaml`, `config/pricing.yaml` | этап → профиль → провайдер → модель; цены с датой проверки; журнал расходов, бюджеты, кэш | этап с платным вызовом; смена модели или цены |
@@ -43,7 +45,8 @@
 frontend/src/
   app/            AppShell, router, providers, keyboard (реестр сочетаний), KeyboardHelp
   ui/             кит по components.md: по файлу на компонент, index.ts, cn.ts
-  screens/        episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon
+  screens/        episodes, ideas, script, generate, edit, inspector, export, publish, settings, states, canon;
+                  bridge — мост через чат, общее экранов 2 и 3 (промпт в буфер, вставка ответа)
   mocks/          fixtures.ts — пиратский выпуск для оболочки (до M2)
   timeline/  preview/
   engine/         motion.ts, renderFrame.ts, subtitles.ts
@@ -120,7 +123,7 @@ data/             (gitignored)
   "thumbnail": { "concepts": [{ "prompt": "…", "text": "POWDER MONKEY TO CAPTAIN" }] },
   "publish": { "titles": ["…", "…", "…"], "description": "…", "tags": ["…"],
                "category_id": "27", "synthetic_media": true, "made_for_kids": false },
-  "facts": [{ "claim": "…", "status": "verified", "source_url": "…" }]  // verified | disputed | not_found
+  "facts": [{ "claim": "…", "status": "verified", "source_url": "…", "shot_id": "s001" }]  // verified | disputed | not_found
 }
 ```
 
@@ -156,6 +159,8 @@ pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/h
 pnpm -C frontend typegen | typegen:check  # Pydantic → docs/schema → src/types; check — типы не устарели
 pnpm -C frontend e2e                       # Playwright: визуальные эталоны оболочки, позже WYSIWYG
 uv run pytest                              # бэкенд; сеть замокана
+uv run ruff check . && uv run ruff format --check . && uv run mypy backend tests
+PYTHONPATH=backend uv run python -m app.tools.seed  # каналы cursus и otto; идемпотентно
 uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip
 uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```
