@@ -1,6 +1,6 @@
 ---
 id: plan_next
-version: 1
+version: 2
 task: plan
 model_hint: opus
 ---
@@ -17,6 +17,12 @@ Sections, the number of shots, the last shot, and the era and character look ids
 ## Brief
 
 {{brief_json}}
+
+## Reference structure
+
+{{reference_json}}
+
+`null` means there is no reference video. Otherwise keep following it as in part 1, the way its `mode` says: the order of the remaining segment kinds, roughly their lengths, the pace and the techniques. Never reuse wording from the reference video: the app compares your voice-over with it.
 
 ## Rules
 

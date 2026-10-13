@@ -43,7 +43,7 @@ export const channels = [
     budgets: { monthly_usd: 150, per_episode_usd: 15, animation_usd: 5 },
     voice_quota: { limit_chars: 600_000 },
     voice: { voice_id: 'unset', pace_wpm: null },
-    // Семена ниши артборда 2; у Otto семян нет — поле не выгружается (L-033)
+    // Семена ниши артборда 2; у Otto семян нет — пустой список
     seeds: ['every rank', 'medieval life', 'pirates', 'ancient jobs', 'monasteries'],
   },
   {
@@ -53,6 +53,7 @@ export const channels = [
     budgets: { monthly_usd: 100, per_episode_usd: 8, animation_usd: 3 },
     voice_quota: { limit_chars: 600_000 },
     voice: { voice_id: 'unset', pace_wpm: null },
+    seeds: [],
   },
 ] satisfies ChannelProfile[]
 
@@ -949,7 +950,7 @@ export function createMockApi() {
   /** PATCH семян: как `ChannelPatch` бэкенда — пустые выбрасываются, до 20, до 80 знаков, без повторов */
   function patchSeeds(channel: string, body: unknown): MockResponse {
     const profile = profiles.find((p) => p.id === channel)
-    if (!profile) return fail(404, `Канал «${channel}» не найден. Создайте каналы: python -m app.tools.seed`)
+    if (!profile) return fail(404, `Канал «${channel}» не найден. Создайте каналы: PYTHONPATH=backend uv run python -m app.tools.seed`)
     const raw = isPlainObject(body) && Array.isArray(body.seeds) ? (body.seeds as unknown[]).map(String) : []
     const seeds = raw.map((seed) => seed.trim()).filter(Boolean)
     const invalid = (msg: string) => ({ status: 422, body: { detail: [{ type: 'value_error', loc: ['body', 'seeds'], msg }] } })
@@ -960,8 +961,7 @@ export function createMockApi() {
       if (seen.has(seed.toLowerCase())) return invalid(`Семя «${seed}» повторяется — оставьте одно.`)
       seen.add(seed.toLowerCase())
     }
-    if (seeds.length) profile.seeds = seeds
-    else delete profile.seeds
+    profile.seeds = seeds
     return ok(profile)
   }
 

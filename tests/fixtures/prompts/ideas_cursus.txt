@@ -38,6 +38,7 @@ The channel already has these ideas and videos. Do not propose them again, not e
 [
   "Every Rank on a Pirate Ship",
   "Every Rank in a Roman Legion",
+  "Every Rank in a Medieval Monastery",
   "Every Rank in a Samurai House"
 ]
 

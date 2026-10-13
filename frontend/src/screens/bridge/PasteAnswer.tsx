@@ -4,7 +4,6 @@
 import { useState } from 'react'
 import { bridgeError } from '../../api/client'
 import { useUiStore } from '../../store/uiStore'
-import type { BridgeIssue } from '@/types/bridge'
 import { Button, StatusGlyph, Textarea } from '../../ui'
 
 export interface AppliedAnswer {
@@ -73,7 +72,7 @@ function AnswerError({ error }: { error: unknown }) {
           <ul aria-label="Ошибки ответа" className="mt-1 flex flex-col gap-1">
             {refusal.errors.map((issue) => (
               <li key={`${issue.path}:${issue.message}`} className="text-12 break-words text-ink">
-                {issueLine(issue)}
+                {issue.message}
               </li>
             ))}
           </ul>
@@ -81,9 +80,4 @@ function AnswerError({ error }: { error: unknown }) {
       </div>
     </div>
   )
-}
-
-/** Строка ошибки с местом: «кадр s003: …» уже несёт id, иначе путь — впереди */
-function issueLine(issue: BridgeIssue): string {
-  return !issue.path || issue.message.includes(issue.path) ? issue.message : `${issue.path}: ${issue.message}`
 }

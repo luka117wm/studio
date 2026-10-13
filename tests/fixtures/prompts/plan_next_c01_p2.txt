@@ -1,4 +1,4 @@
-prompt: plan_next, version: 1
+prompt: plan_next, version: 2
 
 Continue the director plan of a narrated history video for the YouTube channel "Cursus" (format: every_rank). The plan is a JSON document in the format `studio.director/1`, written in 3 parts; earlier parts are already accepted by the app.
 
@@ -49,6 +49,12 @@ Sections, the number of shots, the last shot, and the era and character look ids
   ],
   "reference_mode": "none"
 }
+
+## Reference structure
+
+null
+
+`null` means there is no reference video. Otherwise keep following it as in part 1, the way its `mode` says: the order of the remaining segment kinds, roughly their lengths, the pace and the techniques. Never reuse wording from the reference video: the app compares your voice-over with it.
 
 ## Rules
 

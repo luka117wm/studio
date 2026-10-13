@@ -236,6 +236,24 @@ def broken(**changes: Any) -> dict[str, Any]:
                 "сегмент 3: «facts» — целое число фактов, не меньше 0",
             ],
         ),
+        # Принцип 11 (L-036): тема, подписи и приёмы уходят в промпт плана — фразы субтитров нельзя
+        (
+            {
+                **broken(segments={1: {"label": "Three hundred men pull together"}}),
+                "topic": "Climbing from the bottom of the hull to the top",
+                "techniques": [
+                    {"text": "Every rank on a Roman warship had its own pay", "count": 2}
+                ],
+            },
+            [
+                "тема «topic» повторяет субтитры «from the bottom of the hull to the» — перескажите"
+                " своими словами",
+                "сегмент 2: подпись повторяет субтитры «three hundred men pull together» —"
+                " перескажите своими словами",
+                "приём 1: текст повторяет субтитры «every rank on a roman warship had its own"
+                " pay» — перескажите своими словами",
+            ],
+        ),
     ],
 )
 def test_bad_analysis_is_422_with_segment_numbers(

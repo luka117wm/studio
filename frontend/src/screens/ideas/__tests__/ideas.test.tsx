@@ -164,6 +164,9 @@ describe('идеи из чата', () => {
     await userEvent.click(within(chat).getByRole('button', { name: 'Применить вставку' }))
     const alert = await within(chat).findByRole('alert')
     expect(within(alert).getByText('Ни одна идея не принята: 1 пропущена.')).toBeTruthy()
+    // Путь в JSON (`ideas[0]`) не приписывается: сообщение бэкенда уже говорит «идея 1»
+    const issues = within(within(alert).getByRole('list', { name: 'Ошибки ответа' })).getAllByRole('listitem')
+    expect(issues.map((li) => li.textContent)).toEqual(['идея 1: Название не может быть пустым — введите текст.'])
   })
 
   test('«В бэклог» — карточка уходит в центр, счётчик в шапке растёт', async () => {

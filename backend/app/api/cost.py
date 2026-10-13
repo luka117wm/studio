@@ -24,6 +24,7 @@ from app.cost.budget import (
 from app.cost.ledger import LedgerRow
 from app.cost.pricing import Money, StalePrice, money, usd_to_micro
 from app.models.director import Channel
+from app.tools.seed import SEED_COMMAND
 
 router = APIRouter(tags=["cost"])
 
@@ -74,7 +75,7 @@ async def cost_summary(
     if db.execute("SELECT 1 FROM channels WHERE id = ?", (channel,)).fetchone() is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Канал «{channel}» не найден. Создайте каналы: python -m app.tools.seed",
+            detail=f"Канал «{channel}» не найден. Создайте каналы: {SEED_COMMAND}",
         )
     now = datetime.now(UTC)
     start, end = month_bounds(now)

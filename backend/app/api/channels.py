@@ -8,6 +8,7 @@ from app.api.deps import DbDep, PathsDep
 from app.models.channel import ChannelPatch, ChannelProfile
 from app.storage.atomic import read_json, write_json_atomic
 from app.storage.paths import StudioPaths
+from app.tools.seed import SEED_COMMAND
 
 router = APIRouter(tags=["channels"])
 
@@ -27,7 +28,7 @@ def require_channel(db: sqlite3.Connection, channel_id: str) -> None:
     if row is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Канал «{channel_id}» не найден. Создайте каналы: python -m app.tools.seed",
+            detail=f"Канал «{channel_id}» не найден. Создайте каналы: {SEED_COMMAND}",
         )
 
 

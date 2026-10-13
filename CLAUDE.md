@@ -159,6 +159,8 @@ pnpm -C frontend tokens:sync | tokens:check# копия tokens.css из design/h
 pnpm -C frontend typegen | typegen:check  # Pydantic → docs/schema → src/types; check — типы не устарели
 pnpm -C frontend e2e                       # Playwright: визуальные эталоны оболочки, позже WYSIWYG
 uv run pytest                              # бэкенд; сеть замокана
+uv run ruff check . && uv run ruff format --check . && uv run mypy backend tests
+PYTHONPATH=backend uv run python -m app.tools.seed  # каналы cursus и otto; идемпотентно
 uv run pytest -m live -v -rP               # проверка ключей провайдеров (бесплатно), без ключа — skip
 uv run python -m app.tools.render_fixture  # рендер тестового выпуска из tests/fixtures — модуль рендера
 ```

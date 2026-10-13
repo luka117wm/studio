@@ -25,25 +25,45 @@ def ngrams(tokens: Sequence[str], n: int) -> list[tuple[str, ...]]:
     return [tuple(tokens[i : i + n]) for i in range(len(tokens) - n + 1)]
 
 
+def reference_grams(reference_text: str, n: int) -> set[tuple[str, ...]]:
+    """n-граммы субтитров одним текстом — множество для проверок одного референса."""
+    return set(ngrams(words(reference_text), n))
+
+
+def _matches(
+    tokens: Sequence[str], reference: set[tuple[str, ...]], n: int
+) -> tuple[list[bool], list[list[str]]]:
+    """Совпадения n-грамм текста с субтитрами и фразы из них: подряд идущие совпадения i…j — одна
+    фраза из слов i…j+n−1."""
+    hits = [gram in reference for gram in ngrams(tokens, n)]
+    phrases: list[list[str]] = []
+    start: int | None = None
+    for i, hit in enumerate([*hits, False]):
+        if hit and start is None:
+            start = i
+        elif not hit and start is not None:
+            phrases.append(list(tokens[start : i - 1 + n]))
+            start = None
+    return hits, phrases
+
+
+def quotes(text: str, reference: set[tuple[str, ...]], n: int) -> list[str]:
+    """Фразы текста из `n` и больше слов, которые есть в субтитрах; пусто — написано своими словами.
+    Для полей разбора чата (`topic`, подписи, приёмы): они уходят в промпт плана (принцип 11)."""
+    return [" ".join(p) for p in _matches(words(text), reference, n)[1]]
+
+
 def similarity(plan_vo: Sequence[str], reference_text: str, n: int, threshold: float) -> Similarity:
     """`plan_vo` — VO кадров действующего плана по порядку, `reference_text` — текст реплик."""
-    reference = set(ngrams(words(reference_text), n))
+    reference = reference_grams(reference_text, n)
     total = 0
     matched = 0
     phrases: list[list[str]] = []
     for vo in plan_vo:
-        tokens = words(vo)
-        hits = [gram in reference for gram in ngrams(tokens, n)]
+        hits, found = _matches(words(vo), reference, n)
         total += len(hits)
         matched += sum(hits)
-        # Подряд идущие совпадения i…j — одна фраза из слов i…j+n−1
-        start: int | None = None
-        for i, hit in enumerate([*hits, False]):
-            if hit and start is None:
-                start = i
-            elif not hit and start is not None:
-                phrases.append(tokens[start : i - 1 + n])
-                start = None
+        phrases.extend(found)
     ratio = matched / total if total else 0.0
     unique = list(dict.fromkeys(" ".join(p) for p in phrases))
     longest = sorted(unique, key=lambda p: len(p.split()), reverse=True)[:MAX_PHRASES]

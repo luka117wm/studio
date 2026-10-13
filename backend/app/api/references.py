@@ -15,12 +15,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.channels import read_profile, require_channel
-from app.api.deps import DbDep, FormatsDep, PathsDep, PromptsDep
+from app.api.deps import DbDep, FormatsDep, PathsDep, PromptsDep, ReferenceConfigDep
 from app.api.episodes import EpisodeCreate, EpisodeListItem, episode_item, insert_episode
 from app.models.director import Channel, StrictModel
 from app.models.formats import FormatsConfig
 from app.models.project import EpisodeBrief
-from app.models.reference import ReferenceAnalysis, ReferenceMode, ReferenceVideo
+from app.models.reference import ReferenceAnalysis, ReferenceConfig, ReferenceMode, ReferenceVideo
 from app.pipeline.bridge import (
     BridgeAnswerError,
     BridgeIssue,
@@ -131,7 +131,11 @@ def reference_text(db: sqlite3.Connection, reference_id: str) -> str | None:
     ).fetchone()
     if row is None:
         return None
-    return " ".join(cue.text for cue in parse_subtitles(row["subtitles"]))
+    return _subtitles_text(row["subtitles"])
+
+
+def _subtitles_text(subtitles: str) -> str:
+    return " ".join(cue.text for cue in parse_subtitles(subtitles))
 
 
 def structure_for(
@@ -207,21 +211,31 @@ async def get_reference(
 
 
 def _render(
-    row: sqlite3.Row, paths: StudioPaths, formats: FormatsConfig, prompts: PromptLibrary
+    row: sqlite3.Row,
+    paths: StudioPaths,
+    formats: FormatsConfig,
+    prompts: PromptLibrary,
+    config: ReferenceConfig,
 ) -> RenderedPrompt:
     profile = read_profile(paths, row["channel"])
     cues = parse_subtitles(row["subtitles"])
-    context = reference_context(profile, formats.formats[profile.format], cues, row["duration_s"])
+    preset = formats.formats[profile.format]
+    context = reference_context(profile, preset, cues, row["duration_s"], config.ngram)
     return prompts.render(PROMPT_REFERENCE, context)
 
 
 @router.post("/references/{reference_id}/prompt")
 async def reference_prompt(
-    reference_id: str, db: DbDep, paths: PathsDep, formats: FormatsDep, prompts: PromptsDep
+    reference_id: str,
+    db: DbDep,
+    paths: PathsDep,
+    formats: FormatsDep,
+    prompts: PromptsDep,
+    config: ReferenceConfigDep,
 ) -> ReferencePrompt:
     """Промпт разбора референса и новый обмен `prompted` в журнале моста."""
     row = _row(db, reference_id)
-    prompt = _render(row, paths, formats, prompts)
+    prompt = _render(row, paths, formats, prompts, config)
     run = open_run(
         db, task="reference", channel=row["channel"], prompt=prompt, target_id=reference_id
     )
@@ -238,9 +252,11 @@ async def reference_answer(
     paths: PathsDep,
     formats: FormatsDep,
     prompts: PromptsDep,
+    config: ReferenceConfigDep,
 ) -> ReferenceVideo:
     """Ответ чата → разбор референса (`title`, `author` — из него). Ошибка — 422 `BridgeError`,
-    разбор не меняется; обмен закрывается в журнале. Повторный разбор заменяет прежний."""
+    разбор не меняется; обмен закрывается в журнале. Повторный разбор заменяет прежний. Тема,
+    подписи и приёмы с фразами субтитров (n слов из `config/reference.yaml`) — тоже 422."""
     row = _row(db, reference_id)
     latest = latest_runs(db, task="reference", target_id=reference_id, limit=1)
     opened = latest[0] if latest and latest[0].status == "prompted" else None
@@ -252,14 +268,19 @@ async def reference_answer(
             db,
             task="reference",
             channel=row["channel"],
-            prompt=_render(row, paths, formats, prompts),
+            prompt=_render(row, paths, formats, prompts, config),
             status=status,
             errors=errors,
             target_id=reference_id,
         )
 
     try:
-        analysis = review_analysis(extract_json(body.text), row["duration_s"])
+        analysis = review_analysis(
+            extract_json(body.text),
+            row["duration_s"],
+            _subtitles_text(row["subtitles"]),
+            config.ngram,
+        )
     except BridgeAnswerError as exc:
         journal("failed", exc.errors or [BridgeIssue(path="", message=exc.message)])
         raise

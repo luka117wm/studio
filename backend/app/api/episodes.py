@@ -26,6 +26,7 @@ from app.slots import schedule
 from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
+from app.tools.seed import SEED_COMMAND
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["episodes"])
@@ -472,7 +473,7 @@ async def create_episode(body: EpisodeCreate, paths: PathsDep, db: DbDep) -> Epi
     if db.execute("SELECT 1 FROM channels WHERE id = ?", (body.channel,)).fetchone() is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Канал «{body.channel}» не найден. Создайте каналы: python -m app.tools.seed",
+            detail=f"Канал «{body.channel}» не найден. Создайте каналы: {SEED_COMMAND}",
         )
     episode_id = insert_episode(db, paths, body)
     return episode_item(db, paths, episode_id)

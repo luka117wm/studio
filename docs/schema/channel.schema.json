@@ -87,6 +87,7 @@
           }
         },
         "seeds": {
+          "default": [],
           "items": {
             "type": "string"
           },
@@ -100,7 +101,8 @@
         "format",
         "budgets",
         "voice_quota",
-        "voice"
+        "voice",
+        "seeds"
       ],
       "title": "ChannelProfile",
       "type": "object"

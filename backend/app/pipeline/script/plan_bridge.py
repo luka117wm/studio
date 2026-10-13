@@ -170,8 +170,10 @@ def next_context(
     brief: EpisodeBrief | None,
     rng: PartRange,
     accepted: list[Director],
+    reference: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    """Часть k: конспект принятых частей, чтобы продолжить мог и новый чат."""
+    """Часть k: конспект принятых частей, чтобы продолжить мог и новый чат. `reference` — та же
+    структура референса, что в части 1: новый чат без неё не видит, чему следовать."""
     first = accepted[0]
     meta = {**_meta(profile, preset, episode_id, rng), "working_title": first.meta.working_title}
     shots = [s for d in accepted for s in d.shots]
@@ -192,6 +194,7 @@ def next_context(
         "channel_name": profile.name,
         "format": profile.format,
         "brief_json": json_block(_brief(brief)),
+        "reference_json": json_block(reference),
         "accepted_json": json_block(summary),
         "meta_json": json_block(meta),
         "part": str(rng.part),

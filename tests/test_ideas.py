@@ -209,7 +209,8 @@ def test_seeds_are_cleaned_and_written_atomically(seeded: TestClient, paths: Stu
 
     cleared = seeded.patch("/api/channels/cursus", json={"seeds": []})
     assert cleared.status_code == 200
-    assert "seeds" not in read_json(paths.profile_path("cursus"))
+    assert read_json(paths.profile_path("cursus"))["seeds"] == []
+    assert cleared.json()["seeds"] == []
 
 
 @pytest.mark.parametrize(
@@ -280,6 +281,7 @@ def test_prompt_matches_golden_and_lists_backlog_and_episodes(
     assert json.loads(avoid[avoid.index("[") : avoid.rindex("]") + 1]) == [
         PIRATE,
         "Every Rank in a Roman Legion",
+        "Every Rank in a Medieval Monastery",
         "Every Rank in a Samurai House",
     ]
     assert '"pirate ships"' in prompt["text"]

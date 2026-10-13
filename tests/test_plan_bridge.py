@@ -527,3 +527,34 @@ def test_prompts_match_golden(client: TestClient, parts: list[dict[str, Any]]) -
     client.post(ANSWER, json={"text": wrap(parts[0])})
     second = client.post(PROMPT, params={"part": 2}).json()
     check_golden("plan_next_c01_p2.txt", rendered(second))
+
+
+def test_next_part_keeps_reference_structure(
+    client: TestClient, parts: list[dict[str, Any]]
+) -> None:
+    """Часть 2 выпуска по референсу несёт ту же структуру, что часть 1: продолжит и новый чат."""
+    srt = (FIXTURES / "reference_warship.srt").read_text(encoding="utf-8")
+    ref = client.post("/api/references", json={"channel": "cursus", "subtitles": srt}).json()
+    analysis = {
+        "title": "Every Rank on a Roman Warship",
+        "author": "Sample channel",
+        "topic": "Pay and danger on an ancient galley",
+        "segments": [
+            {"kind": "hook", "label": "Cold open", "start": 0, "facts": 0},
+            {"kind": "rank", "label": "Rank 1: rower", "start": 40, "facts": 2},
+        ],
+        "techniques": [{"text": "Pay compared at each step", "count": 2}],
+    }
+    answered = client.post(
+        f"/api/references/{ref['id']}/answer", json={"text": json.dumps(analysis)}
+    )
+    assert answered.status_code == 200, answered.text
+    brief = {"reference_id": ref["id"], "reference_mode": "structure_clone"}
+    assert client.patch(f"/api/projects/{EPISODE}", json={"brief": brief}).status_code == 200
+    assert client.post(ANSWER, json={"text": wrap(parts[0])}).status_code == 200
+
+    text = client.post(PROMPT, params={"part": 2}).json()["text"]
+    block = text.split("## Reference structure")[1].split("`null` means")[0]
+    structure = json.loads(block[block.index("{") : block.rindex("}") + 1])
+    assert structure["mode"] == "structure_clone"
+    assert [s["label"] for s in structure["segments"]] == ["Cold open", "Rank 1: rower"]

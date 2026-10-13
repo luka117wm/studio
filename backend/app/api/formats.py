@@ -18,6 +18,7 @@ from app.pipeline.script.estimate import StageCost, script_cost, stage_cost
 from app.providers.base import ImageRequest, SpeechRequest
 from app.providers.gateway import Gateway
 from app.providers.registry import PlanSource
+from app.tools.seed import SEED_COMMAND
 
 router = APIRouter(tags=["formats"])
 
@@ -68,7 +69,7 @@ async def get_format(
     if row is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Канал «{channel}» не найден. Создайте каналы: python -m app.tools.seed",
+            detail=f"Канал «{channel}» не найден. Создайте каналы: {SEED_COMMAND}",
         )
     episode_format = row["format"]
     preset = formats.formats[episode_format]

@@ -25,6 +25,7 @@ from app.models.reference import (
     Technique,
 )
 from app.pipeline.bridge import BridgeAnswerError, BridgeIssue, json_block
+from app.pipeline.research.similarity import quotes, reference_grams
 from app.pipeline.research.subtitles import count_words
 from app.pipeline.script.plan_bridge import errors_word
 
@@ -49,10 +50,10 @@ def clock(seconds: float) -> str:
 
 
 def reference_context(
-    profile: ChannelProfile, preset: FormatPreset, cues: list[Cue], duration_s: float
+    profile: ChannelProfile, preset: FormatPreset, cues: list[Cue], duration_s: float, ngram: int
 ) -> dict[str, str]:
     """Контекст шаблона `reference`: наш канал (для чего разбор), длительность, реплики
-    `[03:31] text`."""
+    `[03:31] text`, длина фразы, которую приём разбора считает цитатой (`config/reference.yaml`)."""
     preset_view = {
         "minutes": preset.minutes.model_dump(),
         "words_per_minute": preset.words_per_minute,
@@ -64,18 +65,22 @@ def reference_context(
         "duration": clock(duration_s),
         "duration_s": str(round(duration_s)),
         "cues": "\n".join(f"[{clock(cue.start)}] {cue.text}" for cue in cues),
+        "ngram": str(ngram),
     }
 
 
 # --- приём разбора --------------------------------------------------------------------------------
 
 
-def review_analysis(data: Mapping[str, Any], duration_s: float) -> ReferenceAnalysis:
+def review_analysis(
+    data: Mapping[str, Any], duration_s: float, subtitles_text: str, ngram: int
+) -> ReferenceAnalysis:
     """Ответ чата → разбор или `BridgeAnswerError` (422) со всеми ошибками по-русски, с номером
     сегмента.
 
     Проверки: поля и типы; хотя бы два сегмента; начала по возрастанию, первое — не позже 30 с,
-    все — в пределах длительности; у приёма `count ≥ 1`.
+    все — в пределах длительности; у приёма `count ≥ 1`; тема, подписи сегментов и приёмы — без
+    фраз субтитров из `ngram` слов: они уходят в промпт плана (принцип 11, L-036).
     """
     issues: list[BridgeIssue] = []
     topic = data.get("topic")
@@ -120,6 +125,8 @@ def review_analysis(data: Mapping[str, Any], duration_s: float) -> ReferenceAnal
                 )
             )
 
+    issues.extend(_quote_issues(data, subtitles_text, ngram))
+
     if issues:
         raise BridgeAnswerError(
             f"Разбор не прошёл проверку: {len(issues)} {errors_word(len(issues))}.",
@@ -127,6 +134,38 @@ def review_analysis(data: Mapping[str, Any], duration_s: float) -> ReferenceAnal
             issues,
         )
     return ReferenceAnalysis.model_validate(data)
+
+
+def _quote_issues(data: Mapping[str, Any], subtitles_text: str, ngram: int) -> list[BridgeIssue]:
+    """Поля разбора, которые уходят в промпт плана, — своими словами: чат цитирует субтитры
+    вопреки промпту, а тема для «Своей версии» становится идеей заявки (L-036)."""
+    grams = reference_grams(subtitles_text, ngram)
+    issues: list[BridgeIssue] = []
+
+    def check(value: object, path: str, who: str) -> None:
+        if not isinstance(value, str):
+            return
+        found = sorted(quotes(value, grams, ngram), key=lambda p: len(p.split()), reverse=True)
+        if found:
+            issues.append(
+                BridgeIssue(
+                    path=path,
+                    message=f"{who} повторяет субтитры «{found[0]}» — перескажите своими словами",
+                )
+            )
+
+    check(data.get("topic"), "topic", "тема «topic»")
+    raw_segments = data.get("segments")
+    for index, item in enumerate(raw_segments if isinstance(raw_segments, list) else [], start=1):
+        if isinstance(item, Mapping):
+            check(item.get("label"), f"segments[{index - 1}].label", f"сегмент {index}: подпись")
+    raw_techniques = data.get("techniques")
+    for index, item in enumerate(
+        raw_techniques if isinstance(raw_techniques, list) else [], start=1
+    ):
+        if isinstance(item, Mapping):
+            check(item.get("text"), f"techniques[{index - 1}].text", f"приём {index}: текст")
+    return issues
 
 
 def _segment_issues(

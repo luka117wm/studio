@@ -80,7 +80,7 @@
 Тело `EpisodeCreate`: `channel` (обязательно), `id`, `title` (по умолчанию «Новый выпуск»), `short_title`,
 `origin` (по умолчанию `blank`), `slot` (по умолчанию `next_free` — ближайший свободный слот после сегодняшнего;
 дата `YYYY-MM-DD` или `null`, правила — `docs/slots.md`), `idea_id` (M4.8). Ошибки: 404 — канала нет
-(`python -m app.tools.seed`), 409 — id, каталог или слот заняты, 422 — поля или дата не из расписания.
+(`PYTHONPATH=backend uv run python -m app.tools.seed`), 409 — id, каталог или слот заняты, 422 — поля или дата не из расписания.
 
 **Из идеи** — `{channel, origin: "backlog", idea_id}`: идея этого канала и в бэклоге (`docs/research.md`, «Выпуск из
 идеи»). Название — идеи, если `title` не прислан; заявка `project.json → brief` — из идеи (`idea` ← название,

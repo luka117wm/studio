@@ -240,7 +240,14 @@ def test_latest_runs_by_episode_and_task(
     assert [r["id"] for r in only_ideas] == [ideas.id]
     assert len(seeded.get("/api/bridge/runs").json()) == 4
     assert len(seeded.get("/api/bridge/runs", params={"limit": 1}).json()) == 1
-    assert seeded.get("/api/bridge/runs", params={"task": "script"}).status_code == 422
+    unknown = seeded.get("/api/bridge/runs", params={"task": "script"})
+    assert unknown.status_code == 422
+    assert (
+        unknown.json()["detail"]
+        == "Задачи моста «script» нет: ожидалось одно из plan, ideas, reference."
+    )
+    too_many = seeded.get("/api/bridge/runs", params={"limit": 0})
+    assert too_many.json()["detail"] == "limit 0 — ожидалось от 1 до 100 обменов."
 
 
 def test_bridge_writes_no_cost_rows(

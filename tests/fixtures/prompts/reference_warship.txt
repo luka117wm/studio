@@ -1,4 +1,4 @@
-prompt: reference, version: 1
+prompt: reference, version: 2
 
 You are analysing how a history video on YouTube is built, for the channel "Cursus" (format: every_rank). The channel wants to learn the video's structure, not to copy it: the app keeps only the structure you describe and never passes the video's text on. Read the subtitles below and describe the structure as JSON.
 
@@ -48,7 +48,7 @@ Subtitles, one cue per line with its start time:
    - `facts` is how many concrete historical claims the part makes.
    Give at least two segments.
 5. `techniques` lists delivery techniques the video repeats, in your own words, with `count`: how many times each occurs, at least 1.
-6. Never quote the subtitles: no sentence or phrase from them may appear anywhere in your answer.
+6. Never quote the subtitles: no sentence or phrase from them may appear anywhere in your answer. The app compares `topic`, segment labels and techniques with the subtitles and rejects the answer if any of them repeats 5 or more words in a row.
 7. All texts are in English.
 
 ## Shape of the answer

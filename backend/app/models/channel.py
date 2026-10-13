@@ -40,10 +40,6 @@ class ChannelVoice(StrictModel):
     pace_wpm: int | None = Field(default=None, ge=100, le=200)
 
 
-def _no_seeds(value: list[str]) -> bool:
-    return not value
-
-
 def _clean_seeds(value: list[str]) -> list[str]:
     """Семена ниши: строки после `strip`, пустые выбрасываются; до 20, до 80 знаков, без повторов
     без учёта регистра. Ошибка — одна фраза с тем, что исправить (L-022)."""
@@ -82,9 +78,9 @@ class ChannelProfile(StrictModel):
     voice_quota: VoiceQuota
     # Профили до M4.2 поля не имеют — читаются со значениями по умолчанию.
     voice: ChannelVoice = ChannelVoice()
-    # Семена ниши для промпта идей (M4.8): короткие строки. Пустой список не выгружается — в TS поле
-    # необязательно, пока его не покажет экран идей (L-033).
-    seeds: list[str] = Field(default_factory=list, exclude_if=_no_seeds)
+    # Семена ниши для промпта идей (M4.8): короткие строки; `[]` — семян нет. Профили до M4.8
+    # поля не имеют — читаются с пустым списком.
+    seeds: list[str] = []
 
 
 class ChannelPatch(StrictModel):

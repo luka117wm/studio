@@ -268,10 +268,11 @@ def _render(
     count: int,
 ) -> RenderedPrompt:
     profile = read_profile(paths, channel)
+    # Бэклог, затем предложенные: ещё не решены, но повтор чат потратит впустую — приём его отсеет
     backlog = _titles(
         db,
-        "SELECT title FROM ideas WHERE channel = ? AND status = 'backlog'"
-        " ORDER BY created_at, rowid",
+        "SELECT title FROM ideas WHERE channel = ? AND status IN ('backlog', 'proposed')"
+        " ORDER BY status = 'proposed', created_at, rowid",
         (channel,),
     )
     avoid = avoid_titles(backlog, _episode_titles(db, channel))

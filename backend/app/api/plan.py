@@ -196,7 +196,9 @@ def _render(plan: _Plan, prompts: PromptLibrary, part: int) -> tuple[RenderedPro
     accepted = [d for d in plan.staged if d.meta.part < part]
     total = plan.staged[0].meta.parts_total
     rng = part_range(part, total, spp, plan.preset.shots, last_shot_number(accepted))
-    context = next_context(plan.profile, plan.preset, plan.episode.id, brief, rng, accepted)
+    context = next_context(
+        plan.profile, plan.preset, plan.episode.id, brief, rng, accepted, plan.reference
+    )
     return prompts.render(PROMPT_NEXT, context), rng
 
 

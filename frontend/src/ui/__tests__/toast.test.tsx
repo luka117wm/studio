@@ -10,10 +10,11 @@ describe('ToastStack', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  test('показывает три, остальное — «и ещё N»', () => {
+  test('показывает три новых, старые — «и ещё N» над ними', () => {
     render(<ToastStack toasts={items} onDismiss={() => {}} />)
-    expect(screen.getAllByRole('status')).toHaveLength(3)
-    expect(screen.getByText('и ещё 2')).toBeTruthy()
+    expect(screen.getAllByRole('status').map((t) => t.textContent)).toEqual(['Тост cСкрыть', 'Тост dСкрыть', 'Тост eСкрыть'])
+    const more = screen.getByText('и ещё 2')
+    expect(more.compareDocumentPosition(screen.getAllByRole('status')[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   test('автоскрытие через 4 с', () => {

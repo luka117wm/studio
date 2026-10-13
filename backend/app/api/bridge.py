@@ -4,9 +4,9 @@
 статусом 422 (подключается в `main.create_app`).
 """
 
-from typing import Annotated
+from typing import Annotated, get_args
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -61,15 +61,30 @@ async def get_bridge_settings(request: Request, gateway: GatewayDep) -> BridgeSe
     return bridge_settings(settings, gateway.registry.config.plan_source)
 
 
+RUNS_MAX = 100
+
+
 @router.get("/bridge/runs")
 async def get_bridge_runs(
     db: DbDep,
     episode_id: str | None = None,
-    task: BridgeTask | None = None,
-    limit: int = Query(default=LATEST_LIMIT, ge=1, le=100),
+    task: str | None = None,
+    limit: int = LATEST_LIMIT,
 ) -> list[BridgeRun]:
-    """Последние обмены, новые первыми; фильтры по выпуску и задаче."""
-    return latest_runs(db, episode_id=episode_id, task=task, limit=limit)
+    """Последние обмены, новые первыми; фильтры по выпуску и задаче. Неизвестная задача и `limit`
+    вне 1…100 — 422 по-русски, а не текстом FastAPI."""
+    tasks: tuple[BridgeTask, ...] = get_args(BridgeTask)
+    if task is not None and task not in tasks:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Задачи моста «{task}» нет: ожидалось одно из {', '.join(tasks)}.",
+        )
+    if not 1 <= limit <= RUNS_MAX:
+        raise HTTPException(
+            status_code=422, detail=f"limit {limit} — ожидалось от 1 до {RUNS_MAX} обменов."
+        )
+    known: BridgeTask | None = next((t for t in tasks if t == task), None)
+    return latest_runs(db, episode_id=episode_id, task=known, limit=limit)
 
 
 async def bridge_answer_error(request: Request, exc: Exception) -> JSONResponse:

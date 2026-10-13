@@ -109,18 +109,20 @@ SHA-256 текста в UTF-8.
 
 ```json
 {
-  "message": "План не прошёл проверку: 2 ошибки.",
+  "message": "Часть 1 не прошла проверку: 2 ошибки.",
   "hint": "Попросите чат исправить кадры s027 и s031 и прислать часть целиком.",
   "errors": [
-    { "path": "s027.image.prompt", "message": "Стилевой токен «8k» — стиль задаёт канон канала" },
-    { "path": "s031.vo", "message": "Пустой текст закадра" }
+    { "path": "s027", "message": "кадр s027: в image.prompt стилевой токен «8k» (8k), ожидалось только действие, композиция и ракурс — стиль задаёт канон" },
+    { "path": "s031", "message": "кадр s031: пустой vo, ожидалось текст закадрового голоса" }
   ]
 }
 ```
 
-Тексты по-русски, без извинений. `errors[]` — ошибки внутри ответа `{path, message}`, где `path` начинается с id
-кадра, если ошибка в кадре. Его заполняет проверка схемой задачи (M4.2). Разбор JSON отдаёт `errors: []`: всё сказано
-в `message`. Тип фронта — `BridgeError` из `@/types/bridge`.
+Тексты по-русски, без извинений. `errors[]` — ошибки внутри ответа `{path, message}`. `message` — самодостаточная
+строка для человека и сама называет место: «кадр s003: …», «идея 2: …», «сегмент 1: …», «тема «topic» …»; фронт
+показывает её как есть. `path` — машинный адрес (id кадра, `ideas[1]`, `segments[0].start`): по нему экран ведёт к
+кадру, человеку он не показывается. Его заполняет проверка схемой задачи (M4.2). Разбор JSON отдаёт `errors: []`: всё
+сказано в `message`. Тип фронта — `BridgeError` из `@/types/bridge`.
 
 ## Журнал `bridge_runs`
 
@@ -165,7 +167,7 @@ API доступен только с ключом `ANTHROPIC_API_KEY`, и в M4 
 | Запрос | Ответ |
 |---|---|
 | `GET /api/bridge/settings` | `BridgeSettings {plan_source, api: {available, reason}}`; `plan_source` — действующий источник |
-| `GET /api/bridge/runs?episode_id=&task=&limit=20` | `[BridgeRun]`, новые первыми; `limit` 1…100; неизвестная `task` — 422 |
+| `GET /api/bridge/runs?episode_id=&task=&limit=20` | `[BridgeRun]`, новые первыми; `limit` 1…100; неизвестная `task` или `limit` вне диапазона — 422 по-русски («Задачи моста «script» нет: ожидалось одно из plan, ideas, reference.») |
 
 `api.reason` — подсказка у выключенного сегмента «Claude API» на экране 3:
 - без ключа — «Нет ключа ANTHROPIC_API_KEY — docs/api_keys.md»;
@@ -194,7 +196,7 @@ API доступен только с ключом `ANTHROPIC_API_KEY`, и в M4 
 | Шаблон | Контекст |
 |---|---|
 | `plan_first` | `channel_name`, `format`; `preset_json` — минуты, разделы, кадры, темп; `brief_json` — заявка без `idea_id` и `reference_id`; `reference_json` — структура референса выпуска (`reference_structure`: режим, сегменты, темп, приёмы; без текста реплик, принцип 11) или `null`; `meta_json` — `channel`, `episode_id`, `format`, `language`, `target_minutes`, `part`, `parts_total`; `part`, `parts_total`, `first_shot`, `last_shot` |
-| `plan_next` | `channel_name`, `format`, `brief_json`; `accepted_json` — конспект принятых частей: `parts_received`, `shots_so_far`, `last_shot {id, section, vo}`, `sections`, id эпох `periods` и обликов `appearances`; `meta_json` — то же плюс `working_title` части 1; `part`, `parts_total`, `first_shot`, `last_shot` |
+| `plan_next` | `channel_name`, `format`, `brief_json`; `reference_json` — та же структура референса, что в части 1, или `null` (с v2: новый чат без неё не видит, чему следовать); `accepted_json` — конспект принятых частей: `parts_received`, `shots_so_far`, `last_shot {id, section, vo}`, `sections`, id эпох `periods` и обликов `appearances`; `meta_json` — то же плюс `working_title` части 1; `part`, `parts_total`, `first_shot`, `last_shot` |
 
 Правила в тексте промптов:
 - ровно один блок ```` ```json ````, `meta` — как дано;

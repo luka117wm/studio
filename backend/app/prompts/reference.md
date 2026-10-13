@@ -1,6 +1,6 @@
 ---
 id: reference
-version: 1
+version: 2
 task: reference
 model_hint: opus
 ---
@@ -32,7 +32,7 @@ Subtitles, one cue per line with its start time:
    - `facts` is how many concrete historical claims the part makes.
    Give at least two segments.
 5. `techniques` lists delivery techniques the video repeats, in your own words, with `count`: how many times each occurs, at least 1.
-6. Never quote the subtitles: no sentence or phrase from them may appear anywhere in your answer.
+6. Never quote the subtitles: no sentence or phrase from them may appear anywhere in your answer. The app compares `topic`, segment labels and techniques with the subtitles and rejects the answer if any of them repeats {{ngram}} or more words in a row.
 7. All texts are in English.
 
 ## Shape of the answer

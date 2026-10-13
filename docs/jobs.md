@@ -61,10 +61,11 @@ queued ──cancel──▶ cancelled
 ```python
 SPEC = HandlerSpec(kind="sleep_job", fn=sleep_job, payload_model=SleepPayload, resource="cpu")
 
+
 def sleep_job(ctx: JobContext, payload: SleepPayload) -> dict[str, int]:
     for step in range(1, payload.steps + 1):
         if ctx.cancelled():
-            return {"steps_done": step - 1}          # сделанное — в result
+            return {"steps_done": step - 1}  # сделанное — в result
         ...
         ctx.progress(step / payload.steps, f"Шаг {step} из {payload.steps}")
     return {"steps_done": payload.steps}
@@ -87,12 +88,21 @@ def sleep_job(ctx: JobContext, payload: SleepPayload) -> dict[str, int]:
 **Платный обработчик** (M2.6) объявляет оценку и ходит к провайдеру только через `ctx.gateway`:
 
 ```python
-SPEC = HandlerSpec("image_job", image_job, ImagePayload, resource="cpu",
-                   estimate=lambda gateway, p: gateway.estimate("images", request_of(p)))
+SPEC = HandlerSpec(
+    "image_job",
+    image_job,
+    ImagePayload,
+    resource="cpu",
+    estimate=lambda gateway, p: gateway.estimate("images", request_of(p)),
+)
+
 
 async def image_job(ctx: JobContext, payload: ImagePayload) -> dict[str, Any]:
-    call = CallContext(stage="images", episode_id=ctx.episode_id, shot_id=payload.shot_id, job_id=ctx.job_id)
-    outcome = await ctx.gateway.call(call, request_of(payload))   # cached | charged, иначе исключение
+    call = CallContext(
+        stage="images", episode_id=ctx.episode_id, shot_id=payload.shot_id, job_id=ctx.job_id
+    )
+    # cached | charged, иначе исключение
+    outcome = await ctx.gateway.call(call, request_of(payload))
     return {"status": outcome.status, "path": str(outcome.asset_path)}
 ```
 
