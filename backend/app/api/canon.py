@@ -4,6 +4,9 @@
 `GET` (`?version=`; без него — черновик или последняя версия), `PUT …/draft`, `POST …/publish`,
 `POST …/draft?from=vNNN`, `DELETE …/draft`. Отказы хранилища (`CanonError`) — 404/409 с
 текстом в `detail`; форма тела — 422 с ошибками по полям.
+
+«Нужно каналу» (M5.2) — эпохи и облики из планов выпусков без опубликованной версии и скелеты
+черновиков для них (`docs/canon_schema.md`, «Нужно каналу»).
 """
 
 from typing import Annotated, Any
@@ -14,7 +17,10 @@ from fastapi.responses import JSONResponse
 
 from app.api.channels import require_channel
 from app.api.deps import DbDep, PathsDep
+from app.api.episodes import channel_episodes, load_sources
 from app.models.canon import (
+    Appearance,
+    AppearanceId,
     CanonId,
     CanonSummary,
     Character,
@@ -25,8 +31,23 @@ from app.models.canon import (
     StyleDoc,
     VersionTag,
 )
+from app.pipeline.canon.episode_canon import (
+    CanonNeeded,
+    EpisodePlan,
+    canon_needed,
+    published_canon,
+)
 from app.storage import canon_store
-from app.storage.canon_store import CHARACTERS, PERIODS, STYLE, CanonError, Entry
+from app.storage.canon_store import (
+    CHARACTERS,
+    PERIODS,
+    STYLE,
+    CanonConflict,
+    CanonError,
+    CanonNotFound,
+    Entry,
+)
+from app.storage.paths import StudioPaths
 
 router = APIRouter(prefix="/canon", tags=["canon"])
 
@@ -204,3 +225,75 @@ async def publish_character(
 ) -> CharacterDoc:
     require_channel(db, channel)
     return _doc(CharacterDoc, canon_store.publish(paths, channel, CHARACTERS, character_id))
+
+
+# --- нужно каналу --------------------------------------------------------------------------------
+
+
+@router.get("/{channel}/needed")
+async def get_needed(channel: str, paths: PathsDep, db: DbDep) -> CanonNeeded:
+    """Эпохи и облики из `canon_ref` текущих версий планов канала, у которых нет ни одной
+    опубликованной версии: какие выпуски и сколько кадров на них ссылаются."""
+    require_channel(db, channel)
+    plans: list[EpisodePlan] = []
+    for episode in channel_episodes(db, channel):
+        _, director = load_sources(paths, episode)
+        if director is not None:
+            plans.append(EpisodePlan(episode.id, episode.title, director))
+    return canon_needed(channel, plans, published_canon(paths, channel))
+
+
+@router.post("/{channel}/needed/periods/{period_id}", status_code=201)
+async def create_needed_period(
+    channel: str, period_id: EntityIdParam, paths: PathsDep, db: DbDep
+) -> PeriodDoc:
+    """Скелет-черновик эпохи: только id. Опубликованная эпоха или начатый черновик — 409."""
+    require_channel(db, channel)
+    versions = canon_store.list_versions(paths, channel, PERIODS, period_id)
+    if versions:
+        raise CanonConflict(
+            f"Эпоха {period_id} уже опубликована ({versions[-1].version}) — создавать её не нужно."
+        )
+    try:
+        canon_store.read_entry(paths, channel, PERIODS, period_id)
+    except CanonNotFound:
+        entry = canon_store.save_draft(paths, channel, PERIODS, period_id, Period(id=period_id))
+        return _doc(PeriodDoc, entry)
+    raise CanonConflict(
+        f"У эпохи {period_id} уже есть черновик — откройте его на экране «Канон» и опубликуйте."
+    )
+
+
+@router.post("/{channel}/needed/appearances/{appearance_id}", status_code=201)
+async def create_needed_appearance(
+    channel: str, appearance_id: AppearanceId, paths: PathsDep, db: DbDep
+) -> CharacterDoc:
+    """Скелет облика в черновике персонажа: черновик есть — облик дописывается в него, нет —
+    черновик начинается с последней версии, персонажа нет — создаётся. Облик уже опубликован или
+    уже в черновике — 409."""
+    require_channel(db, channel)
+    return _doc(CharacterDoc, _appearance_skeleton(paths, channel, appearance_id))
+
+
+def _appearance_skeleton(paths: StudioPaths, channel: str, appearance_id: str) -> Entry[Character]:
+    character_id = appearance_id.split("@", 1)[0]
+    for info in reversed(canon_store.list_versions(paths, channel, CHARACTERS, character_id)):
+        published = canon_store.read_entry(paths, channel, CHARACTERS, character_id, info.version)
+        if published.data.appearance(appearance_id) is not None:
+            raise CanonConflict(
+                f"Облик {appearance_id} уже опубликован в characters/{character_id}/"
+                f"{info.version} — создавать его не нужно."
+            )
+    skeleton = Appearance(id=appearance_id)
+    try:
+        entry = canon_store.read_entry(paths, channel, CHARACTERS, character_id)
+    except CanonNotFound:
+        character = Character(id=character_id, appearances=[skeleton])
+        return canon_store.save_draft(paths, channel, CHARACTERS, character_id, character)
+    if entry.data.appearance(appearance_id) is not None:
+        raise CanonConflict(
+            f"Облик {appearance_id} уже есть в черновике персонажа {character_id} — откройте его "
+            "на экране «Канон» и опубликуйте."
+        )
+    character = entry.data.model_copy(update={"appearances": [*entry.data.appearances, skeleton]})
+    return canon_store.save_draft(paths, channel, CHARACTERS, character_id, character)

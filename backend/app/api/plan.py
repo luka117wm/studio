@@ -6,7 +6,8 @@
 Контракт — `docs/bridge.md`, раздел «План».
 
 Здесь же — действующий план для экрана 3 (версия плюс ручные правки, `effective_plan`), проверка
-плана из JSON-редактора без записи (`director/validate`), смета плана и «Утвердить план» (M4.6).
+плана из JSON-редактора без записи (`director/validate`), смета плана, «Утвердить план» (M4.6),
+канон выпуска и «Перевести на новые версии» (M5.2, `pipeline/canon/episode_canon.py`).
 """
 
 import sqlite3
@@ -22,6 +23,7 @@ from app.api.channels import read_profile
 from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep, ReferenceConfigDep
 from app.api.director import (
     PartsPending,
+    canon_pins,
     identity_items,
     import_plan,
     read_version,
@@ -63,6 +65,14 @@ from app.pipeline.bridge import (
     record_answer,
 )
 from app.pipeline.bridge.runs import AnswerStatus
+from app.pipeline.canon.episode_canon import (
+    CanonPins,
+    EpisodeCanon,
+    load_episode_canon,
+    plan_canon_ref,
+    published_canon,
+    updated_ref,
+)
 from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
 from app.pipeline.research.similarity import similarity
@@ -81,6 +91,7 @@ from app.pipeline.script.plan_bridge import (
     build_canon_ref,
     errors_word,
     expected_part,
+    fill_canon_ref,
     first_context,
     issue_path,
     last_shot_number,
@@ -291,6 +302,7 @@ async def plan_answer(
     )
     voice = voice_for(plan.profile, plan.preset, gateway.registry.resolve("voice"))
     first = next((d for d in plan.staged if d.meta.part == 1), None)
+    pins = canon_pins(paths, plan.episode)
 
     journal_part = expected.part
     # Ответ без открытого обмена пишется в журнал с промптом, который выдало бы приложение, — его
@@ -308,10 +320,11 @@ async def plan_answer(
             expected=expected,
             voice=voice,
             first_part=first,
+            pins=pins,
         )
         director = prepared.director
         if director.meta.part > 1:
-            _extend_first_part_canon(paths, plan, director)
+            _extend_first_part_canon(paths, plan, director, pins)
         try:
             outcome = import_plan(paths, db, plan.episode, director, "bridge")
         except HTTPException as exc:
@@ -374,12 +387,16 @@ async def get_plan(episode_id: str, paths: PathsDep, db: DbDep) -> EffectivePlan
 
 
 @router.post("/projects/{episode_id}/director/validate")
-async def validate_plan(episode_id: str, body: dict[str, Any], db: DbDep) -> PlanCheck:
+async def validate_plan(
+    episode_id: str, body: dict[str, Any], paths: PathsDep, db: DbDep
+) -> PlanCheck:
     """План или часть — те же проверки, что у импорта (`POST …/director`), но без записи.
 
     `canon_ref` и `voice` проверяются как есть: редактор присылает их из текущей версии.
+    Недостающие ключи `canon_ref` дописываются, как при импорте (`fill_canon_ref`).
     """
     episode = require_episode(db, episode_id)
+    body = fill_canon_ref(body, canon_pins(paths, episode))
     try:
         director = validate_director(body)
     except DirectorValidationError as exc:
@@ -456,6 +473,53 @@ async def get_similarity(
     return SimilarityReport(similarity=found, reason=None)
 
 
+@router.get("/projects/{episode_id}/canon")
+async def get_episode_canon(episode_id: str, paths: PathsDep, db: DbDep) -> EpisodeCanon | None:
+    """Канон выпуска: прибитые версии стиля, эпох и обликов текущей версии плана, их статусы и что
+    мешает утвердить. `null` — плана ещё нет."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None or project.director_version is None:
+        return None
+    return load_episode_canon(paths, episode.channel, director, project.director_version)
+
+
+@router.post("/projects/{episode_id}/canon/update")
+async def update_episode_canon(episode_id: str, paths: PathsDep, db: DbDep) -> ImportResult:
+    """«Перевести на новые версии»: новая версия плана `source: manual` — тот же текст, в
+    `canon_ref` последние опубликованные версии. Затронутые кадры — `stale` с причиной (M2.4),
+    картинки не удаляются. Нечего обновлять — 200 без новой версии (`created: false`).
+
+    Без `await` между чтением и записью (L-014).
+    """
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None or project.director_version is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Плана ещё нет — переводить нечего: вставьте ответ чата или импортируйте JSON.",
+        )
+    current = plan_canon_ref(director)
+    target = updated_ref(current, published_canon(paths, episode.channel))
+    if target == current:
+        return ImportResult(
+            version=project.director_version,
+            created=False,
+            added=0,
+            changed=0,
+            removed=0,
+            changes=[],
+        )
+    outcome = import_plan(
+        paths, db, episode, director.model_copy(update={"canon_ref": target}), "manual"
+    )
+    # Версия плана собрана целиком (`parts_total = 1`): в набор частей она не ляжет.
+    assert isinstance(outcome, ImportResult)
+    return outcome
+
+
 @router.post("/episodes/{episode_id}/approve")
 async def approve_plan(
     episode_id: str, paths: PathsDep, db: DbDep, config: ReferenceConfigDep
@@ -473,12 +537,16 @@ async def approve_plan(
     project = Project.model_validate(read_json(path))
     director = read_version(paths, episode, project.director_version)
     staged = [] if director is not None else staged_parts(paths, episode)
+    canon = None
+    if director is not None and project.director_version is not None:
+        canon = load_episode_canon(paths, episode.channel, director, project.director_version)
     subject = ApprovalSubject(
         stage=episode.stage,
         plan=None if director is None else effective_plan(director, project),
         staged_parts=[part.meta.part for part in staged],
         parts_total=staged[0].meta.parts_total if staged else 0,
         reference=_reference_check(db, project, config),
+        canon=canon,
     )
     problems = approval_problems(subject)
     if problems:
@@ -505,16 +573,19 @@ def _claimed_part(data: dict[str, object], expected: Expected) -> int:
     return part if isinstance(part, int) and part in expected.allowed else expected.part
 
 
-def _extend_first_part_canon(paths: StudioPaths, plan: _Plan, director: Director) -> None:
+def _extend_first_part_canon(
+    paths: StudioPaths, plan: _Plan, director: Director, pins: CanonPins
+) -> None:
     """`canon_ref` набора — по кадрам всех частей: облик, впервые появившийся в части 3, иначе не
     прошёл бы проверку собранного плана. Сборка M2.4 берёт `canon_ref` из части 1 — её и
-    дополняем. Части 1 нет (набор сброшен) — нечего дополнять: импорт ответит, что её не хватает."""
+    дополняем; версии — по правилу `pins`. Части 1 нет (набор сброшен) — нечего дополнять: импорт
+    ответит, что её не хватает."""
     others = [d for d in plan.staged if d.meta.part != director.meta.part]
     first = next((d for d in others if d.meta.part == 1), None)
     if first is None:
         return
     shots = [s.model_dump(mode="json") for d in [*others, director] for s in d.shots]
-    canon = build_canon_ref(shots)
+    canon = build_canon_ref(shots, pins)
     if first.canon_ref != canon:
         write_json_atomic(
             paths.director_part_path(plan.episode.channel, plan.episode.id, 1),

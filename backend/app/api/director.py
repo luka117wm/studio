@@ -5,7 +5,9 @@
 `cache/director_parts/` (часть 1 начинает новый набор), неполный набор — 409 с перечнем недостающих;
 после последней части план собирается, проходит валидацию целиком и импортируется как один файл.
 Повторный импорт того же плана (хэш канонического JSON) версию не создаёт. `?source=` — откуда
-версия (`manual` — ручной импорт и «Сохранить как версию» из JSON-редактора).
+версия (`manual` — ручной импорт и «Сохранить как версию» из JSON-редактора). Присланный
+`canon_ref` принимается как есть, недостающие ключи дописываются по правилу канона выпуска
+(`canon_pins`, `plan_bridge.fill_canon_ref`).
 """
 
 import logging
@@ -18,7 +20,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.deps import DbDep, PathsDep
 from app.api.episodes import Episode, mark_plan_imported, require_episode
-from app.models.director import Director, Shot, StrictModel
+from app.models.director import CanonRef, Director, Shot, StrictModel
 from app.models.project import (
     DIRECTOR_VERSION_PATTERN,
     DirectorVersionInfo,
@@ -26,6 +28,7 @@ from app.models.project import (
     VersionSource,
 )
 from app.models.validators import DirectorValidationError, ValidationItem, validate_director
+from app.pipeline.canon.episode_canon import CanonPins, published_canon
 from app.pipeline.director_import import (
     ImportResult,
     PartsError,
@@ -34,6 +37,7 @@ from app.pipeline.director_import import (
     merge_into_project,
 )
 from app.pipeline.director_import.merge import director_to_json
+from app.pipeline.script.plan_bridge import fill_canon_ref
 from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
@@ -60,6 +64,7 @@ async def import_director(
     project.json — без `await`: относительно других запросов импорт последователен (L-014).
     """
     episode = require_episode(db, episode_id)
+    body = fill_canon_ref(body, canon_pins(paths, episode))
     try:
         part = validate_director(body)
     except DirectorValidationError as exc:
@@ -146,6 +151,15 @@ def import_plan(
         result.removed,
     )
     return result
+
+
+def canon_pins(paths: StudioPaths, episode: Episode) -> CanonPins:
+    """Правило версий `canon_ref` новой версии плана: ссылки текущей версии и снимок канона канала
+    (устав M5, решение 3)."""
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    current = read_version(paths, episode, project.director_version)
+    previous: CanonRef | None = None if current is None else current.canon_ref
+    return CanonPins(previous=previous, published=published_canon(paths, episode.channel))
 
 
 def staged_parts(paths: StudioPaths, episode: Episode) -> list[Director]:

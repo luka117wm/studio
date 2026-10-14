@@ -1,8 +1,17 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:0a549f88feb48e0cb6ff3ea6592b09da9c99a2c496b40a2a73845764c41d734d
+ * @generated sha256:5c761a65a5ddbf93b0b68fb832aa3221c8328d880b3a3c7cd09e5c8c876795ad
  */
+/**
+ * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
+ */
+export interface AnchorSheet {
+  status: 'missing' | 'partial' | 'ready' | 'outdated'
+  chosen: number
+  total: number
+}
+
 export interface AnimateSpec {
   recommended: boolean
   reason: string | null
@@ -11,9 +20,10 @@ export interface AnimateSpec {
 }
 
 export interface ApprovalProblem {
-  check: 'stage' | 'plan' | 'vo' | 'prompt' | 'similarity'
+  check: 'stage' | 'plan' | 'vo' | 'prompt' | 'similarity' | 'canon'
   shot_id: string | null
   message: string
+  canon?: CanonTarget | null
 }
 
 /**
@@ -63,6 +73,22 @@ export interface BudgetOutlook {
   message: string
 }
 
+export interface CanonProblem {
+  kind: 'style' | 'period' | 'appearance'
+  id: string
+  issue: 'unpublished' | 'unresolved' | 'no_sheet' | 'sheet_incomplete' | 'sheet_outdated'
+  message: string
+}
+
+/**
+ * Что не готово в каноне выпуска: сущность и вид проблемы.
+ */
+export interface CanonTarget {
+  kind: 'style' | 'period' | 'appearance'
+  id: string
+  issue: 'unpublished' | 'unresolved' | 'no_sheet' | 'sheet_incomplete' | 'sheet_outdated'
+}
+
 export interface CostLine {
   unit: 'image' | 'char' | 'second' | 'token_in' | 'token_out' | 'search'
   quantity: number
@@ -84,6 +110,45 @@ export interface EffectivePlan {
   sections: Section[]
   shots: PlanShot[]
   facts: Fact[]
+}
+
+export interface EpisodeAppearanceItem {
+  id: string
+  ref: string
+  pinned: string | null
+  latest: string | null
+  status: 'missing' | 'draft_only' | 'ready' | 'outdated'
+  resolved: boolean
+  draft: boolean
+  shots: number
+  sheet: AnchorSheet
+}
+
+/**
+ * Канон выпуска для экрана 3 (`GET /api/projects/{id}/canon`).
+ */
+export interface EpisodeCanon {
+  plan_version: string
+  ready: boolean
+  updatable: boolean
+  style: EpisodeCanonItem
+  periods: EpisodeCanonItem[]
+  appearances: EpisodeAppearanceItem[]
+  problems: CanonProblem[]
+}
+
+/**
+ * Стиль, эпоха или облик из `canon_ref` плана.
+ */
+export interface EpisodeCanonItem {
+  id: string
+  ref: string
+  pinned: string | null
+  latest: string | null
+  status: 'missing' | 'draft_only' | 'ready' | 'outdated'
+  resolved: boolean
+  draft: boolean
+  shots: number
 }
 
 /**

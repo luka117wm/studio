@@ -4,6 +4,37 @@
   "title": "plan",
   "description": "Модели API Studio, группа «plan». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnchorSheet": {
+      "description": "Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).",
+      "properties": {
+        "status": {
+          "enum": [
+            "missing",
+            "partial",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "integer"
+        },
+        "total": {
+          "default": 6,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "chosen",
+        "total"
+      ],
+      "title": "AnchorSheet",
+      "type": "object"
+    },
     "AnimateSpec": {
       "additionalProperties": false,
       "properties": {
@@ -61,7 +92,8 @@
             "plan",
             "vo",
             "prompt",
-            "similarity"
+            "similarity",
+            "canon"
           ],
           "title": "Check",
           "type": "string"
@@ -80,6 +112,17 @@
         "message": {
           "title": "Message",
           "type": "string"
+        },
+        "canon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -301,6 +344,82 @@
       "title": "BudgetOutlook",
       "type": "object"
     },
+    "CanonProblem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "issue": {
+          "enum": [
+            "unpublished",
+            "unresolved",
+            "no_sheet",
+            "sheet_incomplete",
+            "sheet_outdated"
+          ],
+          "title": "Issue",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "issue",
+        "message"
+      ],
+      "title": "CanonProblem",
+      "type": "object"
+    },
+    "CanonTarget": {
+      "description": "Что не готово в каноне выпуска: сущность и вид проблемы.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "issue": {
+          "enum": [
+            "unpublished",
+            "unresolved",
+            "no_sheet",
+            "sheet_incomplete",
+            "sheet_outdated"
+          ],
+          "title": "Issue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "issue"
+      ],
+      "title": "CanonTarget",
+      "type": "object"
+    },
     "CostLine": {
       "properties": {
         "unit": {
@@ -409,6 +528,199 @@
         "facts"
       ],
       "title": "EffectivePlan",
+      "type": "object"
+    },
+    "EpisodeAppearanceItem": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "draft_only",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "sheet": {
+          "$ref": "#/$defs/AnchorSheet"
+        }
+      },
+      "required": [
+        "id",
+        "ref",
+        "pinned",
+        "latest",
+        "status",
+        "resolved",
+        "draft",
+        "shots",
+        "sheet"
+      ],
+      "title": "EpisodeAppearanceItem",
+      "type": "object"
+    },
+    "EpisodeCanon": {
+      "description": "Канон выпуска для экрана 3 (`GET /api/projects/{id}/canon`).",
+      "properties": {
+        "plan_version": {
+          "title": "Plan Version",
+          "type": "string"
+        },
+        "ready": {
+          "title": "Ready",
+          "type": "boolean"
+        },
+        "updatable": {
+          "title": "Updatable",
+          "type": "boolean"
+        },
+        "style": {
+          "$ref": "#/$defs/EpisodeCanonItem"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/EpisodeCanonItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "appearances": {
+          "items": {
+            "$ref": "#/$defs/EpisodeAppearanceItem"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/CanonProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "plan_version",
+        "ready",
+        "updatable",
+        "style",
+        "periods",
+        "appearances",
+        "problems"
+      ],
+      "title": "EpisodeCanon",
+      "type": "object"
+    },
+    "EpisodeCanonItem": {
+      "description": "Стиль, эпоха или облик из `canon_ref` плана.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "draft_only",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "ref",
+        "pinned",
+        "latest",
+        "status",
+        "resolved",
+        "draft",
+        "shots"
+      ],
+      "title": "EpisodeCanonItem",
       "type": "object"
     },
     "EstimateLine": {

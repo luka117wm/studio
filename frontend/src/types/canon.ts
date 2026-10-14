@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:400077bb68008cc32dcc21b478920894b3cd3b02b7532553dcd772534e9f3416
+ * @generated sha256:e3990c6a4bc2fe24b4492e1544e0498f8ed5d6c8b17e2956ea1778f9564fd574
  */
 /**
  * Облик: персонаж в одной эпохе и одном возрасте. Свой лист опорных портретов.
@@ -29,6 +29,16 @@ export interface CanonCharacterItem {
   versions: CanonVersionInfo[]
   draft: boolean
   appearances_count: number
+}
+
+/**
+ * «Нужно каналу» (`GET /api/canon/{channel}/needed`): эпохи и облики из `canon_ref` текущих
+ * версий планов, у которых нет ни одной опубликованной версии.
+ */
+export interface CanonNeeded {
+  channel: string
+  periods: NeededItem[]
+  appearances: NeededAppearance[]
 }
 
 /**
@@ -93,6 +103,27 @@ export interface Nature {
   posture: string
   manner: string
   face: string
+}
+
+export interface NeededAppearance {
+  id: string
+  draft: boolean
+  shots: number
+  episodes: NeededEpisode[]
+  character_exists: boolean
+}
+
+export interface NeededEpisode {
+  id: string
+  title: string
+  shots: number
+}
+
+export interface NeededItem {
+  id: string
+  draft: boolean
+  shots: number
+  episodes: NeededEpisode[]
 }
 
 export interface Optics {

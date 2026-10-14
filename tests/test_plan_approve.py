@@ -8,16 +8,22 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.models.canon import Character, Period, Style
 from app.models.project import merge_patch
+from app.pipeline.canon import episode_canon
+from app.pipeline.canon.episode_canon import AnchorSheet
 from app.pipeline.script import approve
 from app.pipeline.script.approve import ApprovalProblem, ApprovalSubject, refusal
 from app.settings import Settings
+from app.storage import canon_store
 from app.storage.atomic import read_json, write_json_atomic
+from app.storage.canon_store import CHARACTERS, PERIODS, STYLE
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
 
 FIXTURES = Path(__file__).parent / "fixtures"
+CANON = FIXTURES / "canon"
 EPISODE = "c07-pirate-ship"
 EPISODE_URL = f"/api/episodes/{EPISODE}"
 APPROVE_URL = f"{EPISODE_URL}/approve"
@@ -52,7 +58,8 @@ def episode(client: TestClient, paths: StudioPaths) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def planned(episode: TestClient) -> TestClient:
+def planned(episode: TestClient, no_canon_gate: None) -> TestClient:
+    """План импортирован; канон к нему не опубликован — проверка канона выключена."""
     assert episode.post(DIRECTOR_URL, json=load("director_pirate_10shots.json")).status_code == 200
     return episode
 
@@ -276,3 +283,105 @@ def test_similarity_check_needs_plan_and_reference() -> None:
     no_plan = ApprovalSubject(stage="script", plan=None, reference=reference)
     assert [p.check for p in approve.approval_problems(no_plan)] == ["plan"]
     assert approve.not_like_reference(ApprovalSubject(stage="script", plan=None)) == []
+
+
+# --- канон (M5.2) ---------------------------------------------------------------------------------
+
+V001_REFS = {
+    "style": "style/v001",
+    "periods": {"caribbean-1716": "periods/caribbean-1716/v001"},
+    "appearances": {"you@powder-monkey-11": "characters/you/v001#powder-monkey-11"},
+}
+
+
+@pytest.fixture
+def planned_v001(episode: TestClient) -> TestClient:
+    """План прибит к заготовкам `v001`, как план из моста до канона; проверка канона включена."""
+    plan = load("director_pirate_10shots.json") | {"canon_ref": V001_REFS}
+    assert episode.post(DIRECTOR_URL, json=plan).status_code == 200
+    return episode
+
+
+def publish_canon(paths: StudioPaths) -> None:
+    """Стиль, эпоха caribbean-1716 и персонаж you — по v001 из фикстур канона."""
+    for layer, entity_id, model, name in (
+        (STYLE, None, Style, "style_cursus.json"),
+        (PERIODS, "caribbean-1716", Period, "period_caribbean_1716.json"),
+        (CHARACTERS, "you", Character, "character_you.json"),
+    ):
+        data = model.model_validate_json((CANON / name).read_text(encoding="utf-8"))
+        canon_store.save_draft(paths, "cursus", layer, entity_id, data)
+        canon_store.publish(paths, "cursus", layer, entity_id)
+
+
+def test_unpublished_canon_is_refused_with_ids(
+    planned_v001: TestClient, paths: StudioPaths
+) -> None:
+    detail = refused(planned_v001.post(APPROVE_URL))
+    assert detail["message"] == (
+        "Канон не готов: стиль канала не опубликован, 1 эпоха не опубликована, 1 облик не"
+        " опубликован — экран «Канон»."
+    )
+    assert [(p["check"], p["shot_id"], p["canon"]) for p in detail["problems"]] == [
+        ("canon", None, {"kind": "style", "id": "style", "issue": "unpublished"}),
+        ("canon", None, {"kind": "period", "id": "caribbean-1716", "issue": "unpublished"}),
+        (
+            "canon",
+            None,
+            {"kind": "appearance", "id": "you@powder-monkey-11", "issue": "unpublished"},
+        ),
+    ]
+    assert detail["problems"][1]["message"] == (
+        "эпоха caribbean-1716 не опубликована — создайте и опубликуйте её на экране «Канон»"
+    )
+    assert stage(planned_v001) == "script"
+    assert "approved_version" not in on_disk(paths)
+
+
+def test_published_canon_without_sheet_is_refused_then_approved(
+    planned_v001: TestClient, paths: StudioPaths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish_canon(paths)
+    detail = refused(planned_v001.post(APPROVE_URL))
+    assert detail["message"] == "Канон не готов: у 1 облика нет листа — экран «Канон»."
+    assert detail["problems"] == [
+        {
+            "check": "canon",
+            "shot_id": None,
+            "message": "облик you@powder-monkey-11: нет листа опорных портретов — соберите его"
+            " на экране «Канон»",
+            "canon": {"kind": "appearance", "id": "you@powder-monkey-11", "issue": "no_sheet"},
+        }
+    ]
+
+    # Листы — M5.4; до него статус листа — заглушка.
+    sheets: list[tuple[str, str]] = []
+
+    def ready(paths_: StudioPaths, channel: str, appearance_id: str, version: str) -> AnchorSheet:
+        sheets.append((appearance_id, version))
+        return AnchorSheet(status="ready", chosen=6)
+
+    monkeypatch.setattr(episode_canon, "sheet_state", ready)
+    response = planned_v001.post(APPROVE_URL)
+    assert response.status_code == 200, response.text
+    assert response.json()["stage"] == "generate"
+    assert sheets == [("you@powder-monkey-11", "v001")]
+
+
+def test_canon_summary_counts_by_issue() -> None:
+    targets = [
+        episode_canon.CanonTarget(kind="period", id=p, issue="unpublished")
+        for p in ("venice-1570", "england-1347")
+    ] + [
+        episode_canon.CanonTarget(kind="appearance", id="you@captain-35", issue="unresolved"),
+        episode_canon.CanonTarget(kind="appearance", id="you@comito-34", issue="sheet_incomplete"),
+        episode_canon.CanonTarget(kind="appearance", id="you@cook-40", issue="sheet_outdated"),
+    ]
+    assert approve.canon_summary(targets) == (
+        "Канон не готов: 2 эпохи не опубликованы, 1 ссылка не находит версию, у 1 облика лист не"
+        " собран, у 1 облика лист устарел — экран «Канон» и «Перевести на новые версии»."
+    )
+    unresolved = [episode_canon.CanonTarget(kind="style", id="style", issue="unresolved")] * 5
+    assert approve.canon_summary(unresolved) == (
+        "Канон не готов: 5 ссылок не находят версию — «Перевести на новые версии»."
+    )

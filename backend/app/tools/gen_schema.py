@@ -50,6 +50,7 @@ from app.models.idea import Idea, IdeaCreate, IdeaPatch
 from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
 from app.models.reference import ReferenceVideo, SimilarityReport
 from app.pipeline.bridge import BridgeError, BridgeRun
+from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
@@ -124,6 +125,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (PlanEstimate, "serialization"),
         (ApprovalRefusal, "serialization"),
         (SimilarityReport, "serialization"),
+        (EpisodeCanon, "serialization"),
     ],
     "reference": [
         (ReferenceVideo, "serialization"),
@@ -137,6 +139,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (StyleDoc, "serialization"),
         (PeriodDoc, "serialization"),
         (CharacterDoc, "serialization"),
+        (CanonNeeded, "serialization"),
     ],
     # Тела `PUT …/draft` — отдельно (L-031): `Style`, `Period`, `Character` есть и в ответах.
     "canon_draft": [(Style, "validation"), (Period, "validation"), (Character, "validation")],

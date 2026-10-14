@@ -130,6 +130,36 @@
       "title": "CanonCharacterItem",
       "type": "object"
     },
+    "CanonNeeded": {
+      "description": "«Нужно каналу» (`GET /api/canon/{channel}/needed`): эпохи и облики из `canon_ref` текущих\nверсий планов, у которых нет ни одной опубликованной версии.",
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/NeededItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "appearances": {
+          "items": {
+            "$ref": "#/$defs/NeededAppearance"
+          },
+          "title": "Appearances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "periods",
+        "appearances"
+      ],
+      "title": "CanonNeeded",
+      "type": "object"
+    },
     "CanonPeriodItem": {
       "additionalProperties": false,
       "description": "Подпись и число запретов — из черновика, а без него — из последней версии.",
@@ -401,6 +431,96 @@
         "face"
       ],
       "title": "Nature",
+      "type": "object"
+    },
+    "NeededAppearance": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/NeededEpisode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        },
+        "character_exists": {
+          "title": "Character Exists",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "draft",
+        "shots",
+        "episodes",
+        "character_exists"
+      ],
+      "title": "NeededAppearance",
+      "type": "object"
+    },
+    "NeededEpisode": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "shots"
+      ],
+      "title": "NeededEpisode",
+      "type": "object"
+    },
+    "NeededItem": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/NeededEpisode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "draft",
+        "shots",
+        "episodes"
+      ],
+      "title": "NeededItem",
       "type": "object"
     },
     "Optics": {
