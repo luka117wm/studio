@@ -55,6 +55,7 @@ from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.canon.anchors import AnchorSetState
 from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.images.prompt_builder import ShotPrompt
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
@@ -129,6 +130,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (ApprovalRefusal, "serialization"),
         (SimilarityReport, "serialization"),
         (EpisodeCanon, "serialization"),
+        (ShotPrompt, "serialization"),
     ],
     "reference": [
         (ReferenceVideo, "serialization"),

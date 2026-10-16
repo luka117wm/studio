@@ -7,7 +7,8 @@
 
 Здесь же — действующий план для экрана 3 (версия плюс ручные правки, `effective_plan`), проверка
 плана из JSON-редактора без записи (`director/validate`), смета плана, «Утвердить план» (M4.6),
-канон выпуска и «Перевести на новые версии» (M5.2, `pipeline/canon/episode_canon.py`).
+канон выпуска и «Перевести на новые версии» (M5.2, `pipeline/canon/episode_canon.py`), предпросмотр
+запроса картинки кадра (M5.5, `pipeline/images/prompt_builder.py`).
 """
 
 import sqlite3
@@ -20,7 +21,15 @@ from pydantic import BaseModel, Field
 
 from app.api.bridge import PlanSourceDep
 from app.api.channels import read_profile
-from app.api.deps import DbDep, FormatsDep, GatewayDep, PathsDep, PromptsDep, ReferenceConfigDep
+from app.api.deps import (
+    CanonConfigDep,
+    DbDep,
+    FormatsDep,
+    GatewayDep,
+    PathsDep,
+    PromptsDep,
+    ReferenceConfigDep,
+)
 from app.api.director import (
     PartsPending,
     canon_pins,
@@ -75,6 +84,7 @@ from app.pipeline.canon.episode_canon import (
 )
 from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
+from app.pipeline.images.prompt_builder import ShotPrompt, build_shot_request
 from app.pipeline.research.similarity import similarity
 from app.pipeline.script.approve import (
     ApprovalSubject,
@@ -483,6 +493,44 @@ async def get_episode_canon(episode_id: str, paths: PathsDep, db: DbDep) -> Epis
     if director is None or project.director_version is None:
         return None
     return load_episode_canon(paths, episode.channel, director, project.director_version)
+
+
+@router.get("/projects/{episode_id}/shots/{shot_id}/prompt")
+async def get_shot_prompt(
+    episode_id: str,
+    shot_id: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+) -> ShotPrompt:
+    """Запрос картинки кадра действующего плана до траты денег: секции с источниками, итоговый
+    текст и negative, референсы, seed, модель и цена; что мешает рисовать — `problems`, не 500.
+    Без плана — 409, кадра в действующем плане нет — 404."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Плана ещё нет — промпт кадра появится, когда план будет собран: вставьте ответ"
+            " чата или импортируйте JSON.",
+        )
+    shot = next((s for s in effective_plan(director, project).shots if s.id == shot_id), None)
+    if shot is None:
+        raise HTTPException(
+            status_code=404, detail=f"Кадра {shot_id} в действующем плане выпуска нет."
+        )
+    built = build_shot_request(
+        paths,
+        gateway,
+        config,
+        episode_id=episode.id,
+        channel=episode.channel,
+        canon_ref=plan_canon_ref(director),
+        shot=shot,
+    )
+    return built.prompt
 
 
 @router.post("/projects/{episode_id}/canon/update")

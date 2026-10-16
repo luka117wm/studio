@@ -420,6 +420,49 @@
       "title": "CanonTarget",
       "type": "object"
     },
+    "Cost": {
+      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "Cost",
+      "type": "object"
+    },
     "CostLine": {
       "properties": {
         "unit": {
@@ -462,6 +505,54 @@
         "usd_micro"
       ],
       "title": "CostLine",
+      "type": "object"
+    },
+    "DroppedRef": {
+      "description": "Референс, который не поместился в лимит модели.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "anchor",
+            "style_frame"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "slot",
+        "label",
+        "file",
+        "sha256",
+        "reason"
+      ],
+      "title": "DroppedRef",
       "type": "object"
     },
     "EffectivePlan": {
@@ -1392,6 +1483,85 @@
       "title": "PlanShot",
       "type": "object"
     },
+    "PromptRef": {
+      "description": "Референс кадра: выбранный ракурс листа облика или опорный кадр стиля.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "anchor",
+            "style_frame"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "slot",
+        "label",
+        "file",
+        "sha256"
+      ],
+      "title": "PromptRef",
+      "type": "object"
+    },
+    "PromptSection": {
+      "description": "Секция промпта и откуда она: версия канона (`style/v003`, `periods/…/v002`,\n`characters/…/v004#…`) или сам кадр (`shot`).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance",
+            "action",
+            "shot_size"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "source",
+        "label",
+        "text"
+      ],
+      "title": "PromptSection",
+      "type": "object"
+    },
     "Section": {
       "additionalProperties": false,
       "properties": {
@@ -1546,6 +1716,117 @@
         "price"
       ],
       "title": "ShotChange",
+      "type": "object"
+    },
+    "ShotPrompt": {
+      "description": "Запрос картинки кадра до траты денег: `GET /api/projects/{id}/shots/{shot_id}/prompt`.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/PromptSection"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "negative": {
+          "title": "Negative",
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "$ref": "#/$defs/PromptRef"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "dropped": {
+          "items": {
+            "$ref": "#/$defs/DroppedRef"
+          },
+          "title": "Dropped",
+          "type": "array"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "aspect_ratio": {
+          "enum": [
+            "1:1",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "21:9"
+          ],
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "cost": {
+          "$ref": "#/$defs/Cost"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "input_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Hash"
+        },
+        "problems": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_id",
+        "sections",
+        "text",
+        "negative",
+        "refs",
+        "dropped",
+        "seed",
+        "aspect_ratio",
+        "model",
+        "cost",
+        "usd",
+        "input_hash",
+        "problems",
+        "warnings"
+      ],
+      "title": "ShotPrompt",
       "type": "object"
     },
     "Similarity": {

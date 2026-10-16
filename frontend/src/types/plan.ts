@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:5c761a65a5ddbf93b0b68fb832aa3221c8328d880b3a3c7cd09e5c8c876795ad
+ * @generated sha256:8bc14e2f0dc2cd51b48bad52982ba43d8dd01e0d6257ba940cc77f7c4747db19
  */
 /**
  * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
@@ -89,11 +89,36 @@ export interface CanonTarget {
   issue: 'unpublished' | 'unresolved' | 'no_sheet' | 'sheet_incomplete' | 'sheet_outdated'
 }
 
+/**
+ * Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.
+ */
+export interface Cost {
+  stage: string
+  provider: string
+  model: string
+  lines: CostLine[]
+  usd_micro: number
+  stale_pricing: boolean
+}
+
 export interface CostLine {
   unit: 'image' | 'char' | 'second' | 'token_in' | 'token_out' | 'search'
   quantity: number
   variant: string | null
   usd_micro: number
+}
+
+/**
+ * Референс, который не поместился в лимит модели.
+ */
+export interface DroppedRef {
+  kind: 'anchor' | 'style_frame'
+  owner: string
+  slot: string
+  label: string
+  file: string
+  sha256: string
+  reason: string
 }
 
 /**
@@ -297,6 +322,29 @@ export interface PlanShot {
   )[]
 }
 
+/**
+ * Референс кадра: выбранный ракурс листа облика или опорный кадр стиля.
+ */
+export interface PromptRef {
+  kind: 'anchor' | 'style_frame'
+  owner: string
+  slot: string
+  label: string
+  file: string
+  sha256: string
+}
+
+/**
+ * Секция промпта и откуда она: версия канона (`style/v003`, `periods/…/v002`,
+ * `characters/…/v004#…`) или сам кадр (`shot`).
+ */
+export interface PromptSection {
+  kind: 'style' | 'period' | 'appearance' | 'action' | 'shot_size'
+  source: string
+  label: string
+  text: string
+}
+
 export interface Section {
   id: string
   title: string
@@ -323,6 +371,26 @@ export interface ShotChange {
   stale: boolean
   drawn_at: string | null
   price: number | null
+}
+
+/**
+ * Запрос картинки кадра до траты денег: `GET /api/projects/{id}/shots/{shot_id}/prompt`.
+ */
+export interface ShotPrompt {
+  shot_id: string
+  sections: PromptSection[]
+  text: string
+  negative: string
+  refs: PromptRef[]
+  dropped: DroppedRef[]
+  seed: number
+  aspect_ratio: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
+  model: string
+  cost: Cost
+  usd: Money
+  input_hash: string | null
+  problems: string[]
+  warnings: string[]
 }
 
 /**

@@ -545,24 +545,31 @@ def _write(path: Path, model: BaseModel) -> None:
 def record_candidate(s: SetDir, record: CandidateRecord, *, auto_choose: bool = False) -> None:
     """Кандидат в манифест. Удавшаяся или отбракованная запись с тем же id (те же входы) остаётся
     как была: повтор из кэша её не трогает, отбракованный не возвращается. Запись о сбое того же
-    кандидата (ракурс, номер, версия) заменяет новая попытка. `auto_choose` — выбор кадра стиля."""
+    кандидата (ракурс, номер, версия) заменяет новая попытка. `auto_choose` — выбор кадра стиля:
+    и для записи, которая уже была, — иначе пересборка в прежней эпохе вернула бы файл из кэша, а
+    выбор остался бы на другой эпохе (найдено в M5.5)."""
     manifest = read_manifest(s)
-    if any(r.id == record.id and r.status != "failed" for r in manifest.candidates):
-        return
-    manifest.candidates = [
-        r
-        for r in manifest.candidates
-        if not (
-            r.status == "failed"
-            and (r.slot, r.n, r.version) == (record.slot, record.n, record.version)
-        )
-    ]
-    manifest.candidates.append(record)
-    _write(s.manifest_path, manifest)
-    if auto_choose and record.status == "ready" and record.file is not None:
+    kept = next(
+        (r for r in manifest.candidates if r.id == record.id and r.status != "failed"), None
+    )
+    if kept is None:
+        manifest.candidates = [
+            r
+            for r in manifest.candidates
+            if not (
+                r.status == "failed"
+                and (r.slot, r.n, r.version) == (record.slot, record.n, record.version)
+            )
+        ]
+        manifest.candidates.append(record)
+        _write(s.manifest_path, manifest)
+        kept = record
+    if auto_choose and kept.status == "ready" and kept.file is not None:
         chosen = read_chosen(s)
-        chosen.slots[record.slot] = _chosen_from(record)
-        _write(s.chosen_path, chosen)
+        pick = chosen.slots.get(kept.slot)
+        if pick is None or pick.candidate != kept.id:
+            chosen.slots[kept.slot] = _chosen_from(kept)
+            _write(s.chosen_path, chosen)
 
 
 def _chosen_from(record: CandidateRecord) -> ChosenRecord:

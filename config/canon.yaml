@@ -62,3 +62,26 @@ style_frames:
     - id: silhouette
       label: Силуэт
       prompt: a lone figure seen as a silhouette against a bright opening or sky
+
+# Кадр выпуска (M5.5): соотношение сторон и по крупности — строка для промпта, ракурсы листа каждого
+# облика кадра и до двух кадров стиля (docs/prompt_assembly.md). Первый ракурс — фас: при лимите
+# референсов модели он не уходит никогда. Кадры стиля — id шаблонов из `style_frames` выше.
+shots:
+  aspect_ratio: "16:9"
+  sizes:
+    establishing:
+      prompt: wide establishing shot, the place reads first, people small in the frame
+      angles: [front, full_body]
+      style_frames: [establishing, crowd]
+    action:
+      prompt: medium-wide shot of the action, whole figures readable
+      angles: [front, three_quarter, full_body, in_action]
+      style_frames: [establishing, portrait]
+    reaction:
+      prompt: close shot on the face and shoulders, the emotion readable
+      angles: [front, three_quarter, profile]
+      style_frames: [portrait, night]
+    detail:
+      prompt: close-up of the object or the hands in the action
+      angles: [front, detail]
+      style_frames: [detail, portrait]

@@ -1,0 +1,701 @@
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "cursus",
+    "episode_id": "c09-canon-20",
+    "working_title": "Canon Twenty Shots",
+    "format": "every_rank",
+    "language": "en",
+    "target_minutes": 20,
+    "part": 1,
+    "parts_total": 1
+  },
+  "brief": {
+    "idea": "Climb every rank on a Caribbean pirate ship of 1716, from powder monkey to captain, and learn what each one actually did all day.",
+    "angle": "Second person: you are the boy, then the sailor, then the officer. Every promotion costs something.",
+    "hook_promise": "By the end you will know why the captain was the least powerful man aboard in peacetime.",
+    "reference_mode": "none",
+    "sources": [
+      {
+        "title": "Marcus Rediker, Villains of All Nations",
+        "url": "https://www.versobooks.com/products/1620-villains-of-all-nations"
+      },
+      {
+        "title": "Charles Johnson, A General History of the Pyrates (1724)",
+        "url": "https://www.gutenberg.org/ebooks/40580"
+      }
+    ]
+  },
+  "canon_ref": {
+    "style": "style/v001",
+    "periods": {
+      "caribbean-1716": "periods/caribbean-1716/v001"
+    },
+    "appearances": {
+      "you@powder-monkey-11": "characters/you/v001#powder-monkey-11",
+      "bosun@caribbean-1716": "characters/bosun/v001#caribbean-1716"
+    }
+  },
+  "voice": {
+    "provider": "elevenlabs",
+    "voice_id": "narrator-cursus-01",
+    "model": "eleven_multilingual_v2",
+    "pace_wpm": 150
+  },
+  "sections": [
+    {
+      "id": "r1",
+      "title": "Powder monkey",
+      "chapter": true,
+      "vo_direction": "calm, dry irony; let the pauses breathe"
+    },
+    {
+      "id": "r2",
+      "title": "Gun drill",
+      "chapter": true,
+      "vo_direction": "quicker, clipped, the rhythm of orders"
+    }
+  ],
+  "shots": [
+    {
+      "id": "s001",
+      "section": "r1",
+      "vo": "Line 1 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "a sloop at anchor in a shallow bay at dawn, seen from the beach, small figures on deck",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s002",
+      "section": "r1",
+      "vo": "Line 2 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "carries a leather cartridge case down the gun deck, glancing back over his shoulder",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s003",
+      "section": "r1",
+      "vo": "Line 3 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "crouches behind a cannon and hands the cartridge up to an unseen gunner",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s004",
+      "section": "r1",
+      "vo": "Line 4 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "a powder keg with its lid pried open, black grains spilled on the planks",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "detail"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s005",
+      "section": "r1",
+      "vo": "Line 5 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "flinches as a cannon fires just out of frame, hands over his ears",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s006",
+      "section": "r1",
+      "vo": "Line 6 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the bosun grabs the boy by the collar and drags him away from an open hatch",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11",
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s007",
+      "section": "r1",
+      "vo": "Line 7 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the gun deck at night, a row of hammocks, the boy awake in the last one",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s008",
+      "section": "r1",
+      "vo": "Line 8 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the bosun stares down the length of the deck, jaw set, waiting for silence",
+        "period": "caribbean-1716",
+        "appearances": [
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s009",
+      "section": "r1",
+      "vo": "Line 9 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the bosun shows the boy how to coil a rope against the sun, the boy copies him",
+        "period": "caribbean-1716",
+        "appearances": [
+          "bosun@caribbean-1716",
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s010",
+      "section": "r1",
+      "vo": "Line 10 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy's blackened fingers counting cartridges into a wooden tray",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "detail"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s011",
+      "section": "r2",
+      "vo": "Line 11 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "two ships side by side in open water, smoke drifting between their hulls",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s012",
+      "section": "r2",
+      "vo": "Line 12 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy runs a cartridge along the deck while the bosun clears the way with his rope",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11",
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s013",
+      "section": "r2",
+      "vo": "Line 13 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy looks up through the open hatch at a strip of sky, catching his breath",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s014",
+      "section": "r2",
+      "vo": "Line 14 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "a knotted rope starter hanging from a wooden peg beside a lantern",
+        "period": "caribbean-1716",
+        "appearances": [],
+        "shot_size": "detail"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s015",
+      "section": "r2",
+      "vo": "Line 15 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the bosun blows his whistle with one hand and points aft with the other",
+        "period": "caribbean-1716",
+        "appearances": [
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s016",
+      "section": "r2",
+      "vo": "Line 16 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy and the bosun both turn toward a shout from the rigging",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11",
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "reaction"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s017",
+      "section": "r2",
+      "vo": "Line 17 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy climbs the ladder from the hold with a full cartridge case on his back",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s018",
+      "section": "r2",
+      "vo": "Line 18 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the main deck at noon, the crew at the rail, the boy and the bosun among them",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11",
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "establishing"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s019",
+      "section": "r2",
+      "vo": "Line 19 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the bosun's tar-stained hand closing around the whistle on its cord",
+        "period": "caribbean-1716",
+        "appearances": [
+          "bosun@caribbean-1716"
+        ],
+        "shot_size": "detail"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s020",
+      "section": "r2",
+      "vo": "Line 20 of the canon fixture: what happens on deck in this moment.",
+      "image": {
+        "prompt": "the boy sits on a cannon at dusk and eats ship's biscuit from his palm",
+        "period": "caribbean-1716",
+        "appearances": [
+          "you@powder-monkey-11"
+        ],
+        "shot_size": "action"
+      },
+      "motion": {
+        "type": "drift",
+        "strength": 0.04,
+        "ease": "linear"
+      },
+      "transition_in": {
+        "type": "cut",
+        "duration": 0.0
+      },
+      "animate": {
+        "recommended": false,
+        "reason": null,
+        "prompt": null,
+        "seconds": 4
+      },
+      "sfx": [],
+      "overlay": null
+    }
+  ],
+  "music": [
+    {
+      "section": "r1",
+      "mood": "tense low strings, sparse, a single repeating note",
+      "gain_db": -24
+    },
+    {
+      "section": "r2",
+      "mood": "drum-driven, rising, no melody",
+      "gain_db": -22
+    }
+  ],
+  "thumbnail": {
+    "concepts": [
+      {
+        "prompt": "a small boy with a cartridge case looks up at a towering gun deck, viewed from below",
+        "text": "POWDER MONKEY TO CAPTAIN"
+      },
+      {
+        "prompt": "a ladder of ranks drawn as ship decks stacked on top of each other, the boy at the bottom",
+        "text": "EVERY RANK"
+      }
+    ]
+  },
+  "publish": {
+    "titles": [
+      "Every Rank on a Pirate Ship (1716)",
+      "You Are Eleven and Your Job Is Gunpowder",
+      "From Powder Monkey to Captain: Every Rank Explained"
+    ],
+    "description": "Climb every rank on a Caribbean pirate ship of 1716. What each rank did, what it paid, and what it cost.",
+    "tags": [
+      "pirates",
+      "1716",
+      "history",
+      "every rank",
+      "age of sail"
+    ],
+    "category_id": "27",
+    "synthetic_media": true,
+    "made_for_kids": false
+  },
+  "facts": []
+}

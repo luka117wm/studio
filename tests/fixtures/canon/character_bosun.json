@@ -1,0 +1,25 @@
+{
+  "id": "bosun",
+  "label": "Боцман",
+  "nature": {
+    "personality": "loud, fair, quick to anger and quick to forget",
+    "posture": "planted wide stance, shoulders forward",
+    "manner": "points with the whole arm, never repeats an order",
+    "face": "broad flat face, broken nose, deep-set dark eyes, thick black eyebrows"
+  },
+  "appearances": [
+    {
+      "id": "bosun@caribbean-1716",
+      "label": "Боцман, 1716",
+      "period": "caribbean-1716",
+      "age": 40,
+      "build": "barrel-chested and heavy-armed",
+      "face": "weathered skin, grey stubble, a gold ring in one ear",
+      "hair": "black hair going grey, tied under a red kerchief",
+      "clothing": "sleeveless leather jerkin over a striped linen shirt, canvas breeches, bare feet",
+      "wear": "tar-stained hands, frayed jerkin edges",
+      "props": ["bosun's whistle on a cord", "knotted rope starter"],
+      "negative_local": ["officer's coat", "Hat", "Text"]
+    }
+  ]
+}

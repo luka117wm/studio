@@ -532,6 +532,19 @@ def test_style_frames_are_drawn_chosen_and_go_stale_on_light(env: Env) -> None:
     prompt = env.fake.calls[0][1].model_dump()["prompt"]
     assert STYLE["light"]["direction"] in prompt and "horn-paned lanterns" in prompt
 
+    # Пересборка в другой эпохе и обратно: возврат — из кэша, выбор снова на кадрах Карибов.
+    other = {**PERIOD, "id": "england-1347", "label": "Англия, 1347", "region": "England"}
+    env.publish(f"{BASE}/periods/england-1347", other)
+    caribbean = read_json(style_dir / "chosen.json")
+    assert env.run(f"{BASE}/style/anchors", {"period": "england-1347"})["result"]["charged"] == 6
+    assert read_json(style_dir / "chosen.json") != caribbean
+    back = env.run(f"{BASE}/style/anchors", {"period": "caribbean-1716"})["result"]
+    assert (back["charged"], back["cached"]) == (0, 6)
+    picks = read_json(style_dir / "chosen.json")["slots"]
+    assert {k: v["candidate"] for k, v in picks.items()} == {
+        k: v["candidate"] for k, v in caribbean["slots"].items()
+    }
+
     env.publish(f"{BASE}/style", {**STYLE, "grain": "coarse grain"})  # v002: зерно — не устаревает
     assert env.get(f"{BASE}/style/anchors")["status"] == "ready"
     env.publish(f"{BASE}/style", {**STYLE, "light": {**STYLE["light"], "direction": "top light"}})
