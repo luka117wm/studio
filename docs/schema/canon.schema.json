@@ -1080,6 +1080,113 @@
       "title": "Period",
       "type": "object"
     },
+    "PeriodAnswerBody": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "PeriodAnswerBody",
+      "type": "object"
+    },
+    "PeriodAnswerResult": {
+      "description": "Ответ чата принят в черновик эпохи. `filled`, `conflicts` — у черновика; `added`,\n`repeats` — у «Дополнить запреты».",
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "draft",
+            "forbidden"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "doc": {
+          "$ref": "#/$defs/PeriodDoc"
+        },
+        "filled": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Filled",
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "$ref": "#/$defs/PeriodConflict"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array"
+        },
+        "repeats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repeats",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "period_id",
+        "mode",
+        "doc",
+        "filled",
+        "conflicts",
+        "added",
+        "repeats",
+        "message"
+      ],
+      "title": "PeriodAnswerResult",
+      "type": "object"
+    },
+    "PeriodConflict": {
+      "description": "Поле, заполненное человеком, где чат предложил другое: в черновике остаётся `current`.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "current": {
+          "title": "Current"
+        },
+        "proposed": {
+          "title": "Proposed"
+        }
+      },
+      "required": [
+        "field",
+        "current",
+        "proposed"
+      ],
+      "title": "PeriodConflict",
+      "type": "object"
+    },
     "PeriodDoc": {
       "additionalProperties": false,
       "properties": {
@@ -1125,6 +1232,49 @@
         "data"
       ],
       "title": "PeriodDoc",
+      "type": "object"
+    },
+    "PeriodPrompt": {
+      "description": "Промпт эпохи для claude.ai и обмен `prompted` в журнале моста.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "draft",
+            "forbidden"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "prompt_id",
+        "version",
+        "run_id",
+        "period_id",
+        "mode"
+      ],
+      "title": "PeriodPrompt",
       "type": "object"
     },
     "StageCost": {

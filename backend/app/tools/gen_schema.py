@@ -19,7 +19,14 @@ from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
 from app.api.bridge import BridgeSettings
-from app.api.canon import AppearanceCopy, CandidatePick, StyleAnchorsCreate
+from app.api.canon import (
+    AppearanceCopy,
+    CandidatePick,
+    PeriodAnswerBody,
+    PeriodAnswerResult,
+    PeriodPrompt,
+    StyleAnchorsCreate,
+)
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
@@ -150,6 +157,9 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (CandidatePick, "validation"),
         (AppearanceCopy, "validation"),
         (StyleAnchorsCreate, "validation"),
+        (PeriodPrompt, "serialization"),
+        (PeriodAnswerResult, "serialization"),
+        (PeriodAnswerBody, "validation"),
     ],
     # Тела `PUT …/draft` — отдельно (L-031): `Style`, `Period`, `Character` есть и в ответах.
     "canon_draft": [(Style, "validation"), (Period, "validation"), (Character, "validation")],

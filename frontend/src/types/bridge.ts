@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/bridge.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:dd7dfc1daa5c71b7e58ebff361aff34f396c827547d3a32c0143e2d6bf0a5b2b
+ * @generated sha256:44f1c9152f8abb4dfb720c41ecee8348c68808251df27e1b7884798ecff2a75f
  */
 export interface BridgeApiStatus {
   available: boolean
@@ -27,7 +27,7 @@ export interface BridgeIssue {
 
 export interface BridgeRun {
   id: string
-  task: 'plan' | 'ideas' | 'reference'
+  task: 'plan' | 'ideas' | 'reference' | 'canon_period'
   channel: 'cursus' | 'otto'
   episode_id: string | null
   target_id: string | null

@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:8bc14e2f0dc2cd51b48bad52982ba43d8dd01e0d6257ba940cc77f7c4747db19
+ * @generated sha256:f98239b5901fbb353e55c57d5066e56def5b604f1a3e4bae073b30be31bd3f47
  */
 /**
  * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
@@ -45,7 +45,7 @@ export interface BridgeIssue {
 
 export interface BridgeRun {
   id: string
-  task: 'plan' | 'ideas' | 'reference'
+  task: 'plan' | 'ideas' | 'reference' | 'canon_period'
   channel: 'cursus' | 'otto'
   episode_id: string | null
   target_id: string | null

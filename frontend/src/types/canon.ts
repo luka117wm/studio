@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:ad34697b1667b9cf98aa1bc05f284bc0d745a6a2a327d400bc3555240e251e67
+ * @generated sha256:e7271b99df9742e5bfac8247af7a96dd47b5cc4472ea03e3de6709b56313745e
  */
 export interface AnchorCandidate {
   id: string
@@ -254,12 +254,53 @@ export interface Period {
   forbidden: string[]
 }
 
+export interface PeriodAnswerBody {
+  text: string
+}
+
+/**
+ * Ответ чата принят в черновик эпохи. `filled`, `conflicts` — у черновика; `added`,
+ * `repeats` — у «Дополнить запреты».
+ */
+export interface PeriodAnswerResult {
+  run_id: string
+  period_id: string
+  mode: 'draft' | 'forbidden'
+  doc: PeriodDoc
+  filled: string[]
+  conflicts: PeriodConflict[]
+  added: string[]
+  repeats: string[]
+  message: string
+}
+
+/**
+ * Поле, заполненное человеком, где чат предложил другое: в черновике остаётся `current`.
+ */
+export interface PeriodConflict {
+  field: string
+  current: unknown
+  proposed: unknown
+}
+
 export interface PeriodDoc {
   draft: boolean
   version: string | null
   based_on: string | null
   updated_at: string
   data: Period
+}
+
+/**
+ * Промпт эпохи для claude.ai и обмен `prompted` в журнале моста.
+ */
+export interface PeriodPrompt {
+  text: string
+  prompt_id: string
+  version: number
+  run_id: string
+  period_id: string
+  mode: 'draft' | 'forbidden'
 }
 
 /**

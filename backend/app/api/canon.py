@@ -8,19 +8,23 @@
 «Нужно каналу» (M5.2) — эпохи и облики из планов выпусков без опубликованной версии и скелеты
 черновиков для них (`docs/canon_schema.md`, «Нужно каналу»).
 
+Эпоха через мост (M5.6) — промпт черновика или «Дополнить запреты» и приём ответа чата в черновик
+эпохи (`docs/bridge.md`, «Эпоха»): публикует человек, стиль и облики мост не пишет.
+
 Опорные (M5.4) — лист портретов облика и кадры стиля: состояние, цена до клика, сборка джобом с
 бюджетом канала до очереди, выбор и отбраковка, копия облика в другую эпоху (`docs/canon_schema.md`,
 «Листы опорных портретов»).
 """
 
-from typing import Annotated, Any
+import sqlite3
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from app.api.channels import require_channel
+from app.api.channels import read_profile, require_channel
 from app.api.deps import (
     CanonConfigDep,
     DbDep,
@@ -54,7 +58,20 @@ from app.models.canon import (
     StyleDoc,
     VersionTag,
 )
-from app.models.director import StrictModel
+from app.models.director import Channel, StrictModel
+from app.pipeline.bridge import (
+    BridgeAnswerError,
+    BridgeIssue,
+    BridgeRun,
+    PromptLibrary,
+    RenderedPrompt,
+    close_run,
+    extract_json,
+    latest_runs,
+    open_run,
+    record_answer,
+)
+from app.pipeline.bridge.runs import AnswerStatus
 from app.pipeline.canon import anchors
 from app.pipeline.canon.anchors import AnchorOrder, AnchorSetState
 from app.pipeline.canon.episode_canon import (
@@ -62,6 +79,20 @@ from app.pipeline.canon.episode_canon import (
     EpisodePlan,
     canon_needed,
     published_canon,
+)
+from app.pipeline.canon.period_bridge import (
+    MODES,
+    PROMPT_CANON_PERIOD,
+    PeriodConflict,
+    PeriodMode,
+    draft_message,
+    forbidden_message,
+    merge_draft,
+    merge_forbidden,
+    parse_draft,
+    parse_forbidden,
+    period_context,
+    period_episodes,
 )
 from app.providers.base import RouteError
 from app.providers.gateway import Gateway
@@ -91,6 +122,40 @@ class AppearanceCopy(StrictModel):
 
     period: CanonId
     appearance_id: AppearanceId
+
+
+# Ответ чата на эпоху — несколько килобайт; предел — от вставки не того.
+ANSWER_MAX_CHARS = 200_000
+
+
+class PeriodPrompt(BaseModel):
+    """Промпт эпохи для claude.ai и обмен `prompted` в журнале моста."""
+
+    text: str
+    prompt_id: str
+    version: int
+    run_id: str
+    period_id: str
+    mode: PeriodMode
+
+
+class PeriodAnswerBody(StrictModel):
+    text: str = Field(min_length=1, max_length=ANSWER_MAX_CHARS)
+
+
+class PeriodAnswerResult(BaseModel):
+    """Ответ чата принят в черновик эпохи. `filled`, `conflicts` — у черновика; `added`,
+    `repeats` — у «Дополнить запреты»."""
+
+    run_id: str
+    period_id: str
+    mode: PeriodMode
+    doc: PeriodDoc  # черновик после приёма
+    filled: list[str]
+    conflicts: list[PeriodConflict]
+    added: list[str]
+    repeats: list[str]
+    message: str
 
 
 class StyleAnchorsCreate(StrictModel):
@@ -278,17 +343,24 @@ async def publish_character(
 # --- нужно каналу --------------------------------------------------------------------------------
 
 
-@router.get("/{channel}/needed")
-async def get_needed(channel: str, paths: PathsDep, db: DbDep) -> CanonNeeded:
-    """Эпохи и облики из `canon_ref` текущих версий планов канала, у которых нет ни одной
-    опубликованной версии: какие выпуски и сколько кадров на них ссылаются."""
-    require_channel(db, channel)
+def _channel_plans(paths: StudioPaths, db: sqlite3.Connection, channel: str) -> list[EpisodePlan]:
+    """Текущие версии планов выпусков канала, по порядку доски; выпуски без плана пропускаются."""
     plans: list[EpisodePlan] = []
     for episode in channel_episodes(db, channel):
         _, director = load_sources(paths, episode)
         if director is not None:
             plans.append(EpisodePlan(episode.id, episode.title, director))
-    return canon_needed(channel, plans, published_canon(paths, channel))
+    return plans
+
+
+@router.get("/{channel}/needed")
+async def get_needed(channel: str, paths: PathsDep, db: DbDep) -> CanonNeeded:
+    """Эпохи и облики из `canon_ref` текущих версий планов канала, у которых нет ни одной
+    опубликованной версии: какие выпуски и сколько кадров на них ссылаются."""
+    require_channel(db, channel)
+    return canon_needed(
+        channel, _channel_plans(paths, db, channel), published_canon(paths, channel)
+    )
 
 
 @router.post("/{channel}/needed/periods/{period_id}", status_code=201)
@@ -345,6 +417,160 @@ def _appearance_skeleton(paths: StudioPaths, channel: str, appearance_id: str) -
         )
     character = entry.data.model_copy(update={"appearances": [*entry.data.appearances, skeleton]})
     return canon_store.save_draft(paths, channel, CHARACTERS, character_id, character)
+
+
+# --- эпоха через мост ----------------------------------------------------------------------------
+
+
+def _mode(value: str) -> PeriodMode:
+    if value not in MODES:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "period_mode",
+                    "loc": ("query", "mode"),
+                    "msg": f"Режима «{value}» нет: ожидалось draft (черновик) или forbidden"
+                    " (дополнить запреты).",
+                    "input": value,
+                }
+            ]
+        )
+    return value
+
+
+def _current_period(paths: StudioPaths, channel: str, period_id: str) -> Entry[Period] | None:
+    """Черновик эпохи, без него — последняя версия, без неё — ничего."""
+    try:
+        return canon_store.read_entry(paths, channel, PERIODS, period_id)
+    except CanonNotFound:
+        return None
+
+
+def _render_period(
+    paths: StudioPaths,
+    db: sqlite3.Connection,
+    prompts: PromptLibrary,
+    channel: str,
+    period_id: str,
+    mode: PeriodMode,
+    current: Period | None,
+) -> RenderedPrompt:
+    episodes = period_episodes(period_id, _channel_plans(paths, db, channel))
+    context = period_context(read_profile(paths, channel), period_id, mode, episodes, current)
+    return prompts.render(PROMPT_CANON_PERIOD, context)
+
+
+def _need_period_for_forbidden(current: Entry[Period] | None, period_id: str) -> Entry[Period]:
+    if current is None:
+        raise CanonConflict(
+            f"У эпохи {period_id} нет ни черновика, ни версий — дополнять нечего: сначала соберите"
+            " черновик через мост или заполните его вручную."
+        )
+    return current
+
+
+@router.post("/{channel}/periods/{period_id}/prompt")
+async def period_prompt(
+    channel: str,
+    period_id: EntityIdParam,
+    paths: PathsDep,
+    db: DbDep,
+    prompts: PromptsDep,
+    mode: str = "draft",
+) -> PeriodPrompt:
+    """Промпт эпохи для claude.ai: черновик (`draft`) или «Дополнить запреты» (`forbidden`), обмен
+    `prompted` в журнале моста. Мост бесплатен: ни вызовов, ни строк расхода."""
+    require_channel(db, channel)
+    chosen = _mode(mode)
+    current = _current_period(paths, channel, period_id)
+    if chosen == "forbidden":
+        _need_period_for_forbidden(current, period_id)
+    prompt = _render_period(
+        paths, db, prompts, channel, period_id, chosen, current.data if current else None
+    )
+    run = open_run(
+        db, task="canon_period", channel=cast(Channel, channel), prompt=prompt, target_id=period_id
+    )
+    return PeriodPrompt(
+        text=prompt.text,
+        prompt_id=prompt.prompt_id,
+        version=prompt.version,
+        run_id=run.id,
+        period_id=period_id,
+        mode=chosen,
+    )
+
+
+@router.post("/{channel}/periods/{period_id}/answer")
+async def period_answer(
+    channel: str,
+    period_id: EntityIdParam,
+    body: PeriodAnswerBody,
+    paths: PathsDep,
+    db: DbDep,
+    prompts: PromptsDep,
+    mode: str = "draft",
+) -> PeriodAnswerResult:
+    """Ответ чата → черновик эпохи. `draft`: пустые поля из ответа, заполненные человеком — как
+    были, несовпадения — `conflicts`. `forbidden`: новые запреты без повторов. Неверный ответ —
+    422 `BridgeError`, на диске ничего не меняется. Публикует человек."""
+    require_channel(db, channel)
+    chosen = _mode(mode)
+    current = _current_period(paths, channel, period_id)
+    if chosen == "forbidden":
+        _need_period_for_forbidden(current, period_id)
+    latest = latest_runs(
+        db, task="canon_period", channel=cast(Channel, channel), target_id=period_id, limit=1
+    )
+    opened = latest[0] if latest and latest[0].status == "prompted" else None
+
+    def journal(status: AnswerStatus, errors: list[BridgeIssue]) -> BridgeRun:
+        if opened is not None:
+            return close_run(db, opened.id, status, errors)
+        prompt = _render_period(
+            paths, db, prompts, channel, period_id, chosen, current.data if current else None
+        )
+        return record_answer(
+            db,
+            task="canon_period",
+            channel=cast(Channel, channel),
+            prompt=prompt,
+            status=status,
+            errors=errors,
+            target_id=period_id,
+        )
+
+    base = current.data if current is not None else Period(id=period_id)
+    filled: list[str] = []
+    conflicts: list[PeriodConflict] = []
+    added: list[str] = []
+    repeats: list[str] = []
+    try:
+        data = extract_json(body.text)
+        if chosen == "draft":
+            merged = merge_draft(base, parse_draft(data))
+            period, message = merged.period, draft_message(merged)
+            filled, conflicts = merged.filled, merged.conflicts
+        else:
+            more = merge_forbidden(base, parse_forbidden(data))
+            period, message = more.period, forbidden_message(more)
+            added, repeats = more.added, more.repeats
+    except BridgeAnswerError as exc:
+        journal("failed", exc.errors or [BridgeIssue(path="", message=exc.message)])
+        raise
+    entry = canon_store.save_draft(paths, channel, PERIODS, period_id, period)
+    run = journal("applied", [])
+    return PeriodAnswerResult(
+        run_id=run.id,
+        period_id=period_id,
+        mode=chosen,
+        doc=_doc(PeriodDoc, entry),
+        filled=filled,
+        conflicts=conflicts,
+        added=added,
+        repeats=repeats,
+        message=message,
+    )
 
 
 # --- опорные: лист портретов облика, кадры стиля -------------------------------------------------

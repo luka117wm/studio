@@ -29,11 +29,12 @@ log = logging.getLogger(__name__)
 # Шаблоны приложения; тесты подают загрузчику свой каталог.
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
-# Задачи моста (устав M4, решение 1): план частями, идеи, разбор референса.
-BridgeTask = Literal["plan", "ideas", "reference"]
+# Задачи моста (устав M4, решение 1): план частями, идеи, разбор референса; черновик эпохи и
+# «Дополнить запреты» (M5.6, устав M5, решение 4). Стиль канала и облики мост не пишет.
+BridgeTask = Literal["plan", "ideas", "reference", "canon_period"]
 # Шаблон в каталоге — задача моста или промпт картинки канона (`image`, M5.4). Один плоский
 # Literal: у объединения pydantic пишет ошибку по каждому члену, и текст отказа теряет смысл.
-PromptTask = Literal["plan", "ideas", "reference", "image"]
+PromptTask = Literal["plan", "ideas", "reference", "canon_period", "image"]
 
 PROMPT_ID_PATTERN = r"^[a-z][a-z0-9_-]*$"
 _PLACEHOLDER = re.compile(r"\{\{([a-z_][a-z0-9_]*)\}\}")
