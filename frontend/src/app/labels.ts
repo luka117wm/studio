@@ -19,6 +19,9 @@ const JOB_KIND: Record<string, string> = {
   research: 'Исследование',
   animate: 'Анимация кадров',
   render: 'Рендер',
+  anchor_sheet: 'Лист опорных портретов',
+  anchor_angle: 'Перегенерация ракурса',
+  style_anchors: 'Опорные кадры стиля',
   sleep_job: 'Проверочный джоб',
 }
 

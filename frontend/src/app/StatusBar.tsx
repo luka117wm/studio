@@ -53,7 +53,8 @@ export function StatusBar() {
       {note && <span className="truncate">{note}</span>}
       <span className="flex-1" />
       {hints.map((h) => (
-        <KeyHint key={h.id} keys={formatKeys(h.keys)} label={h.hint} />
+        // Подсказки не сжимаются: длинная строка экрана обрезается, а не переносит подпись клавиши
+        <KeyHint key={h.id} keys={formatKeys(h.keys)} label={h.hint} className="shrink-0 whitespace-nowrap" />
       ))}
     </footer>
   )

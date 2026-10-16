@@ -4,6 +4,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import type { BridgeSettings } from '@/types/bridge'
+import type { AnchorSetState, AnchorsEstimate, CanonSummary, Style, StyleDoc } from '@/types/canon'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
@@ -61,6 +62,13 @@ export const qk = {
   similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
+  /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
+  canon: (channel: string) => ['canon', channel] as const,
+  canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
+  /** Стиль: `head` — черновик, а без него последняя версия; `vNNN` — версия как есть */
+  style: (channel: string, version: string | null) => ['canon', channel, 'style', version ?? 'head'] as const,
+  styleAnchors: (channel: string) => ['canon', channel, 'anchors', 'style'] as const,
+  anchorsEstimate: (channel: string) => ['canon', channel, 'anchors', 'estimate'] as const,
 }
 
 const segment = (id: string) => encodeURIComponent(id)
@@ -260,6 +268,117 @@ export function useEstimate(id: string, planStamp: number) {
     queryFn: ({ signal }) => api.get<PlanEstimate>(`/projects/${segment(id)}/estimate`, { signal }),
     enabled: planStamp > 0,
     placeholderData: keepPreviousData,
+  })
+}
+
+// --- канон канала (экран 12, docs/canon_schema.md) ------------------------------------------------
+
+const canonPath = (channel: ChannelId, rest = '') => `/canon/${segment(channel)}${rest}`
+
+/** Сводка канона: версии стиля, эпохи и персонажи с черновиками и счётчиками */
+export function useCanonSummary(channel: ChannelId) {
+  return useQuery({
+    queryKey: qk.canonSummary(channel),
+    queryFn: ({ signal }) => api.get<CanonSummary>(canonPath(channel), { signal }),
+  })
+}
+
+/** Стиль канала. `version: null` — шапка: черновик, а без него последняя версия; стиля нет вовсе (404) — `null`.
+ *  Версия неизменяема — повторно не запрашивается. */
+export function useStyle(channel: ChannelId, version: string | null, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: qk.style(channel, version),
+    queryFn: async ({ signal }) => {
+      try {
+        return await api.get<StyleDoc>(canonPath(channel, '/style'), { signal, query: { version } })
+      } catch (error) {
+        if (version === null && error instanceof ApiError && error.status === 404) return null
+        throw error
+      }
+    },
+    staleTime: version === null ? 0 : Infinity,
+  })
+}
+
+/** Черновик стиля целиком (автосохранение, ключ `canon:<канал>:style`): ответ — документ черновика в шапку */
+export function useSaveStyleDraft(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (style: Style) => api.put<StyleDoc>(canonPath(channel, '/style/draft'), style, { keepalive: true }),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.style(channel, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+/** «Создать vN из vM»: черновик из версии; черновик уже есть — 409 с текстом бэкенда */
+export function useStyleDraftFrom(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (from: string) => api.post<StyleDoc>(canonPath(channel, '/style/draft'), undefined, { query: { from } }),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.style(channel, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+/** «Сбросить черновик»: версии не трогаются, шапка — снова последняя версия */
+export function useDiscardStyleDraft(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete(canonPath(channel, '/style/draft')),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.style(channel, null) })
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+/** «Опубликовать vN»: черновик → новая версия; от неё зависят сводка, шапка и устаревание кадров стиля */
+export function usePublishStyle(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<StyleDoc>(canonPath(channel, '/style/publish')),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.style(channel, null), doc)
+      if (doc.version) client.setQueryData(qk.style(channel, doc.version), doc)
+      void client.invalidateQueries({ queryKey: qk.canon(channel) })
+    },
+  })
+}
+
+/** Кадры стиля: выбор по шаблону и устаревание против последней версии стиля */
+export function useStyleAnchors(channel: ChannelId, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.styleAnchors(channel),
+    queryFn: ({ signal }) => api.get<AnchorSetState>(canonPath(channel, '/style/anchors'), { signal }),
+    enabled,
+  })
+}
+
+/** Цена до клика «Пересобрать (6, ~$0.80)» — смета бэкенда, кэш не вычитается */
+export function useAnchorsEstimate(channel: ChannelId, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.anchorsEstimate(channel),
+    queryFn: ({ signal }) => api.get<AnchorsEstimate>(canonPath(channel, '/style/anchors/estimate'), { signal }),
+    enabled,
+  })
+}
+
+/** «Пересобрать кадры стиля» в эпохе: джоб в снимок сразу, дальше его ведёт поток SSE. Отказ бюджета — 409
+ *  `BudgetRefusal`, джоб не создаётся. */
+export function useCollectStyleAnchors(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (period: string) => api.post<Job>(canonPath(channel, '/style/anchors'), { period }),
+    onSuccess: (job) => {
+      client.setQueryData<LiveJobs>(qk.jobs, (jobs) =>
+        !jobs || jobs.items.some((item) => item.job_id === job.id) ? jobs : { ...jobs, items: [...jobs.items, toJobState(job)] },
+      )
+    },
   })
 }
 

@@ -2,7 +2,8 @@
 // курсор, поток догоняет с него без пропусков. Событие джоба заменяет его строку в кэше целиком; выпуск джоба
 // перезапрашивается: прогресс — не чаще раза в секунду на выпуск, конечное событие — сразу.
 // Поток — ещё и датчик бэкенда: обрыв → проверочный перезапрос экрана (лёг — экран «Бэкенд недоступен»),
-// поток снова открыт → всё перезапрашивается, а экран ошибки снимается сам.
+// поток снова открыт → всё перезапрашивается, а экран ошибки снимается сам. Конец джоба уровня канала (опорные, M5.7)
+// перезапрашивает канон этого канала.
 import type { QueryClient } from '@tanstack/react-query'
 import type { JobEventData } from '@/types/job'
 import { fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
@@ -59,6 +60,9 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
 
   const onEvent = (event: JobEvent) => {
     client.setQueryData<LiveJobs>(qk.jobs, (jobs) => applyJobEvent(jobs, event))
+    // Джоб уровня канала (опорные): по концу — канон канала заново, там его картинки и устаревание
+    const channel = event.data.channel
+    if (channel !== null && FINAL.has(event.type)) void client.invalidateQueries({ queryKey: qk.canon(channel) })
     const episodeId = event.data.episode_id
     if (episodeId === null) return
     if (!FINAL.has(event.type)) {

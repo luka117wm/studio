@@ -11,7 +11,7 @@ import { formatKeys } from './keyboard'
 import { useHotkey } from './useHotkey'
 
 export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav' | 'seeds'
-export type RightPanelKind = 'inspector' | 'clusters'
+export type RightPanelKind = 'inspector' | 'clusters' | 'anchors'
 
 export interface SidePanel {
   title: string
@@ -24,12 +24,13 @@ export interface SidePanel {
 }
 
 export interface ScreenLayoutProps {
-  /** Заголовок экрана 52px: title 18/600, note 12, переключатель вида (SegmentedControl), действия справа */
-  header?: { title: string; note?: string; view?: ReactNode; actions?: ReactNode }
+  /** Заголовок экрана 52px: title 18/600, note 12, переключатель вида (SegmentedControl), действия справа.
+   *  `titleHidden` — название уже в верхней панели (экран 12 «Канон»): заголовок остаётся только для чтения с экрана */
+  header?: { title: string; titleHidden?: boolean; note?: string; view?: ReactNode; actions?: ReactNode }
   /** Полоса под заголовком на всю ширину, 72 (очереди генерации) */
   strip?: { title: string; children: ReactNode }
   left?: SidePanel & { kind: LeftPanelKind }
-  /** Правая колонка: inspector 320 (по умолчанию) · clusters 340 (идеи) */
+  /** Правая колонка: inspector 320 (по умолчанию) · clusters 340 (идеи) · anchors 480 (опорные кадры канона) */
   right?: SidePanel & { kind?: RightPanelKind }
   /** Третья колонка только ≥2560 (лог экспорта 420); ниже лог открывается кнопкой поверх центра */
   wide?: { title: string; kind: 'log'; children: ReactNode }
@@ -47,10 +48,11 @@ const LEFT_WIDTH: Record<LeftPanelKind, string> = {
   settingsNav: 'w-shell-settings-nav',
   seeds: 'w-shell-seeds',
 }
-/* Правая колонка: инспектор 320 (→280 <1440), кластеры идей 340 */
+/* Правая колонка: инспектор 320 (→280 <1440), кластеры идей 340, опорные кадры канона 480 — шире обычной колонки */
 const RIGHT_WIDTH: Record<RightPanelKind, string> = {
   inspector: 'w-shell-inspector max-[1439px]:w-70',
   clusters: 'w-shell-clusters',
+  anchors: 'w-shell-anchors',
 }
 const WIDE_WIDTH = { log: 'w-shell-log' } as const
 const STRIP = 'w-10'
@@ -60,7 +62,7 @@ export function ScreenLayout({ header, strip, left, right, wide, bottom, childre
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {header && (
         <header className="flex h-shell-screen-header shrink-0 items-center gap-4 border-b border-line px-4">
-          <h1 className="text-18 font-semibold text-ink">{header.title}</h1>
+          <h1 className={header.titleHidden ? 'sr-only' : 'text-18 font-semibold text-ink'}>{header.title}</h1>
           {header.note && <span className="text-12 text-muted">{header.note}</span>}
           {header.view}
           {header.actions && <div className="ml-auto flex items-center gap-2">{header.actions}</div>}

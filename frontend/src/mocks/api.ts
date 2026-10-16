@@ -3,12 +3,13 @@
    а не молча моки. Числа — как в артборде, иначе сверка скриншотов даст шум (приём M1.3).
    В production-код не импортируется (решение 7 устава M3). */
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
-import type { CostSummary, Money } from '@/types/cost'
+import type { BudgetRefusal, CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
+import type { AnchorSetState, AnchorSlot, AnchorsEstimate, CanonSummary, CanonVersionInfo, Style, StyleDoc, Swatch } from '@/types/canon'
 import type { Director } from '@/types/director'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
-import type { JobList } from '@/types/job'
+import type { Job, JobList } from '@/types/job'
 import type {
   ApprovalProblem,
   ApprovalRefusal,
@@ -609,7 +610,7 @@ function estimateLine(title: string, label: string, stage: string, model: string
     title,
     label,
     usd: money(usd_micro),
-    cost: { stage, provider: stage === 'images' || stage === 'animate' ? 'gemini' : 'elevenlabs', model, lines, usd_micro, stale_pricing: false },
+    cost: { stage, provider: ['images', 'animate', 'anchors'].includes(stage) ? 'gemini' : 'elevenlabs', model, lines, usd_micro, stale_pricing: false },
   }
 }
 
@@ -808,6 +809,168 @@ interface PartsState {
   lastRun: BridgeRun | null
 }
 
+/* ---- Экран 12: канон канала (M5.7) ---- */
+// Стиль Cursus v001–v003 — значения артборда 12 по-английски: текст канона уходит в промпт картинки, и кириллицу
+// публикация отклоняет (docs/canon_schema.md, «Черновик и публикация»). Роли образцов — тоже текст промпта.
+// У Otto канона нет — экран показывает пустое состояние.
+
+const STYLE_NEGATIVE_V001 = ['plastic', 'modern clothing', 'text in frame', 'captions and watermarks']
+const STYLE_NEGATIVE_V002 = [
+  'plastic',
+  'neon light',
+  'modern clothing',
+  'zippers and snap buttons',
+  'metal-rimmed glasses',
+  'glass in cabin windows',
+  'text in frame',
+  'captions and watermarks',
+  'smooth CGI skin',
+  'fisheye',
+]
+
+function cursusStyle(fields: {
+  render: string
+  focal: string
+  depth: string
+  distortion: string
+  contrast: string
+  accent: Swatch
+  grain: string
+  composition: string
+  negative: string[]
+}): Style {
+  return {
+    render: fields.render,
+    material: 'Matte surfaces, dust in the air, damp wood, oxidised metal',
+    processing: 'Moderate lift in the shadows, soft roll-off in the highlights, no clipping',
+    optics: { focal: fields.focal, depth: fields.depth, distortion: fields.distortion },
+    light: {
+      character: 'One practical source: a lantern, a candle, a gun port',
+      contrast: fields.contrast,
+      direction: 'From the side and above, 30–45°; backlight only in the closing shots of a section',
+    },
+    palette: {
+      rule: 'Warm light against cold shadow; saturated colour on one object in the frame only',
+      swatches: [
+        { role: 'key light', hex: '#E8C88A' },
+        { role: 'shadow and depth', hex: '#1E2A2E' },
+        { role: 'wood and rigging', hex: '#6B4F34' },
+        { role: 'metal and water', hex: '#7E8B8F' },
+        fields.accent,
+      ],
+    },
+    grain: fields.grain,
+    composition: fields.composition,
+    negative_global: fields.negative,
+  }
+}
+
+interface CanonVersionFile {
+  info: CanonVersionInfo
+  data: Style
+}
+
+/** Версии стиля Cursus: v003 — текущая, как в артборде */
+export const CURSUS_STYLE: CanonVersionFile[] = [
+  {
+    info: { version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Digital photograph, even light',
+      focal: '50 mm on every shot',
+      depth: 'f/5.6: everything in focus',
+      distortion: 'No distortion or vignette',
+      contrast: 'Low, fill in the shadows',
+      accent: { role: 'cloth accent', hex: '#B4664C' },
+      grain: 'No grain',
+      composition: 'No composition rules',
+      negative: STYLE_NEGATIVE_V001,
+    }),
+  },
+  {
+    info: { version: 'v002', based_on: 'v001', published_at: '2026-07-14T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Film photograph of the 1980s, clean print',
+      focal: '50 mm on every shot',
+      depth: 'f/4: the middle ground almost as sharp as the hero',
+      distortion: 'No distortion, 6% vignette',
+      contrast: 'Medium, even fill',
+      accent: { role: 'cloth accent', hex: '#A4553F' },
+      grain: '35 mm film grain, ISO 200, barely visible',
+      composition: 'Hero off centre; horizon level; foreground covers a third of the frame',
+      negative: STYLE_NEGATIVE_V002,
+    }),
+  },
+  {
+    info: { version: 'v003', based_on: 'v002', published_at: '2026-08-28T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Film photograph of the 1970s, printed from the negative; no digital cleanness',
+      focal: '35 mm for wide and medium shots; 85 mm for the rank portrait',
+      depth: 'f/2.8: the hero sharp, the middle ground readable, the background falls apart',
+      distortion: 'Slight barrel on 35 mm, 12% vignette, no stretched faces at the edges',
+      contrast: 'High, but with readable shadow: details in the shadows do not sink',
+      accent: { role: 'cloth accent', hex: '#8E3B2E' },
+      grain: '35 mm film grain, ISO 400, visible in the shadows, steady between frames',
+      composition: 'Hero off centre; horizon level; foreground covers a third of the frame',
+      negative: [...STYLE_NEGATIVE_V002, 'HDR glow', 'symmetrical faces'],
+    }),
+  },
+]
+
+/** Эпохи Cursus в сводке артборда: две опубликованы, Венеция — только черновик без запретов */
+const CURSUS_PERIODS: CanonSummary['periods'] = [
+  { id: 'caribbean-1716', label: 'Карибы, 1716', versions: [{ version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' }], draft: false, forbidden_count: 14 },
+  { id: 'england-1347', label: 'Англия, 1347', versions: [{ version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' }], draft: false, forbidden_count: 11 },
+  { id: 'venice-1560', label: 'Венеция, 1560', versions: [], draft: true, forbidden_count: 0 },
+]
+
+/** Шаблоны кадров стиля — `config/canon.yaml → style_frames` */
+export const STYLE_FRAMES: [string, string][] = [
+  ['establishing', 'Общий план'],
+  ['portrait', 'Портрет'],
+  ['detail', 'Деталь'],
+  ['crowd', 'Толпа'],
+  ['night', 'Ночь'],
+  ['silhouette', 'Силуэт'],
+]
+
+/** Цена Pro 1K из `config/pricing.yaml`, микродоллары: лист 12 картинок, ракурс 2, кадры стиля 6 */
+const ANCHOR_PRICE = 134_000
+const STYLE_ANCHOR_FIELDS = ['render', 'material', 'processing', 'optics', 'light'] as const
+
+function anchorLine(title: string, label: string, images: number) {
+  return estimateLine(title, label, 'anchors', 'gemini-3-pro-image', [{ unit: 'image', quantity: images, variant: '1K', usd_micro: images * ANCHOR_PRICE }])
+}
+
+export const anchorsEstimate = {
+  sheet: anchorLine('Собрать лист', '6 ракурсов × 2 кандидата', 12),
+  angle: anchorLine('Перегенерировать ракурс', '2 кандидата', 2),
+  style: anchorLine('Пересобрать кадры стиля', '6 кадров', STYLE_FRAMES.length),
+} satisfies AnchorsEstimate
+
+/** Изменённые поля стиля, от которых устаревают кадры стиля: рендер, оптика, свет (docs/canon_schema.md) */
+function staleStyleFields(before: Style, after: Style): string[] {
+  const changed: string[] = []
+  for (const field of STYLE_ANCHOR_FIELDS) {
+    const a = before[field]
+    const b = after[field]
+    if (typeof a === 'string') {
+      if (a !== b) changed.push(field)
+    } else {
+      for (const key of Object.keys(a) as (keyof typeof a)[]) {
+        if (a[key] !== (b as typeof a)[key]) changed.push(`${field}.${key}`)
+      }
+    }
+  }
+  return changed
+}
+
+interface StyleState {
+  versions: CanonVersionFile[]
+  draft: { based_on: string | null; saved_at: string; data: Style } | null
+  /** Версия стиля, на которой сделаны кадры стиля; `null` — кадров нет */
+  frames: string | null
+}
+
 export interface MockResponse {
   status: number
   body: unknown
@@ -839,6 +1002,17 @@ export function createMockApi() {
   const profiles = structuredClone(channels) as ChannelProfile[]
   const ideas: Idea[] = structuredClone(IDEAS)
   const references: ReferenceVideo[] = structuredClone(REFERENCES)
+  /** Канон каналов (экран 12): у Cursus стиль v001–v003 и кадры стиля на v003, у Otto канона нет */
+  const canonStyles: Record<ChannelId, StyleState> = {
+    cursus: { versions: structuredClone(CURSUS_STYLE), draft: null, frames: 'v003' },
+    otto: { versions: [], draft: null, frames: null },
+  }
+  /** Месячный лимит канала для джобов опорных; тест опускает его, чтобы увидеть отказ бюджета до очереди */
+  const monthlyLimit: Record<ChannelId, number> = {
+    cursus: costSummaries.cursus.budget.limit.usd_micro,
+    otto: costSummaries.otto.budget.limit.usd_micro,
+  }
+  let canonJobs = 0
 
   /** Создание референса: таймкоды есть — реплики и длительность по ним, нет — 422 как у бэкенда */
   function createReference(body: { channel: ChannelId; url?: string; subtitles: string }): MockResponse {
@@ -1450,6 +1624,226 @@ export function createMockApi() {
     return ok(episode)
   }
 
+  /* ---- Канон канала: стиль, версии, кадры стиля (docs/canon_schema.md, «API» и «API опорных») ---- */
+
+  const versionDoc = (file: CanonVersionFile): StyleDoc => ({
+    draft: false,
+    version: file.info.version,
+    based_on: file.info.based_on,
+    updated_at: file.info.published_at,
+    data: structuredClone(file.data),
+  })
+
+  function styleDoc(style: StyleState, channel: ChannelId, version: string | null): MockResponse {
+    if (version === null) {
+      if (style.draft) {
+        const { based_on, saved_at, data } = style.draft
+        return ok({ draft: true, version: null, based_on, updated_at: saved_at, data: structuredClone(data) } satisfies StyleDoc)
+      }
+      const last = style.versions.at(-1)
+      return last ? ok(versionDoc(last)) : fail(404, `Стиля канала в каноне ${channel} нет — создайте черновик.`)
+    }
+    if (!/^v\d{3}$/.test(version)) {
+      return { status: 422, body: { detail: [{ type: 'canon_version', loc: ['query', 'version'], msg: `Версия «${version}» не годится — нужна вида v001.` }] } }
+    }
+    const file = style.versions.find((v) => v.info.version === version)
+    const have = style.versions.map((v) => v.info.version).join(', ')
+    return file ? ok(versionDoc(file)) : fail(404, `У стиля канала нет версии ${version} — есть: ${have || 'ни одной'}.`)
+  }
+
+  /** Форма черновика (422): цвет #RRGGBB, не больше 5 образцов — как `Style` бэкенда */
+  function styleShape(data: Style): MockResponse | null {
+    const bad = data.palette.swatches.findIndex((swatch) => !/^#[0-9a-fA-F]{6}$/.test(swatch.hex))
+    if (bad !== -1) {
+      const hex = data.palette.swatches[bad]!.hex
+      return { status: 422, body: { detail: [{ type: 'canon_hex', loc: ['body', 'palette', 'swatches', bad, 'hex'], msg: `Цвет «${hex}» не годится — нужен код #RRGGBB.` }] } }
+    }
+    const count = data.palette.swatches.length
+    if (count > 5) {
+      return { status: 422, body: { detail: [{ type: 'canon_swatches', loc: ['body', 'palette', 'swatches'], msg: `Образцов палитры ${count}, а можно не больше 5 — уберите лишние.` }] } }
+    }
+    return null
+  }
+
+  /** Правила публикации стиля (`Style.publish_problems`): все нарушения сразу, по фразе на строку */
+  function stylePublishProblems(data: Style): string[] {
+    const problems: string[] = []
+    if (!data.render.trim()) problems.push('Стиль без рендера не публикуется — опишите технику изображения в поле render.')
+    const count = data.palette.swatches.length
+    if (count < 3) problems.push(`Образцов палитры ${count}, а нужно от 3 до 5 — добавьте цвета.`)
+    for (const swatch of data.palette.swatches) {
+      if (!swatch.role.trim()) problems.push(`У цвета ${swatch.hex} нет роли — напишите в role, для чего он, например shadows.`)
+    }
+    const cyrillic = /[Ѐ-ӿ]/
+    const texts: [string, string][] = [
+      ['render', data.render],
+      ['material', data.material],
+      ['processing', data.processing],
+      ...Object.entries(data.optics).map(([key, value]): [string, string] => [`optics.${key}`, value]),
+      ...Object.entries(data.light).map(([key, value]): [string, string] => [`light.${key}`, value]),
+      ['palette.rule', data.palette.rule],
+      ...data.palette.swatches.map((swatch, i): [string, string] => [`palette.swatches[${i}].role`, swatch.role]),
+      ['grain', data.grain],
+      ['composition', data.composition],
+    ]
+    for (const [path, text] of texts) {
+      if (cyrillic.test(text)) problems.push(`Поле ${path} написано по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+    }
+    if (data.negative_global.some((item) => !item.trim())) problems.push('Пустая позиция в списке negative_global — заполните или удалите её.')
+    if (data.negative_global.some((item) => cyrillic.test(item))) {
+      problems.push('Список negative_global написан по-русски — текст канона уходит в промпт картинки, пишите по-английски.')
+    }
+    return problems
+  }
+
+  function publishStyle(style: StyleState): MockResponse {
+    if (!style.draft) return fail(409, 'У стиля канала нет черновика — публиковать нечего.')
+    const problems = stylePublishProblems(style.draft.data)
+    if (problems.length) return fail(409, problems.join('\n'))
+    const last = style.versions.at(-1)
+    if (last && canonical(last.data) === canonical(style.draft.data)) {
+      return fail(409, `Черновик стиля канала не отличается от ${last.info.version} — публиковать нечего, сбросьте черновик.`)
+    }
+    const number = style.versions.length + 1
+    const file: CanonVersionFile = {
+      info: { version: `v${String(number).padStart(3, '0')}`, based_on: style.draft.based_on, published_at: NOW },
+      data: style.draft.data,
+    }
+    style.versions.push(file)
+    style.draft = null
+    return ok(versionDoc(file), 201)
+  }
+
+  /** Кадры стиля против последней версии: устаревают при смене рендера, оптики или света */
+  function styleAnchors(style: StyleState, channel: ChannelId): AnchorSetState {
+    const last = style.versions.at(-1)
+    const version = last?.info.version ?? null
+    const drawn = style.versions.find((v) => v.info.version === style.frames)
+    const fields = drawn && last && drawn !== last ? staleStyleFields(drawn.data, last.data) : []
+    const stale = fields.length ? `в ${version} изменились ${fields.join(', ')}` : null
+    const slots = STYLE_FRAMES.map(([slot, label], i): AnchorSlot => {
+      if (!drawn) return { slot, label, hint: '', candidates: [], chosen: null, stale: null }
+      const id = `${slot}-1-${(0x3a7f + i * 977).toString(16)}`
+      const file = `channels/${channel}/canon/anchors/style/${id}.jpg`
+      const seed = 41_000 + i * 131
+      return {
+        slot,
+        label,
+        hint: '',
+        candidates: [{ id, n: 1, status: 'ready', file, error: null, seed, version: drawn.info.version, ref: null, usd: money(ANCHOR_PRICE), cached: false, created_at: drawn.info.published_at }],
+        chosen: { candidate: id, file, seed, version: drawn.info.version, chosen_at: drawn.info.published_at, usd: money(ANCHOR_PRICE) },
+        stale,
+      }
+    })
+    const chosen = drawn ? slots.length : 0
+    return {
+      channel,
+      target: 'style',
+      version,
+      status: chosen === 0 ? 'missing' : stale ? 'outdated' : 'ready',
+      chosen,
+      total: slots.length,
+      stale: stale ? `Кадры стиля устарели: ${stale} — пересоберите их.` : null,
+      slots,
+      spent: money(chosen * ANCHOR_PRICE),
+    }
+  }
+
+  /** «Пересобрать кадры стиля»: стиль и эпоха опубликованы, месячный бюджет канала — до очереди (409 `BudgetRefusal`) */
+  function collectStyleAnchors(style: StyleState, channel: ChannelId, period: string): MockResponse {
+    const last = style.versions.at(-1)
+    if (!last) return fail(409, 'Стиль канала не опубликован — опубликуйте его на экране «Канон», потом собирайте опорные.')
+    const periods = channel === 'cursus' ? CURSUS_PERIODS : []
+    if (!periods.some((p) => p.id === period && p.versions.length)) {
+      return fail(409, `Эпоха ${period} не опубликована — опубликуйте её на экране «Канон».`)
+    }
+    const cost = STYLE_FRAMES.length * ANCHOR_PRICE
+    const { budget } = costSummaries[channel]
+    const spent = budget.charged.usd_micro + budget.reserved.usd_micro
+    const limit = monthlyLimit[channel]
+    if (spent + cost > limit) {
+      const head =
+        spent >= limit
+          ? `Месячный лимит ${formatUsd(limit)} исчерпан, потрачено ${formatUsd(spent)}`
+          : `Месячный лимит ${formatUsd(limit)}: потрачено ${formatUsd(spent)}, операция — ${formatUsd(cost)}, не хватает ${formatUsd(spent + cost - limit)}`
+      return fail(409, {
+        code: 'budget_exceeded',
+        level: 'month',
+        limit_usd_micro: limit,
+        spent_usd_micro: spent,
+        queued_usd_micro: 0,
+        cost_usd_micro: cost,
+        message: `${head}; поднять лимит можно в настройках канала.`,
+      } satisfies BudgetRefusal as unknown as Record<string, unknown>)
+    }
+    canonJobs += 1
+    style.frames = last.info.version // мок «дорисует» кадры: экран увидит их после конечного события джоба
+    const job: Job = {
+      id: `job-style-anchors-${canonJobs}`,
+      kind: 'style_anchors',
+      status: 'queued',
+      progress: 0,
+      message: null,
+      payload: { channel, target: 'style', period },
+      result: null,
+      error: null,
+      attempts: 0,
+      cancel_requested: false,
+      episode_id: null,
+      batch_id: null,
+      idempotency_key: null,
+      created_at: NOW,
+      started_at: null,
+      finished_at: null,
+      cost_usd_micro: cost,
+      cost_stage: 'anchors',
+      channel,
+    }
+    return ok(job, 201)
+  }
+
+  function canonRoute(method: string, channel: ChannelId, rest: string[], query: URLSearchParams, body: unknown): MockResponse | null {
+    const style = canonStyles[channel]
+    if (!style) return fail(404, `Канал «${channel}» не найден.`)
+    const path = rest.join('/')
+    if (method === 'GET' && path === '') {
+      return ok({
+        channel,
+        style: { versions: style.versions.map((v) => v.info), draft: style.draft !== null },
+        periods: channel === 'cursus' ? structuredClone(CURSUS_PERIODS) : [],
+        characters: [],
+      } satisfies CanonSummary)
+    }
+    if (method === 'GET' && path === 'style') return styleDoc(style, channel, query.get('version'))
+    if (method === 'PUT' && path === 'style/draft') {
+      const data = body as Style
+      const refusal = styleShape(data)
+      if (refusal) return refusal
+      const based_on = style.draft ? style.draft.based_on : (style.versions.at(-1)?.info.version ?? null)
+      style.draft = { based_on, saved_at: NOW, data: structuredClone(data) }
+      return styleDoc(style, channel, null)
+    }
+    if (method === 'POST' && path === 'style/draft') {
+      const from = query.get('from') ?? ''
+      if (style.draft) return fail(409, `У стиля канала уже есть черновик — опубликуйте или сбросьте его, потом создавайте черновик из ${from}.`)
+      const file = style.versions.find((v) => v.info.version === from)
+      if (!file) return styleDoc(style, channel, from)
+      style.draft = { based_on: from, saved_at: NOW, data: structuredClone(file.data) }
+      const doc = styleDoc(style, channel, null)
+      return { ...doc, status: 201 }
+    }
+    if (method === 'DELETE' && path === 'style/draft') {
+      if (!style.draft) return fail(404, 'У стиля канала нет черновика — сбрасывать нечего.')
+      style.draft = null
+      return ok(null, 204)
+    }
+    if (method === 'POST' && path === 'style/publish') return publishStyle(style)
+    if (method === 'GET' && path === 'style/anchors') return ok(styleAnchors(style, channel))
+    if (method === 'GET' && path === 'style/anchors/estimate') return ok(anchorsEstimate)
+    if (method === 'POST' && path === 'style/anchors') return collectStyleAnchors(style, channel, (body as { period: string }).period)
+    return null
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -1457,6 +1851,10 @@ export function createMockApi() {
     const parts = path.split('/').filter(Boolean)
 
     if (method === 'GET' && path === '/channels') return ok(profiles)
+    if (parts[0] === 'canon' && parts[1]) {
+      const response = canonRoute(method, decodeURIComponent(parts[1]) as ChannelId, parts.slice(2), searchParams, body)
+      if (response) return response
+    }
     if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchSeeds(decodeURIComponent(parts[1]), body)
     if (method === 'GET' && path === '/ideas') {
       const status = searchParams.get('status')
@@ -1617,7 +2015,7 @@ export function createMockApi() {
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
 
-  return { handle, episodes: state, projects }
+  return { handle, episodes: state, projects, canon: { styles: canonStyles, monthlyLimit } }
 }
 
 export type MockApi = ReturnType<typeof createMockApi>

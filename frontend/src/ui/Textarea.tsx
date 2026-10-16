@@ -9,6 +9,8 @@ export interface TextareaProps {
   onChange: (value: string) => void
   /** prompt — шрифт сценария 12/18, авторост до 6 строк */
   variant?: TextareaVariant
+  /** Авторост по тексту от одной строки (28) до 6 строк — поле формы с короткими фразами (слой «Стиль» канона) */
+  autosize?: boolean
   rows?: number
   id?: string
   name?: string
@@ -27,6 +29,7 @@ export function Textarea({
   value,
   onChange,
   variant = 'default',
+  autosize = false,
   rows = 3,
   id,
   name,
@@ -47,7 +50,7 @@ export function Textarea({
         id={id}
         name={name}
         value={value}
-        rows={variant === 'prompt' ? 2 : rows}
+        rows={variant === 'prompt' ? 2 : autosize ? 1 : rows}
         placeholder={placeholder}
         aria-label={ariaLabel}
         aria-invalid={error ? true : undefined}
@@ -59,11 +62,13 @@ export function Textarea({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         className={cn(
-          'block w-full resize-none rounded-control border bg-raised p-2 text-ink outline-none focus:border-accent disabled:text-disabled',
+          'block w-full resize-none rounded-control border bg-raised text-ink outline-none focus:border-accent disabled:text-disabled',
           error ? 'border-failed' : 'border-line',
           variant === 'prompt'
-            ? 'field-sizing-content max-h-[calc(6lh+var(--space-1)*4)] font-script text-12 leading-4.5'
-            : 'text-13',
+            ? 'field-sizing-content max-h-[calc(6lh+var(--space-1)*4)] p-2 font-script text-12 leading-4.5'
+            : autosize
+              ? 'field-sizing-content max-h-[calc(6lh+var(--space-1)*2)] min-h-7 px-2 py-1 text-13'
+              : 'p-2 text-13',
         )}
       />
       {error && <FieldError id={errorId} message={error} />}
