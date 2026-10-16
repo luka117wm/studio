@@ -1,27 +1,15 @@
-/* Слой «Стиль» экрана 12: группы полей артборда карточками, палитра с образцами, глобальный negative чипами;
-   сравнение двух версий построчно. Правит только шапку (черновик или последнюю версию — первая правка заводит
-   черновик); старая версия — только чтение. Hex образца — данные канона, а не цвет интерфейса: образец рисуется
-   `style={{ background }}` из данных, классы экрана — только токены. */
+/* Слой «Стиль» экрана 12: группы полей артборда карточками, палитра с образцами, глобальный negative чипами.
+   Правит только шапку (черновик или последнюю версию — первая правка заводит черновик); старая версия — только
+   чтение. Hex образца — данные канона, а не цвет интерфейса: образец рисуется `style={{ background }}` из данных,
+   классы экрана — только токены. */
 import { X } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { useState } from 'react'
 import type { Style, Swatch } from '@/types/canon'
-import { Button, Chip, IconButton, Input, Textarea, cn } from '../../ui'
+import { Chip, IconButton, Input, Textarea } from '../../ui'
 import { plural } from '../episodes/board'
-import {
-  HEX_RE,
-  STYLE_GROUPS,
-  SWATCHES_MAX,
-  changedCount,
-  diffStyle,
-  diffSummary,
-  getField,
-  isCyrillic,
-  negativeKey,
-  setField,
-  type StyleGroup,
-} from './styleFields'
-
-const CYRILLIC_HINT = 'Пишите по-английски: текст стиля уходит в промпт картинки, публикация кириллицу не примет.'
+import { CYRILLIC_HINT, isCyrillic } from './canonFields'
+import { ChipList } from './ChipList'
+import { HEX_RE, STYLE_GROUPS, SWATCHES_MAX, getField, setField, type StyleGroup } from './styleFields'
 
 export interface StyleLayerProps {
   style: Style
@@ -69,12 +57,20 @@ function GroupCard({ group, style, onChange }: { group: StyleGroup; style: Style
         )
       })}
       {group.palette && <Swatches swatches={style.palette.swatches} onChange={onChange && ((swatches) => onChange({ ...style, palette: { ...style.palette, swatches } }))} />}
-      {group.negative && <Negative items={style.negative_global} onChange={onChange && ((negative_global) => onChange({ ...style, negative_global }))} />}
+      {group.negative && (
+        <ChipList
+          label="Глобальный negative"
+          addLabel="Добавить запрет"
+          items={style.negative_global}
+          onChange={onChange && ((negative_global) => onChange({ ...style, negative_global }))}
+          note="Уходит в negative каждого кадра канала, поверх запретов периода."
+        />
+      )}
     </section>
   )
 }
 
-function ReadOnlyValue({ label, value }: { label: string; value: string }) {
+export function ReadOnlyValue({ label, value }: { label: string; value: string }) {
   return (
     <p aria-label={label} className="flex min-h-7 min-w-0 flex-1 items-center rounded-control border border-rule-inner bg-strip px-2 py-1 text-12 text-muted">
       {value || '—'}
@@ -151,112 +147,5 @@ function HexInput({ index, hex, onChange }: { index: number; hex: string; onChan
       error={valid ? undefined : 'Нужен код #RRGGBB'}
       className="min-w-0 flex-1 font-dense"
     />
-  )
-}
-
-/* ---- Глобальный negative: чипы, «Добавить запрет» по Enter, повтор без учёта регистра не добавляется ---- */
-
-function Negative({ items, onChange }: { items: string[]; onChange?: (items: string[]) => void }) {
-  const [draft, setDraft] = useState('')
-  const [repeat, setRepeat] = useState<string | null>(null)
-  const add = () => {
-    const value = draft.trim()
-    if (!value || !onChange) return
-    if (items.some((item) => negativeKey(item) === negativeKey(value))) {
-      setRepeat(value)
-      return
-    }
-    onChange([...items, value])
-    setDraft('')
-    setRepeat(null)
-  }
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      add()
-    }
-  }
-  const russian = items.filter(isCyrillic)
-  return (
-    <div className="flex flex-col gap-1.5 pt-0.5">
-      <ul aria-label="Глобальный negative" className="flex flex-wrap items-center gap-1">
-        {items.map((item, index) => (
-          <li key={`${item}-${index}`}>
-            {onChange ? (
-              <Chip variant="tag" label={item} onRemove={() => onChange(items.filter((_, i) => i !== index))} className={cn(isCyrillic(item) && 'border-failed')} />
-            ) : (
-              <span className="inline-flex h-control-sm items-center rounded-control border border-line bg-raised px-2 text-12 text-muted">{item}</span>
-            )}
-          </li>
-        ))}
-        {onChange && (
-          <li className="flex items-center gap-1">
-            <Input ariaLabel="Добавить запрет" value={draft} placeholder="Добавить запрет" onChange={(v) => (setDraft(v), setRepeat(null))} onKeyDown={onKeyDown} className="w-44" />
-            {draft.trim() && (
-              <Button size="sm" variant="ghost" onClick={add}>
-                Добавить
-              </Button>
-            )}
-          </li>
-        )}
-      </ul>
-      {repeat && <span className="text-11 text-warning">«{repeat}» уже есть в списке.</span>}
-      {russian.length > 0 && <span className="text-11 text-failed-text">{`Запреты ${russian.map((r) => `«${r}»`).join(', ')} по-русски. ${CYRILLIC_HINT}`}</span>}
-      <span className="text-11 text-muted">Уходит в negative каждого кадра канала, поверх запретов периода.</span>
-    </div>
-  )
-}
-
-/* ---- Сравнение версий: было → стало по полям, изменённые помечены ---- */
-
-export interface StyleDiffProps {
-  before: { label: string; style: Style }
-  after: { label: string; style: Style }
-  onClose: () => void
-}
-
-export function StyleDiff({ before, after, onClose }: StyleDiffProps) {
-  const rows = diffStyle(before.style, after.style)
-  return (
-    <section aria-label="Сравнение версий" className="flex flex-col p-3">
-      <div className="mb-2 flex h-7 items-center gap-2">
-        <h2 className="text-13 font-semibold text-ink">{`Сравнение ${before.label} и ${after.label}`}</h2>
-        <span className={cn('text-12', changedCount(rows) ? 'text-warning' : 'text-muted')}>{diffSummary(rows)}</span>
-        <span className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Закрыть сравнение
-        </Button>
-      </div>
-      <table className="w-full table-fixed border-collapse text-12">
-        <thead>
-          <tr className="h-6 border-b border-line text-left font-dense text-11 font-medium text-muted">
-            <th scope="col" className="w-37 px-2 font-medium">
-              Поле
-            </th>
-            <th scope="col" className="px-2 font-medium">
-              {before.label}
-            </th>
-            <th scope="col" className="px-2 font-medium">
-              {after.label}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr
-              key={r.label}
-              data-changed={r.changed || undefined}
-              className={cn('border-b border-row-border align-top', r.changed && 'bg-surface-warning shadow-[inset_2px_0_0_var(--color-warning)]')}
-            >
-              <th scope="row" className={cn('px-2 py-2 text-left font-medium', r.changed ? 'text-warning' : 'text-muted')}>
-                {r.label}
-              </th>
-              <td className="px-2 py-2 text-muted">{r.before}</td>
-              <td className={cn('px-2 py-2', r.changed ? 'text-ink' : 'text-muted')}>{r.after}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
   )
 }

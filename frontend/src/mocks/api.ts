@@ -6,7 +6,23 @@ import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { BudgetRefusal, CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
-import type { AnchorSetState, AnchorSlot, AnchorsEstimate, CanonSummary, CanonVersionInfo, Style, StyleDoc, Swatch } from '@/types/canon'
+import type {
+  AnchorSetState,
+  AnchorSlot,
+  AnchorsEstimate,
+  Appearance,
+  CanonNeeded,
+  CanonSummary,
+  CanonVersionInfo,
+  Character,
+  NeededItem,
+  Period,
+  PeriodAnswerResult,
+  PeriodConflict,
+  PeriodPrompt,
+  Style,
+  Swatch,
+} from '@/types/canon'
 import type { Director } from '@/types/director'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobList } from '@/types/job'
@@ -865,9 +881,9 @@ function cursusStyle(fields: {
   }
 }
 
-interface CanonVersionFile {
+interface CanonVersionFile<T = Style> {
   info: CanonVersionInfo
-  data: Style
+  data: T
 }
 
 /** Версии стиля Cursus: v003 — текущая, как в артборде */
@@ -916,12 +932,257 @@ export const CURSUS_STYLE: CanonVersionFile[] = [
   },
 ]
 
-/** Эпохи Cursus в сводке артборда: две опубликованы, Венеция — только черновик без запретов */
-const CURSUS_PERIODS: CanonSummary['periods'] = [
-  { id: 'caribbean-1716', label: 'Карибы, 1716', region: 'Caribbean Sea, Nassau', years: { from: 1716, to: 1726 }, versions: [{ version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' }], draft: false, forbidden_count: 14, episodes: 3 },
-  { id: 'england-1347', label: 'Англия, 1347', region: 'East Anglia', years: { from: 1347, to: 1350 }, versions: [{ version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' }], draft: false, forbidden_count: 11, episodes: 2 },
-  { id: 'venice-1560', label: 'Венеция, 1560', region: 'Venetian Arsenal', years: { from: 1560, to: 1580 }, versions: [], draft: true, forbidden_count: 0, episodes: 0 },
+/* ---- Экран 12: эпохи и персонажи (M5.8) ---- */
+// Значения артборда 12 по-английски, как у стиля: всё, кроме подписей `label`, уходит в промпт картинки. У Cursus —
+// Карибы и Англия опубликованы, Венеция — черновик без запретов (её нельзя использовать); You с пятью обликами и
+// Капитан без листа. У Otto стиля нет (пустое состояние слоя «Стиль»), но есть Отто с тремя обликами.
+
+export interface CanonDraftFile<T> {
+  based_on: string | null
+  saved_at: string
+  data: T
+}
+
+/** Слой канона в моке: версии по возрастанию и черновик — как каталог сущности на диске */
+export interface LayerState<T> {
+  versions: CanonVersionFile<T>[]
+  draft: CanonDraftFile<T> | null
+}
+
+const period = (fields: Partial<Period> & Pick<Period, 'id' | 'label'>): Period => ({
+  region: '',
+  years: null,
+  palette_shift: [],
+  materials: [],
+  light_sources: [],
+  architecture: [],
+  clothing: [],
+  props: [],
+  forbidden: [],
+  ...fields,
+})
+
+const CARIBBEAN_FORBIDDEN = [
+  'zippers',
+  'factory-made buttons',
+  'plastic',
+  'rubber',
+  'stainless steel',
+  'stamped sheet metal',
+  'gold-laced tricorne on a common sailor',
+  '20th-century flash tattoos',
+  'binoculars',
+  'safety matches',
+  'rum in a glass bottle',
+  'printed labels',
+  'wristwatch',
+  'trimmed nails and clean hands',
 ]
+
+/** Эпохи Cursus: две опубликованы, Венеция — только черновик без запретов */
+export const CURSUS_PERIODS: Record<string, LayerState<Period>> = {
+  'caribbean-1716': {
+    versions: [
+      {
+        info: { version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' },
+        data: period({
+          id: 'caribbean-1716',
+          label: 'Карибы, 1716',
+          region: 'Caribbean Sea, Nassau',
+          years: { from: 1716, to: 1726 },
+          palette_shift: ['sun-bleached sailcloth', 'pitch and tar', 'turquoise shallows', 'rusted iron'],
+          materials: ['oak', 'hemp', 'sailcloth', 'brass', 'lead', 'leather'],
+          light_sources: ['lantern', 'candle in a horn lantern', 'gun port', 'noon sun'],
+          architecture: ['gun deck', 'berth deck', 'stern cabin', 'harbour warehouses'],
+          clothing: ['slops', 'sleeveless waistcoat', 'kerchief on the head', 'bare feet', 'wide belt'],
+          props: ['powder cartridge', 'belaying pin', "ship's log", 'cutlass', 'quadrant'],
+          forbidden: CARIBBEAN_FORBIDDEN,
+        }),
+      },
+    ],
+    draft: null,
+  },
+  'england-1347': {
+    versions: [
+      {
+        info: { version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' },
+        data: period({
+          id: 'england-1347',
+          label: 'Англия, 1347',
+          region: 'East Anglia',
+          years: { from: 1347, to: 1350 },
+          palette_shift: ['wet clay', 'undyed wool', 'peat smoke', 'floodplain green'],
+          materials: ['oak', 'thatch', 'clay', 'wool', 'linen', 'wrought iron'],
+          light_sources: ['open hearth', 'tallow candle', 'doorway', 'overcast sky'],
+          architecture: ['longhouse', 'barn', 'parish church', 'mill'],
+          clothing: ['cotte', 'chaperon hood', 'leg wraps', 'wooden clogs'],
+          props: ['sickle', 'wooden bowl', 'leather bucket', 'millstone'],
+          forbidden: ['potato', 'maize', 'tobacco', 'sunflower', 'coat buttons', 'spinning wheel', 'glazed windows', 'brick walls', 'printed book', 'bleached white cloth', 'machine-made chain'],
+        }),
+      },
+    ],
+    draft: null,
+  },
+  'venice-1560': {
+    versions: [],
+    draft: {
+      based_on: null,
+      saved_at: '2026-09-10T09:00:00+00:00',
+      data: period({
+        id: 'venice-1560',
+        label: 'Венеция, 1560',
+        region: 'Venetian Arsenal',
+        years: { from: 1560, to: 1580 },
+        palette_shift: ['wet stone', 'leaden water'],
+        materials: ['oak', 'hemp', 'pitch'],
+        light_sources: ['workshop skylight'],
+        architecture: ['shipyard hall', 'dock canal'],
+        props: ['adze'],
+      }),
+    },
+  },
+}
+
+/** Сколько выпусков канала ссылаются на эпоху текущими планами — счётчик сводки (`episodes`) */
+const PERIOD_EPISODES: Record<string, number> = { 'caribbean-1716': 3, 'england-1347': 2, 'venice-1560': 1 }
+
+/** Ссылки планов выпусков на канон — из них «нужно каналу» (без опубликованной версии) */
+const PLAN_REFS: Record<ChannelId, { periods: NeededItem[]; appearances: NeededItem[] }> = {
+  cursus: {
+    periods: [
+      { id: 'edo-1650', draft: false, shots: 64, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 64 }] },
+      { id: 'venice-1560', draft: false, shots: 38, episodes: [{ id: 'arsenal', title: 'Venetian Arsenal: every rank', shots: 38 }] },
+    ],
+    appearances: [
+      { id: 'daimyo@edo-1650', draft: false, shots: 9, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 9 }] },
+      { id: 'you@ashigaru-17', draft: false, shots: 22, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 22 }] },
+    ],
+  },
+  otto: { periods: [], appearances: [] },
+}
+
+const look = (fields: Partial<Appearance> & Pick<Appearance, 'id' | 'label' | 'period'>): Appearance => ({
+  age: null,
+  build: '',
+  face: '',
+  hair: '',
+  clothing: '',
+  wear: '',
+  props: [],
+  negative_local: [],
+  ...fields,
+})
+
+const YOU_LOOKS: Appearance[] = [
+  look({
+    id: 'you@powder-monkey-11',
+    label: 'пороховая обезьяна',
+    period: 'caribbean-1716',
+    age: 11,
+    build: 'Thin, narrow shoulders, below average height',
+    face: 'Boyish, sunburnt cheeks, chapped lips',
+    hair: 'Short, sun-bleached, cut unevenly',
+    clothing: 'Oversized slops, sleeveless waistcoat, kerchief on the head, barefoot',
+    wear: 'Salt stains, tar on the hands, a torn hem',
+    props: ['leather cartridge case'],
+    negative_local: ['shoes'],
+  }),
+  look({ id: 'you@landsman-19', label: 'матрос-новичок', period: 'caribbean-1716', age: 19, build: 'Lean, wiry arms', face: 'Thin stubble, peeling nose', clothing: 'Canvas slops, check shirt' }),
+  look({ id: 'you@able-seaman-23', label: 'опытный матрос', period: 'caribbean-1716', age: 23, build: 'Lean and strong, rope-burnt palms', face: 'Weathered, short beard', clothing: 'Faded waistcoat, wide belt with a knife' }),
+  look({ id: 'you@boatswain-34', label: 'боцман', period: 'caribbean-1716', age: 34, build: 'Broad shoulders, thick forearms', face: 'Full beard, broken nose', clothing: 'Long waistcoat, bosun call on a cord' }),
+  look({ id: 'you@quartermaster-41', label: 'квартирмейстер', period: 'caribbean-1716', age: 41, build: 'Heavy-set', face: 'Grey in the beard, deep lines', clothing: 'Dark coat, ledger under the arm' }),
+]
+
+const YOU_NATURE = {
+  personality: 'Watches before speaking. Does what he is told, but notices who obeys whom.',
+  posture: 'Shoulders forward, head slightly down, weight on the front foot: ready to run.',
+  manner: 'Never looks at the camera. His hands are almost always busy with an object.',
+  face: 'Narrow face, wide-set eyes, a gap between the front teeth, a scar above the left eyebrow.',
+}
+
+/** Персонажи каналов: Cursus — You (v001 — три облика, v002 — пять) и Капитан; Otto — Отто */
+export const CANON_CHARACTERS: Record<ChannelId, Record<string, LayerState<Character>>> = {
+  cursus: {
+    captain: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-07-01T09:00:00+00:00' },
+          data: {
+            id: 'captain',
+            label: 'Капитан (второй план)',
+            nature: {
+              personality: 'Says little, waits for the crew to decide on its own.',
+              posture: 'Stands half-turned, hands behind his back.',
+              manner: 'Never raises his voice, keeps his distance from the crew.',
+              face: 'Lean face, deep nasolabial folds, grey at the temples.',
+            },
+            appearances: [look({ id: 'captain@caribbean-1716', label: 'капитан', period: 'caribbean-1716', age: 48, build: 'Tall, upright', clothing: 'Worn blue coat, sash' })],
+          },
+        },
+      ],
+      draft: null,
+    },
+    you: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-06-05T09:00:00+00:00' },
+          data: { id: 'you', label: 'You — рассказчик-участник', nature: YOU_NATURE, appearances: YOU_LOOKS.slice(0, 3) },
+        },
+        {
+          info: { version: 'v002', based_on: 'v001', published_at: '2026-08-30T09:00:00+00:00' },
+          data: { id: 'you', label: 'You — рассказчик-участник', nature: YOU_NATURE, appearances: YOU_LOOKS },
+        },
+      ],
+      draft: null,
+    },
+  },
+  otto: {
+    otto: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-05-20T09:00:00+00:00' },
+          data: {
+            id: 'otto',
+            label: 'Отто',
+            nature: {
+              personality: 'Curious and unceremonious: pokes into other people’s work to see how it is done.',
+              posture: 'Straight back, open palms, turned towards whoever he talks to.',
+              manner: 'Looks into the camera: he is the host. Gestures with one hand.',
+              face: 'Round face, thick eyebrows, stubble, a crease on the bridge of the nose.',
+            },
+            appearances: [
+              look({ id: 'otto@england-1347', label: 'крестьянин', period: 'england-1347', age: 34 }),
+              look({ id: 'otto@london-1850', label: 'трубочист', period: 'london-1850', age: 34 }),
+              look({ id: 'otto@tenochtitlan-1500', label: 'торговец', period: 'tenochtitlan-1500', age: 34 }),
+            ],
+          },
+        },
+      ],
+      draft: null,
+    },
+  },
+}
+
+/** Ракурсы листа опорных портретов — `config/canon.yaml → anchors.angles` */
+export const SHEET_ANGLES: [string, string, string][] = [
+  ['front', 'Фас', 'лицо прямо, нейтральный свет'],
+  ['three_quarter', 'Три четверти', 'поворот 45°, ключевой свет сбоку'],
+  ['profile', 'Профиль', 'силуэт линии носа и лба'],
+  ['full_body', 'В полный рост', 'одежда целиком, обувь, пропорции'],
+  ['in_action', 'В действии', 'рабочая поза ранга'],
+  ['detail', 'Деталь', 'руки и предметы'],
+]
+
+/** Выбрано ракурсов в листе облика (по порядку ракурсов): 6 — готов, 3 — наполовину, нет записи — не собран */
+const SHEETS_CHOSEN: Record<string, number> = {
+  'you@powder-monkey-11': 6,
+  'you@landsman-19': 6,
+  'you@able-seaman-23': 6,
+  'you@boatswain-34': 3,
+  'otto@england-1347': 6,
+  'otto@london-1850': 6,
+  'otto@tenochtitlan-1500': 6,
+}
 
 /** Шаблоны кадров стиля — `config/canon.yaml → style_frames` */
 export const STYLE_FRAMES: [string, string][] = [
@@ -964,9 +1225,7 @@ function staleStyleFields(before: Style, after: Style): string[] {
   return changed
 }
 
-interface StyleState {
-  versions: CanonVersionFile[]
-  draft: { based_on: string | null; saved_at: string; data: Style } | null
+interface StyleState extends LayerState<Style> {
   /** Версия стиля, на которой сделаны кадры стиля; `null` — кадров нет */
   frames: string | null
 }
@@ -1007,6 +1266,16 @@ export function createMockApi() {
     cursus: { versions: structuredClone(CURSUS_STYLE), draft: null, frames: 'v003' },
     otto: { versions: [], draft: null, frames: null },
   }
+  /** Эпохи и персонажи каналов (M5.8): каталоги сущностей с версиями и черновиком */
+  const canonPeriods: Record<ChannelId, Map<string, LayerState<Period>>> = {
+    cursus: new Map(Object.entries(structuredClone(CURSUS_PERIODS))),
+    otto: new Map(),
+  }
+  const canonCharacters: Record<ChannelId, Map<string, LayerState<Character>>> = {
+    cursus: new Map(Object.entries(structuredClone(CANON_CHARACTERS.cursus))),
+    otto: new Map(Object.entries(structuredClone(CANON_CHARACTERS.otto))),
+  }
+  let periodRuns = 0
   /** Месячный лимит канала для джобов опорных; тест опускает его, чтобы увидеть отказ бюджета до очереди */
   const monthlyLimit: Record<ChannelId, number> = {
     cursus: costSummaries.cursus.budget.limit.usd_micro,
@@ -1626,7 +1895,14 @@ export function createMockApi() {
 
   /* ---- Канон канала: стиль, версии, кадры стиля (docs/canon_schema.md, «API» и «API опорных») ---- */
 
-  const versionDoc = (file: CanonVersionFile): StyleDoc => ({
+  /** Чей слой — для текстов ошибок, как `Layer.genitive` бэкенда: «стиля канала», «эпохи caribbean-1716» */
+  interface Noun {
+    genitive: string
+    /** 404 без черновика и версий */
+    missing: string
+  }
+
+  const versionDoc = <T,>(file: CanonVersionFile<T>) => ({
     draft: false,
     version: file.info.version,
     based_on: file.info.based_on,
@@ -1634,22 +1910,67 @@ export function createMockApi() {
     data: structuredClone(file.data),
   })
 
-  function styleDoc(style: StyleState, channel: ChannelId, version: string | null): MockResponse {
+  /** Шапка (`version: null`) — черновик, а без него последняя версия; `vNNN` — версия как есть */
+  function layerDoc<T>(state: LayerState<T> | undefined, noun: Noun, version: string | null): MockResponse {
     if (version === null) {
-      if (style.draft) {
-        const { based_on, saved_at, data } = style.draft
-        return ok({ draft: true, version: null, based_on, updated_at: saved_at, data: structuredClone(data) } satisfies StyleDoc)
+      if (state?.draft) {
+        const { based_on, saved_at, data } = state.draft
+        return ok({ draft: true, version: null, based_on, updated_at: saved_at, data: structuredClone(data) })
       }
-      const last = style.versions.at(-1)
-      return last ? ok(versionDoc(last)) : fail(404, `Стиля канала в каноне ${channel} нет — создайте черновик.`)
+      const last = state?.versions.at(-1)
+      return last ? ok(versionDoc(last)) : fail(404, noun.missing)
     }
     if (!/^v\d{3}$/.test(version)) {
       return { status: 422, body: { detail: [{ type: 'canon_version', loc: ['query', 'version'], msg: `Версия «${version}» не годится — нужна вида v001.` }] } }
     }
-    const file = style.versions.find((v) => v.info.version === version)
-    const have = style.versions.map((v) => v.info.version).join(', ')
-    return file ? ok(versionDoc(file)) : fail(404, `У стиля канала нет версии ${version} — есть: ${have || 'ни одной'}.`)
+    const file = state?.versions.find((v) => v.info.version === version)
+    const have = state?.versions.map((v) => v.info.version).join(', ')
+    return file ? ok(versionDoc(file)) : fail(404, `У ${noun.genitive} нет версии ${version} — есть: ${have || 'ни одной'}.`)
   }
+
+  /** Черновик целиком: `based_on` — у прежнего черновика, без него последняя версия (правят то, что видят) */
+  function layerPut<T>(state: LayerState<T>, noun: Noun, data: T): MockResponse {
+    const based_on = state.draft ? state.draft.based_on : (state.versions.at(-1)?.info.version ?? null)
+    state.draft = { based_on, saved_at: NOW, data: structuredClone(data) }
+    return layerDoc(state, noun, null)
+  }
+
+  function layerFrom<T>(state: LayerState<T> | undefined, noun: Noun, from: string): MockResponse {
+    if (state?.draft) return fail(409, `У ${noun.genitive} уже есть черновик — опубликуйте или сбросьте его, потом создавайте черновик из ${from}.`)
+    const file = state?.versions.find((v) => v.info.version === from)
+    if (!state || !file) return layerDoc(state, noun, from)
+    state.draft = { based_on: from, saved_at: NOW, data: structuredClone(file.data) }
+    return { ...layerDoc(state, noun, null), status: 201 }
+  }
+
+  function layerDiscard<T>(state: LayerState<T> | undefined, noun: Noun): MockResponse {
+    if (!state?.draft) return fail(404, `У ${noun.genitive} нет черновика — сбрасывать нечего.`)
+    state.draft = null
+    return ok(null, 204)
+  }
+
+  /** Правила публикации — все нарушения сразу, по фразе на строку; при отказе черновик остаётся */
+  function layerPublish<T>(state: LayerState<T> | undefined, noun: Noun, problems: (data: T) => string[]): MockResponse {
+    if (!state?.draft) return fail(409, `У ${noun.genitive} нет черновика — публиковать нечего.`)
+    const found = problems(state.draft.data)
+    if (found.length) return fail(409, found.join('\n'))
+    const last = state.versions.at(-1)
+    if (last && canonical(last.data) === canonical(state.draft.data)) {
+      return fail(409, `Черновик ${noun.genitive} не отличается от ${last.info.version} — публиковать нечего, сбросьте черновик.`)
+    }
+    const file: CanonVersionFile<T> = {
+      info: { version: `v${String(state.versions.length + 1).padStart(3, '0')}`, based_on: state.draft.based_on, published_at: NOW },
+      data: state.draft.data,
+    }
+    state.versions.push(file)
+    state.draft = null
+    return ok(versionDoc(file), 201)
+  }
+
+  const styleNoun = (channel: ChannelId): Noun => ({ genitive: 'стиля канала', missing: `Стиля канала в каноне ${channel} нет — создайте черновик.` })
+  const periodNoun = (channel: ChannelId, id: string): Noun => ({ genitive: `эпохи ${id}`, missing: `Эпохи ${id} в каноне ${channel} нет — создайте черновик.` })
+  const characterNoun = (channel: ChannelId, id: string): Noun => ({ genitive: `персонажа ${id}`, missing: `Персонажа ${id} в каноне ${channel} нет — создайте черновик.` })
+
 
   /** Форма черновика (422): цвет #RRGGBB, не больше 5 образцов — как `Style` бэкенда */
   function styleShape(data: Style): MockResponse | null {
@@ -1696,24 +2017,6 @@ export function createMockApi() {
     return problems
   }
 
-  function publishStyle(style: StyleState): MockResponse {
-    if (!style.draft) return fail(409, 'У стиля канала нет черновика — публиковать нечего.')
-    const problems = stylePublishProblems(style.draft.data)
-    if (problems.length) return fail(409, problems.join('\n'))
-    const last = style.versions.at(-1)
-    if (last && canonical(last.data) === canonical(style.draft.data)) {
-      return fail(409, `Черновик стиля канала не отличается от ${last.info.version} — публиковать нечего, сбросьте черновик.`)
-    }
-    const number = style.versions.length + 1
-    const file: CanonVersionFile = {
-      info: { version: `v${String(number).padStart(3, '0')}`, based_on: style.draft.based_on, published_at: NOW },
-      data: style.draft.data,
-    }
-    style.versions.push(file)
-    style.draft = null
-    return ok(versionDoc(file), 201)
-  }
-
   /** Кадры стиля против последней версии: устаревают при смене рендера, оптики или света */
   function styleAnchors(style: StyleState, channel: ChannelId): AnchorSetState {
     const last = style.versions.at(-1)
@@ -1753,8 +2056,7 @@ export function createMockApi() {
   function collectStyleAnchors(style: StyleState, channel: ChannelId, period: string): MockResponse {
     const last = style.versions.at(-1)
     if (!last) return fail(409, 'Стиль канала не опубликован — опубликуйте его на экране «Канон», потом собирайте опорные.')
-    const periods = channel === 'cursus' ? CURSUS_PERIODS : []
-    if (!periods.some((p) => p.id === period && p.versions.length)) {
+    if (!canonPeriods[channel].get(period)?.versions.length) {
       return fail(409, `Эпоха ${period} не опубликована — опубликуйте её на экране «Канон».`)
     }
     const cost = STYLE_FRAMES.length * ANCHOR_PRICE
@@ -1802,45 +2104,380 @@ export function createMockApi() {
     return ok(job, 201)
   }
 
+  /* ---- Эпохи и персонажи (M5.8): правила публикации, «нужно каналу», мост эпохи, листы обликов, копия облика ---- */
+
+  const CYRILLIC = /[Ѐ-ӿ]/
+
+  /** Кириллица в тексте промпта и пустые позиции списков — как `_text_problems` бэкенда; подписи `label` — для экрана */
+  function textProblems(node: Record<string, unknown>, owner = '', prefix = ''): string[] {
+    const problems: string[] = []
+    for (const [name, value] of Object.entries(node)) {
+      if (name === 'label' || name === 'id' || name === 'appearances') continue
+      const where = `${prefix}${name}${owner ? ` ${owner}` : ''}`
+      if (typeof value === 'string' && CYRILLIC.test(value)) {
+        problems.push(`Поле ${where} написано по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+      } else if (Array.isArray(value)) {
+        const texts = value.filter((item): item is string => typeof item === 'string')
+        if (texts.some((item) => !item.trim())) problems.push(`Пустая позиция в списке ${where} — заполните или удалите её.`)
+        if (texts.some((item) => CYRILLIC.test(item))) {
+          problems.push(`Список ${where} написан по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+        }
+      } else if (value && typeof value === 'object' && name !== 'years') {
+        problems.push(...textProblems(value as Record<string, unknown>, owner, `${prefix}${name}.`))
+      }
+    }
+    return problems
+  }
+
+  /** `Period.publish_problems`: название, регион, годы и хотя бы один запрет (L-007) */
+  function periodProblems(data: Period): string[] {
+    const problems: string[] = []
+    if (!data.label.trim()) problems.push('Эпоха без названия не публикуется — заполните label, например «Карибы, 1716».')
+    if (!data.region.trim()) problems.push('Эпоха без региона не публикуется — заполните region, например Caribbean Sea.')
+    if (!data.years) problems.push('Эпоха без годов не публикуется — заполните years.from и years.to.')
+    if (!data.forbidden.length) problems.push('Эпоха без запретов не публикуется — добавьте хотя бы один анахронизм.')
+    return [...problems, ...textProblems(data as unknown as Record<string, unknown>)]
+  }
+
+  /** `Character.publish_problems`: имя, черты лица, хотя бы один облик; у облика — название и эпоха */
+  function characterProblems(data: Character): string[] {
+    const problems: string[] = []
+    if (!data.label.trim()) problems.push('Персонаж без имени не публикуется — заполните label.')
+    if (!data.nature.face.trim()) problems.push('Персонаж без черт лица не публикуется — заполните nature.face: по ним собирается лист портретов.')
+    if (!data.appearances.length) problems.push('Персонаж без обликов не публикуется — добавьте хотя бы один облик.')
+    problems.push(...textProblems(data as unknown as Record<string, unknown>))
+    for (const appearance of data.appearances) {
+      if (!appearance.label.trim()) problems.push(`Облик ${appearance.id} без названия не публикуется — заполните label.`)
+      if (!appearance.period.trim()) problems.push(`Облик ${appearance.id} без эпохи не публикуется — укажите period.`)
+      problems.push(...textProblems(appearance as unknown as Record<string, unknown>, `облика ${appearance.id}`))
+    }
+    return problems
+  }
+
+  const shapeError = (loc: (string | number)[], msg: string, type = 'canon_shape'): MockResponse => ({ status: 422, body: { detail: [{ type, loc, msg }] } })
+
+  /** Форма тела эпохи и персонажа (422): id совпадает с адресом, годы по порядку, возраст 0–120, облики своего персонажа */
+  function entityShape(kind: 'periods' | 'characters', id: string, data: Period | Character): MockResponse | null {
+    if (data.id !== id) return shapeError(['body', 'id'], `id «${data.id}» в теле не совпадает с адресом «${id}» — исправьте одно из двух.`)
+    if (kind === 'periods') {
+      const { years } = data as Period
+      if (years && years.from > years.to) {
+        return shapeError(['body', 'years'], `Годы эпохи наоборот: from ${years.from} позже to ${years.to} — поменяйте их местами.`, 'canon_years')
+      }
+      return null
+    }
+    const seen = new Set<string>()
+    for (const [i, appearance] of (data as Character).appearances.entries()) {
+      if (!appearance.id.startsWith(`${id}@`)) {
+        return shapeError(['body', 'appearances', i, 'id'], `Облик ${appearance.id} не принадлежит персонажу ${id} — id облика начинается с «${id}@».`)
+      }
+      if (seen.has(appearance.id)) return shapeError(['body', 'appearances', i, 'id'], `Облик ${appearance.id} повторяется — у каждого облика свой id.`)
+      seen.add(appearance.id)
+      if (appearance.age !== null && (appearance.age < 0 || appearance.age > 120)) {
+        return shapeError(['body', 'appearances', i, 'age'], `Возраст ${appearance.age} вне 0–120 — укажите полных лет.`)
+      }
+    }
+    return null
+  }
+
+  const headOf = <T,>(state: LayerState<T>): T => (state.draft ? state.draft.data : state.versions.at(-1)!.data)
+
+  /** Последняя опубликованная версия персонажа, где облик есть */
+  function latestWith(channel: ChannelId, appearanceId: string): string | null {
+    const state = canonCharacters[channel].get(appearanceId.split('@')[0]!)
+    const found = [...(state?.versions ?? [])].reverse().find((v) => v.data.appearances.some((a) => a.id === appearanceId))
+    return found?.info.version ?? null
+  }
+
+  /** Лист облика против последней опубликованной версии с ним: ракурсы по порядку, по 2 кандидата на выбранный */
+  function appearanceAnchors(channel: ChannelId, appearanceId: string): AnchorSetState {
+    const version = latestWith(channel, appearanceId)
+    const chosen = version ? (SHEETS_CHOSEN[appearanceId] ?? 0) : 0
+    const slots = SHEET_ANGLES.map(([slot, label, hint], i): AnchorSlot => {
+      if (i >= chosen) return { slot, label, hint, candidates: [], chosen: null, stale: null }
+      const id = `${slot}-1-${(0x5b2c + i * 613).toString(16)}`
+      const file = `channels/${channel}/canon/anchors/${appearanceId}/candidates/${id}.jpg`
+      const candidate = (n: number) => ({ id: `${slot}-${n}-${(0x5b2c + i * 613 + n).toString(16)}`, n, status: 'ready' as const, file, error: null, seed: 52_000 + i * 17 + n, version: version!, ref: null, usd: money(ANCHOR_PRICE), cached: false, created_at: NOW })
+      return { slot, label, hint, candidates: [candidate(1), candidate(2)], chosen: { candidate: id, file, seed: 52_000 + i * 17, version: version!, chosen_at: NOW, usd: money(ANCHOR_PRICE) }, stale: null }
+    })
+    return {
+      channel,
+      target: appearanceId,
+      version,
+      status: chosen === 0 ? 'missing' : chosen < SHEET_ANGLES.length ? 'partial' : 'ready',
+      chosen,
+      total: SHEET_ANGLES.length,
+      stale: null,
+      slots,
+      spent: money(chosen * 2 * ANCHOR_PRICE),
+    }
+  }
+
+  function canonSummary(channel: ChannelId, style: StyleState): CanonSummary {
+    const sorted = <T,>(store: Map<string, LayerState<T>>) => [...store.entries()].sort(([a], [b]) => a.localeCompare(b))
+    return {
+      channel,
+      style: { versions: style.versions.map((v) => v.info), draft: style.draft !== null },
+      periods: sorted(canonPeriods[channel]).map(([id, state]) => {
+        const head = headOf(state)
+        return {
+          id,
+          label: head.label,
+          region: head.region,
+          years: head.years,
+          versions: state.versions.map((v) => v.info),
+          draft: state.draft !== null,
+          forbidden_count: head.forbidden.length,
+          episodes: PERIOD_EPISODES[id] ?? 0,
+        }
+      }),
+      characters: sorted(canonCharacters[channel]).map(([id, state]) => {
+        const head = headOf(state)
+        return {
+          id,
+          label: head.label,
+          versions: state.versions.map((v) => v.info),
+          draft: state.draft !== null,
+          appearances_count: head.appearances.length,
+          sheets_ready: head.appearances.filter((a) => appearanceAnchors(channel, a.id).status === 'ready').length,
+        }
+      }),
+    }
+  }
+
+  /** «Нужно каналу»: ссылки планов без опубликованной версии; черновик — `draft: true` */
+  function canonNeeded(channel: ChannelId): CanonNeeded {
+    const refs = PLAN_REFS[channel]
+    const characters = canonCharacters[channel]
+    return {
+      channel,
+      periods: refs.periods
+        .filter((item) => !canonPeriods[channel].get(item.id)?.versions.length)
+        .map((item) => ({ ...structuredClone(item), draft: Boolean(canonPeriods[channel].get(item.id)?.draft) })),
+      appearances: refs.appearances
+        .filter((item) => latestWith(channel, item.id) === null)
+        .map((item) => {
+          const character = characters.get(item.id.split('@')[0]!)
+          return {
+            ...structuredClone(item),
+            draft: Boolean(character?.draft?.data.appearances.some((a) => a.id === item.id)),
+            character_exists: character !== undefined,
+          }
+        }),
+    }
+  }
+
+  function createNeededPeriod(channel: ChannelId, id: string): MockResponse {
+    const state = canonPeriods[channel].get(id)
+    const last = state?.versions.at(-1)
+    if (last) return fail(409, `Эпоха ${id} уже опубликована (${last.info.version}) — создавать её не нужно.`)
+    if (state) return fail(409, `У эпохи ${id} уже есть черновик — откройте его на экране «Канон» и опубликуйте.`)
+    const created: LayerState<Period> = { versions: [], draft: null }
+    canonPeriods[channel].set(id, created)
+    return { ...layerPut(created, periodNoun(channel, id), period({ id, label: '' })), status: 201 }
+  }
+
+  function createNeededAppearance(channel: ChannelId, appearanceId: string): MockResponse {
+    const characterId = appearanceId.split('@')[0]!
+    const published = latestWith(channel, appearanceId)
+    if (published) return fail(409, `Облик ${appearanceId} уже опубликован в characters/${characterId}/${published} — создавать его не нужно.`)
+    const skeleton = look({ id: appearanceId, label: '', period: '' })
+    const state = canonCharacters[channel].get(characterId)
+    const noun = characterNoun(channel, characterId)
+    if (!state) {
+      const created: LayerState<Character> = { versions: [], draft: null }
+      canonCharacters[channel].set(characterId, created)
+      return { ...layerPut(created, noun, { id: characterId, label: '', nature: { personality: '', posture: '', manner: '', face: '' }, appearances: [skeleton] }), status: 201 }
+    }
+    const head = headOf(state)
+    if (head.appearances.some((a) => a.id === appearanceId)) {
+      return fail(409, `Облик ${appearanceId} уже есть в черновике персонажа ${characterId} — откройте его на экране «Канон» и опубликуйте.`)
+    }
+    return { ...layerPut(state, noun, { ...head, appearances: [...head.appearances, skeleton] }), status: 201 }
+  }
+
+  /** «Скопировать облик в другой период»: черты лица, телосложение, волосы, возраст и negative — побайтово */
+  function copyAppearance(channel: ChannelId, sourceId: string, body: { period: string; appearance_id: string }): MockResponse {
+    const characterId = sourceId.split('@')[0]!
+    if (!body.appearance_id.startsWith(`${characterId}@`)) {
+      return shapeError(['body', 'appearance_id'], `Облик ${body.appearance_id} не принадлежит персонажу ${characterId} — id облика начинается с «${characterId}@».`)
+    }
+    const state = canonCharacters[channel].get(characterId)
+    const head = state && headOf(state)
+    const source = head?.appearances.find((a) => a.id === sourceId)
+    if (!state || !head || !source) return fail(404, `Облика ${sourceId} нет в персонаже ${characterId} — копировать нечего.`)
+    if (head.appearances.some((a) => a.id === body.appearance_id)) {
+      return fail(409, `Облик ${body.appearance_id} уже есть в персонаже ${characterId} — выберите другой id копии.`)
+    }
+    const copy = look({
+      id: body.appearance_id,
+      label: '',
+      period: body.period,
+      age: source.age,
+      build: source.build,
+      face: source.face,
+      hair: source.hair,
+      negative_local: [...source.negative_local],
+    })
+    return { ...layerPut(state, characterNoun(channel, characterId), { ...head, appearances: [...head.appearances, copy] }), status: 201 }
+  }
+
+  const PERIOD_FIELDS = ['label', 'region', 'years', 'palette_shift', 'materials', 'light_sources', 'architecture', 'clothing', 'props', 'forbidden'] as const
+  const isBlank = (value: unknown) => value === '' || value === null || (Array.isArray(value) && value.length === 0)
+  /** Ключ повтора запрета: без регистра, ведущего артикля, лишних пробелов и знака в конце (как `period_bridge`) */
+  const forbiddenKey = (text: string) =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/^(a|an|the)\s+/, '')
+      .replace(/[.,;:!?]+$/, '')
+      .split(/\s+/)
+      .join(' ')
+
+  function periodPrompt(channel: ChannelId, id: string, mode: string | null): MockResponse {
+    if (mode !== 'draft' && mode !== 'forbidden') {
+      return shapeError(['query', 'mode'], `Режима «${mode}» нет: ожидалось draft (черновик) или forbidden (дополнить запреты).`)
+    }
+    const state = canonPeriods[channel].get(id)
+    if (mode === 'forbidden' && !state) {
+      return fail(409, `У эпохи ${id} нет ни черновика, ни версий — дополнять нечего: сначала соберите черновик через мост или заполните его вручную.`)
+    }
+    periodRuns += 1
+    const current = state ? JSON.stringify(headOf(state)) : 'null'
+    const text = `You are drafting the historical period "${id}" for the ${channel} channel (mode: ${mode}).\nCurrent draft: ${current}\nReturn exactly one JSON object.`
+    return ok({ text, prompt_id: 'canon_period', version: 1, run_id: `run-period-${periodRuns}`, period_id: id, mode } satisfies PeriodPrompt)
+  }
+
+  /** Ответ чата → черновик эпохи (docs/bridge.md, «Эпоха»): `draft` заполняет пустые поля, `forbidden` дописывает запреты */
+  function periodAnswer(channel: ChannelId, id: string, mode: string | null, text: string): MockResponse {
+    if (mode !== 'draft' && mode !== 'forbidden') {
+      return shapeError(['query', 'mode'], `Режима «${mode}» нет: ожидалось draft (черновик) или forbidden (дополнить запреты).`)
+    }
+    const refuse = (message: string, errors: { path: string; message: string }[] = []) => ({
+      status: 422,
+      body: { message, hint: 'Попросите чат прислать ровно один JSON эпохи по правилам промпта.', errors },
+    })
+    if (text.includes(STYLE_TOKEN)) {
+      return refuse('Ответ эпохи не прошёл проверку: 1 ошибка.', [
+        { path: 'materials', message: `materials: стилевой токен «${STYLE_TOKEN}» (lighting) — эпоха описывает факты времени и места, а как выглядит картинка, задаёт стиль канала` },
+      ])
+    }
+    let answer: Record<string, unknown>
+    try {
+      answer = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)) as Record<string, unknown>
+    } catch {
+      return refuse('В ответе не нашлось JSON эпохи: вставьте ответ чата целиком.')
+    }
+    let state = canonPeriods[channel].get(id)
+    if (mode === 'forbidden' && !state) {
+      return fail(409, `У эпохи ${id} нет ни черновика, ни версий — дополнять нечего: сначала соберите черновик через мост или заполните его вручную.`)
+    }
+    if (!state) {
+      state = { versions: [], draft: null }
+      canonPeriods[channel].set(id, state)
+    }
+    const base = state.draft ? state.draft.data : (state.versions.at(-1)?.data ?? period({ id, label: '' }))
+    const next: Period = structuredClone(base)
+    const filled: string[] = []
+    const conflicts: PeriodConflict[] = []
+    const added: string[] = []
+    const repeats: string[] = []
+    if (mode === 'draft') {
+      for (const field of PERIOD_FIELDS) {
+        if (!(field in answer)) continue
+        const proposed = answer[field]
+        if (isBlank(base[field])) {
+          ;(next as unknown as Record<string, unknown>)[field] = proposed
+          filled.push(field)
+        } else if (canonical(base[field]) !== canonical(proposed)) {
+          conflicts.push({ field, current: base[field], proposed })
+        }
+      }
+    } else {
+      const keys = new Set(base.forbidden.map(forbiddenKey))
+      for (const item of (answer.forbidden as string[] | undefined) ?? []) {
+        const key = forbiddenKey(item)
+        if (keys.has(key)) repeats.push(item)
+        else {
+          keys.add(key)
+          added.push(item)
+        }
+      }
+      next.forbidden = [...base.forbidden, ...added]
+    }
+    const doc = layerPut(state, periodNoun(channel, id), next).body as PeriodAnswerResult['doc']
+    periodRuns += 1
+    const message =
+      mode === 'forbidden'
+        ? `Добавлено ${added.length}, повторов ${repeats.length}.`
+        : `Черновик эпохи: заполнено ${filled.length} ${ru(filled.length, ['поле', 'поля', 'полей'])}${conflicts.length ? `, чат предложил иначе для ${conflicts.length} — сравните на экране «Канон»` : ''}. Публикует человек.`
+    return ok({ run_id: `run-period-${periodRuns}`, period_id: id, mode, doc, filled, conflicts, added, repeats, message } satisfies PeriodAnswerResult)
+  }
+
+  /** Эпоха или персонаж по адресу: документ, черновик, публикация — общие для слоёв */
+  function entityRoute(method: string, channel: ChannelId, kind: 'periods' | 'characters', id: string, sub: string, query: URLSearchParams, body: unknown): MockResponse | null {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+      return shapeError(['path', `${kind === 'periods' ? 'period' : 'character'}_id`], `id «${id}» не годится — только строчные латинские буквы, цифры и дефис, например caribbean-1716.`)
+    }
+    const store = (kind === 'periods' ? canonPeriods[channel] : canonCharacters[channel]) as Map<string, LayerState<Period | Character>>
+    const noun = kind === 'periods' ? periodNoun(channel, id) : characterNoun(channel, id)
+    const state = store.get(id)
+    if (method === 'GET' && sub === '') return layerDoc(state, noun, query.get('version'))
+    if (method === 'PUT' && sub === 'draft') {
+      const data = body as Period | Character
+      const refusal = entityShape(kind, id, data)
+      if (refusal) return refusal
+      const target = state ?? { versions: [], draft: null }
+      store.set(id, target)
+      return layerPut(target, noun, data)
+    }
+    if (method === 'POST' && sub === 'draft') return layerFrom(state, noun, query.get('from') ?? '')
+    if (method === 'DELETE' && sub === 'draft') {
+      const response = layerDiscard(state, noun)
+      if (state && !state.draft && !state.versions.length) store.delete(id) // скелет без версий — каталог пуст
+      return response
+    }
+    if (method === 'POST' && sub === 'publish') {
+      return layerPublish(state, noun, (data) => (kind === 'periods' ? periodProblems(data as Period) : characterProblems(data as Character)))
+    }
+    if (kind === 'periods' && method === 'POST' && sub === 'prompt') return periodPrompt(channel, id, query.get('mode'))
+    if (kind === 'periods' && method === 'POST' && sub === 'answer') return periodAnswer(channel, id, query.get('mode'), (body as { text: string }).text)
+    return null
+  }
+
   function canonRoute(method: string, channel: ChannelId, rest: string[], query: URLSearchParams, body: unknown): MockResponse | null {
     const style = canonStyles[channel]
     if (!style) return fail(404, `Канал «${channel}» не найден.`)
     const path = rest.join('/')
-    if (method === 'GET' && path === '') {
-      return ok({
-        channel,
-        style: { versions: style.versions.map((v) => v.info), draft: style.draft !== null },
-        periods: channel === 'cursus' ? structuredClone(CURSUS_PERIODS) : [],
-        characters: [],
-      } satisfies CanonSummary)
-    }
-    if (method === 'GET' && path === 'style') return styleDoc(style, channel, query.get('version'))
+    if (method === 'GET' && path === '') return ok(canonSummary(channel, style))
+    if (method === 'GET' && path === 'style') return layerDoc(style, styleNoun(channel), query.get('version'))
     if (method === 'PUT' && path === 'style/draft') {
       const data = body as Style
-      const refusal = styleShape(data)
-      if (refusal) return refusal
-      const based_on = style.draft ? style.draft.based_on : (style.versions.at(-1)?.info.version ?? null)
-      style.draft = { based_on, saved_at: NOW, data: structuredClone(data) }
-      return styleDoc(style, channel, null)
+      return styleShape(data) ?? layerPut(style, styleNoun(channel), data)
     }
-    if (method === 'POST' && path === 'style/draft') {
-      const from = query.get('from') ?? ''
-      if (style.draft) return fail(409, `У стиля канала уже есть черновик — опубликуйте или сбросьте его, потом создавайте черновик из ${from}.`)
-      const file = style.versions.find((v) => v.info.version === from)
-      if (!file) return styleDoc(style, channel, from)
-      style.draft = { based_on: from, saved_at: NOW, data: structuredClone(file.data) }
-      const doc = styleDoc(style, channel, null)
-      return { ...doc, status: 201 }
-    }
-    if (method === 'DELETE' && path === 'style/draft') {
-      if (!style.draft) return fail(404, 'У стиля канала нет черновика — сбрасывать нечего.')
-      style.draft = null
-      return ok(null, 204)
-    }
-    if (method === 'POST' && path === 'style/publish') return publishStyle(style)
+    if (method === 'POST' && path === 'style/draft') return layerFrom(style, styleNoun(channel), query.get('from') ?? '')
+    if (method === 'DELETE' && path === 'style/draft') return layerDiscard(style, styleNoun(channel))
+    if (method === 'POST' && path === 'style/publish') return layerPublish(style, styleNoun(channel), stylePublishProblems)
     if (method === 'GET' && path === 'style/anchors') return ok(styleAnchors(style, channel))
     if (method === 'GET' && path === 'style/anchors/estimate') return ok(anchorsEstimate)
     if (method === 'POST' && path === 'style/anchors') return collectStyleAnchors(style, channel, (body as { period: string }).period)
+    if (method === 'GET' && path === 'needed') return ok(canonNeeded(channel))
+    if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'periods' && rest[2]) return createNeededPeriod(channel, rest[2])
+    if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'appearances' && rest[2]) return createNeededAppearance(channel, rest[2])
+    if (rest[0] === 'appearances' && rest[1]) {
+      const id = rest[1]
+      if (!/^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*$/.test(id)) {
+        return shapeError(['path', 'appearance_id'], `id облика «${id}» не годится — нужен вид <персонаж>@<облик>, например you@powder-monkey-11.`)
+      }
+      const sub = rest.slice(2).join('/')
+      if (method === 'GET' && sub === 'anchors') return ok(appearanceAnchors(channel, id))
+      if (method === 'GET' && sub === 'anchors/estimate') return ok(anchorsEstimate)
+      if (method === 'POST' && sub === 'copy') return copyAppearance(channel, id, body as { period: string; appearance_id: string })
+      return null
+    }
+    if ((rest[0] === 'periods' || rest[0] === 'characters') && rest[1]) {
+      return entityRoute(method, channel, rest[0], rest[1], rest.slice(2).join('/'), query, body)
+    }
     return null
   }
 
@@ -1852,7 +2489,7 @@ export function createMockApi() {
 
     if (method === 'GET' && path === '/channels') return ok(profiles)
     if (parts[0] === 'canon' && parts[1]) {
-      const response = canonRoute(method, decodeURIComponent(parts[1]) as ChannelId, parts.slice(2), searchParams, body)
+      const response = canonRoute(method, decodeURIComponent(parts[1]) as ChannelId, parts.slice(2).map(decodeURIComponent), searchParams, body)
       if (response) return response
     }
     if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchSeeds(decodeURIComponent(parts[1]), body)
@@ -2015,7 +2652,7 @@ export function createMockApi() {
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
 
-  return { handle, episodes: state, projects, canon: { styles: canonStyles, monthlyLimit } }
+  return { handle, episodes: state, projects, canon: { styles: canonStyles, periods: canonPeriods, characters: canonCharacters, monthlyLimit } }
 }
 
 export type MockApi = ReturnType<typeof createMockApi>

@@ -10,7 +10,7 @@ import { PanelHeader } from './PanelHeader'
 import { formatKeys } from './keyboard'
 import { useHotkey } from './useHotkey'
 
-export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav' | 'seeds'
+export type LeftPanelKind = 'library' | 'metadata' | 'presets' | 'settingsNav' | 'seeds' | 'canon'
 export type RightPanelKind = 'inspector' | 'clusters' | 'anchors'
 
 export interface SidePanel {
@@ -39,7 +39,7 @@ export interface ScreenLayoutProps {
   children: ReactNode
 }
 
-/* Ширины — токены оболочки из layout.md: библиотека 280 (→240 <1440), метаданные 380, пресеты 320,
+/* Ширины — токены оболочки из layout.md: библиотека и списки канона 280 (→240 <1440), метаданные 380, пресеты 320,
    навигация настроек 224 фикс., семена ниши 300. */
 const LEFT_WIDTH: Record<LeftPanelKind, string> = {
   library: 'w-shell-library max-[1439px]:w-60',
@@ -47,6 +47,7 @@ const LEFT_WIDTH: Record<LeftPanelKind, string> = {
   presets: 'w-shell-presets',
   settingsNav: 'w-shell-settings-nav',
   seeds: 'w-shell-seeds',
+  canon: 'w-shell-library max-[1439px]:w-60',
 }
 /* Правая колонка: инспектор 320 (→280 <1440), кластеры идей 340, опорные кадры канона 480 — шире обычной колонки */
 const RIGHT_WIDTH: Record<RightPanelKind, string> = {

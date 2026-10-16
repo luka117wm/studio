@@ -20,9 +20,11 @@ export interface CopyPromptProps {
   disabled?: boolean
   /** Почему кнопка выключена — подпись под ней («Заполните идею») */
   disabledReason?: string
+  /** primary — когда копирование промпта и есть главное действие экрана (пустая эпоха на экране 12) */
+  variant?: 'primary' | 'secondary'
 }
 
-export function CopyPrompt({ label, request, disabled, disabledReason }: CopyPromptProps) {
+export function CopyPrompt({ label, request, disabled, disabledReason, variant = 'secondary' }: CopyPromptProps) {
   const pushToast = useUiStore((s) => s.pushToast)
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export function CopyPrompt({ label, request, disabled, disabledReason }: CopyPro
 
   return (
     <div className="flex flex-col gap-1">
-      <Button variant="secondary" icon={Copy} disabled={disabled} loading={busy} loadingLabel="Собираю промпт" onClick={() => void copy()}>
+      <Button variant={variant} icon={Copy} disabled={disabled} loading={busy} loadingLabel="Собираю промпт" onClick={() => void copy()}>
         {label}
       </Button>
       {disabled && disabledReason && <span className="text-11 text-muted">{disabledReason}</span>}

@@ -4,7 +4,18 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import type { BridgeSettings } from '@/types/bridge'
-import type { AnchorSetState, AnchorsEstimate, CanonSummary, Style, StyleDoc } from '@/types/canon'
+import type {
+  AnchorSetState,
+  AnchorsEstimate,
+  AppearanceCopy,
+  CanonNeeded,
+  CanonSummary,
+  CharacterDoc,
+  PeriodAnswerResult,
+  PeriodDoc,
+  PeriodPrompt,
+  StyleDoc,
+} from '@/types/canon'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
@@ -65,10 +76,14 @@ export const qk = {
   /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
   canon: (channel: string) => ['canon', channel] as const,
   canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
-  /** Стиль: `head` — черновик, а без него последняя версия; `vNNN` — версия как есть */
-  style: (channel: string, version: string | null) => ['canon', channel, 'style', version ?? 'head'] as const,
+  canonNeeded: (channel: string) => ['canon', channel, 'needed'] as const,
+  /** Документ слоя (`style`, `periods/<id>`, `characters/<id>`): `head` — черновик, а без него последняя версия;
+   *  `vNNN` — версия как есть */
+  canonDoc: (channel: string, path: string, version: string | null) => ['canon', channel, ...path.split('/'), version ?? 'head'] as const,
   styleAnchors: (channel: string) => ['canon', channel, 'anchors', 'style'] as const,
   anchorsEstimate: (channel: string) => ['canon', channel, 'anchors', 'estimate'] as const,
+  appearanceAnchors: (channel: string, appearance: string) => ['canon', channel, 'anchors', appearance] as const,
+  appearanceEstimate: (channel: string, appearance: string) => ['canon', channel, 'anchors', appearance, 'estimate'] as const,
 }
 
 const segment = (id: string) => encodeURIComponent(id)
@@ -283,15 +298,28 @@ export function useCanonSummary(channel: ChannelId) {
   })
 }
 
-/** Стиль канала. `version: null` — шапка: черновик, а без него последняя версия; стиля нет вовсе (404) — `null`.
+/** Слой канона по пути: `style`, `periods/<эпоха>`, `characters/<персонаж>` (docs/canon_schema.md, «API») */
+export type CanonPath = 'style' | `periods/${string}` | `characters/${string}`
+
+/** Документ слоя: черновик или версия; у всех слоёв одна форма */
+export type CanonDocOf<P extends CanonPath> = P extends 'style' ? StyleDoc : P extends `periods/${string}` ? PeriodDoc : CharacterDoc
+export type CanonDataOf<P extends CanonPath> = CanonDocOf<P>['data']
+
+const docPath = (path: CanonPath) =>
+  path
+    .split('/')
+    .map((part) => segment(part))
+    .join('/')
+
+/** Документ слоя. `version: null` — шапка: черновик, а без него последняя версия; сущности нет вовсе (404) — `null`.
  *  Версия неизменяема — повторно не запрашивается. */
-export function useStyle(channel: ChannelId, version: string | null, enabled = true) {
+export function useCanonDoc<P extends CanonPath>(channel: ChannelId, path: P, version: string | null, enabled = true) {
   return useQuery({
     enabled,
-    queryKey: qk.style(channel, version),
+    queryKey: qk.canonDoc(channel, path, version),
     queryFn: async ({ signal }) => {
       try {
-        return await api.get<StyleDoc>(canonPath(channel, '/style'), { signal, query: { version } })
+        return await api.get<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}`), { signal, query: { version } })
       } catch (error) {
         if (version === null && error instanceof ApiError && error.status === 404) return null
         throw error
@@ -301,51 +329,152 @@ export function useStyle(channel: ChannelId, version: string | null, enabled = t
   })
 }
 
-/** Черновик стиля целиком (автосохранение, ключ `canon:<канал>:style`): ответ — документ черновика в шапку */
-export function useSaveStyleDraft(channel: ChannelId) {
+/** Черновик слоя целиком (автосохранение, ключ `canon:<канал>:<путь>`): ответ — документ черновика в шапку */
+export function useSaveCanonDraft<P extends CanonPath>(channel: ChannelId, path: P) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (style: Style) => api.put<StyleDoc>(canonPath(channel, '/style/draft'), style, { keepalive: true }),
+    mutationFn: (data: CanonDataOf<P>) => api.put<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/draft`), data, { keepalive: true }),
     onSuccess: (doc) => {
-      client.setQueryData(qk.style(channel, null), doc)
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
       void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Новая сущность слоя («Новый период», «Дублировать период», «Новый персонаж»): черновик по пути, которого ещё нет.
+ *  Путь известен только в момент записи — id набирает человек, поэтому он в аргументах, а не в хуке. */
+export function useCreateCanonDraft(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ path, data }: { path: `periods/${string}` | `characters/${string}`; data: CanonDataOf<`periods/${string}`> | CanonDataOf<`characters/${string}`> }) =>
+      api.put<PeriodDoc | CharacterDoc>(canonPath(channel, `/${docPath(path)}/draft`), data),
+    onSuccess: (doc, { path }) => {
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
     },
   })
 }
 
 /** «Создать vN из vM»: черновик из версии; черновик уже есть — 409 с текстом бэкенда */
-export function useStyleDraftFrom(channel: ChannelId) {
+export function useCanonDraftFrom<P extends CanonPath>(channel: ChannelId, path: P) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (from: string) => api.post<StyleDoc>(canonPath(channel, '/style/draft'), undefined, { query: { from } }),
+    mutationFn: (from: string) => api.post<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/draft`), undefined, { query: { from } }),
     onSuccess: (doc) => {
-      client.setQueryData(qk.style(channel, null), doc)
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
       void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
     },
   })
 }
 
-/** «Сбросить черновик»: версии не трогаются, шапка — снова последняя версия */
-export function useDiscardStyleDraft(channel: ChannelId) {
+/** «Сбросить черновик»: версии не трогаются, шапка — снова последняя версия (или сущности больше нет) */
+export function useDiscardCanonDraft(channel: ChannelId, path: CanonPath) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: () => api.delete(canonPath(channel, '/style/draft')),
+    mutationFn: () => api.delete(canonPath(channel, `/${docPath(path)}/draft`)),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: qk.style(channel, null) })
+      void client.invalidateQueries({ queryKey: qk.canonDoc(channel, path, null) })
       void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
     },
   })
 }
 
-/** «Опубликовать vN»: черновик → новая версия; от неё зависят сводка, шапка и устаревание кадров стиля */
-export function usePublishStyle(channel: ChannelId) {
+/** «Опубликовать vN»: черновик → новая версия; от неё зависят сводка, шапка, «нужно каналу» и устаревание опорных */
+export function usePublishCanon<P extends CanonPath>(channel: ChannelId, path: P) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: () => api.post<StyleDoc>(canonPath(channel, '/style/publish')),
+    mutationFn: () => api.post<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/publish`)),
     onSuccess: (doc) => {
-      client.setQueryData(qk.style(channel, null), doc)
-      if (doc.version) client.setQueryData(qk.style(channel, doc.version), doc)
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      if (doc.version) client.setQueryData(qk.canonDoc(channel, path, doc.version), doc)
       void client.invalidateQueries({ queryKey: qk.canon(channel) })
+    },
+  })
+}
+
+/** «Нужно каналу»: эпохи и облики из планов выпусков без опубликованной версии */
+export function useCanonNeeded(channel: ChannelId) {
+  return useQuery({
+    queryKey: qk.canonNeeded(channel),
+    queryFn: ({ signal }) => api.get<CanonNeeded>(canonPath(channel, '/needed'), { signal }),
+  })
+}
+
+/** «Создать» из «нужно каналу»: скелет-черновик эпохи или облик в черновике персонажа; отказ — 409 с текстом */
+export function useCreateNeeded(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ kind, id }: { kind: 'periods' | 'appearances'; id: string }) =>
+      api.post<PeriodDoc | CharacterDoc>(canonPath(channel, `/needed/${kind}/${segment(id)}`)),
+    onSuccess: (doc, { kind }) => {
+      const path: CanonPath = kind === 'periods' ? `periods/${doc.data.id}` : `characters/${doc.data.id}`
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Промпт эпохи для чата (`draft` — черновик целиком, `forbidden` — «Дополнить запреты»); обмен `prompted` */
+export function usePeriodPrompt(channel: ChannelId, periodId: string) {
+  return useMutation({
+    mutationFn: (mode: PeriodPrompt['mode']) =>
+      api.post<PeriodPrompt>(canonPath(channel, `/periods/${segment(periodId)}/prompt`), undefined, { query: { mode } }),
+  })
+}
+
+/** Ответ чата → черновик эпохи; неверный ответ — 422 `BridgeError`, на диске ничего */
+export function useApplyPeriodAnswer(channel: ChannelId, periodId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ mode, text }: { mode: PeriodPrompt['mode']; text: string }) =>
+      api.post<PeriodAnswerResult>(canonPath(channel, `/periods/${segment(periodId)}/answer`), { text }, { query: { mode }, timeoutMs: 60_000 }),
+    onSuccess: (result) => {
+      client.setQueryData(qk.canonDoc(channel, `periods/${periodId}`, null), result.doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Лист опорных портретов облика: готовность 6/6, устаревание против последней версии, оплаченное */
+export function useAppearanceAnchors(channel: ChannelId, appearanceId: string) {
+  return useQuery({
+    queryKey: qk.appearanceAnchors(channel, appearanceId),
+    queryFn: ({ signal }) => api.get<AnchorSetState>(canonPath(channel, `/appearances/${segment(appearanceId)}/anchors`), { signal }),
+  })
+}
+
+/** Листы нескольких обликов — те же запросы, что у карточек облика: сводка «N листов готово» */
+export function useAppearanceSheets(channel: ChannelId, appearanceIds: string[]) {
+  return useQueries({
+    queries: appearanceIds.map((id) => ({
+      queryKey: qk.appearanceAnchors(channel, id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => api.get<AnchorSetState>(canonPath(channel, `/appearances/${segment(id)}/anchors`), { signal }),
+    })),
+  }).map((result) => result.data)
+}
+
+/** Цена листа облика до клика — смета бэкенда по адресу облика, кэш не вычитается */
+export function useAppearanceEstimate(channel: ChannelId, appearanceId: string) {
+  return useQuery({
+    queryKey: qk.appearanceEstimate(channel, appearanceId),
+    queryFn: ({ signal }) => api.get<AnchorsEstimate>(canonPath(channel, `/appearances/${segment(appearanceId)}/anchors/estimate`), { signal }),
+  })
+}
+
+/** «Скопировать облик в другой период»: новый облик в черновике персонажа, лица и телосложение — побайтово */
+export function useCopyAppearance(channel: ChannelId, characterId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ source, ...body }: AppearanceCopy & { source: string }) =>
+      api.post<CharacterDoc>(canonPath(channel, `/appearances/${segment(source)}/copy`), body),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.canonDoc(channel, `characters/${characterId}`, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
     },
   })
 }

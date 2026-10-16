@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, test } from 'vitest'
+import { Dialog } from '../Dialog'
 import { Select } from '../Select'
 
 const options = [
@@ -63,6 +64,22 @@ describe('Select', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Снаружи' }))
     expect(screen.queryByRole('listbox')).toBeNull()
     expect((screen.getByRole('status')).textContent).toContain('pull_out')
+  })
+
+  // jsdom не видит перекрытия слоёв: проверяется z из классов — список выше подложки диалога (L-044)
+  test('в диалоге список выше подложки и выбирается мышью', async () => {
+    render(
+      <Dialog open onClose={() => {}} title="Новый период">
+        <Harness />
+      </Dialog>,
+    )
+    const z = (el: Element | null | undefined) => Number(/(?:^|\s)z-(\d+)/.exec(el?.getAttribute('class') ?? '')?.[1] ?? 0)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Движение' }))
+    const scrim = screen.getByRole('dialog').parentElement
+    expect(z(scrim)).toBeGreaterThan(0)
+    expect(z(screen.getByRole('listbox'))).toBeGreaterThan(z(scrim))
+    await userEvent.click(screen.getByRole('option', { name: 'Статика' }))
+    expect(screen.getByRole('status').textContent).toContain('static')
   })
 
   test('плейсхолдер и ошибка', () => {

@@ -1,17 +1,19 @@
-/* Версии слоя «Стиль» (артборд 12, правая часть заголовка): выбор версии, «История», «Сравнить с vN», «Опубликовать vN»
-   с подтверждением и списком изменений; полоса «только чтение» у старой версии с «Создать vN из vM»; список версий.
+/* Версии слоя канона (артборд 12, правая часть заголовка): выбор версии, «История», «Сравнить с vN», «Опубликовать vN»
+   с подтверждением и списком изменений; полоса «только чтение» у старой версии с «Создать vN из vM»; список версий;
+   сравнение двух версий построчно. Одни и те же для стиля, эпохи и персонажа: строки сравнения даёт слой.
    Опубликованная версия в интерфейсе не правится (принцип 14): правка — только в черновик. */
 import { Lock } from 'lucide-react'
-import type { CanonVersionInfo, Style } from '@/types/canon'
+import type { ReactNode } from 'react'
+import type { CanonVersionInfo } from '@/types/canon'
 import { formatSlotDate } from '../../app/format'
 import { Button, Dialog, DropdownMenu, cn, type MenuItem } from '../../ui'
-import { diffStyle, diffSummary, headLabel, type StyleHead } from './styleFields'
+import { changedCount, diffSummary, headLabel, type DiffRow, type LayerHead } from './canonFields'
 
 const publishedOn = (info: CanonVersionInfo) =>
   `${formatSlotDate(info.published_at.slice(0, 10), { long: true })} ${info.published_at.slice(0, 4)}`
 
 export interface VersionBarProps {
-  head: StyleHead
+  head: LayerHead
   versions: CanonVersionInfo[]
   /** Открытая версия только для чтения; null — шапка */
   viewing: string | null
@@ -26,6 +28,8 @@ export interface VersionBarProps {
   next: string
   onPublish: () => void
   onDiscard: () => void
+  /** «Опубликовать vN» — главная кнопка экрана; false — когда главное другое (пустая эпоха: «Скопировать промпт эпохи») */
+  publishPrimary?: boolean
 }
 
 export function VersionBar(props: VersionBarProps) {
@@ -52,7 +56,7 @@ export function VersionBar(props: VersionBarProps) {
         </Button>
       )}
       {head.draft && viewing === null && (
-        <Button variant="primary" onClick={props.onPublish}>
+        <Button variant={props.publishPrimary === false ? 'secondary' : 'primary'} onClick={props.onPublish}>
           {`Опубликовать ${props.next}`}
         </Button>
       )}
@@ -141,7 +145,9 @@ export function PublishDialog({
   open,
   next,
   previous,
-  draft,
+  rows,
+  first,
+  extra,
   problems,
   pending,
   onConfirm,
@@ -149,20 +155,26 @@ export function PublishDialog({
 }: {
   open: boolean
   next: string
-  previous: { version: string; style: Style } | null
-  draft: Style
+  /** Последняя опубликованная версия; null — публикуется первая */
+  previous: string | null
+  /** Сравнение черновика с последней версией; null — пока не загрузилась или сравнивать не с чем */
+  rows: DiffRow[] | null
+  /** Подпись первой версии: «первая версия стиля канала» */
+  first: string
+  /** Дополнение слоя под списком: напоминание проверить факты эпохи */
+  extra?: ReactNode
   problems: string[]
   pending: boolean
   onConfirm: () => void
   onClose: () => void
 }) {
-  const rows = previous ? diffStyle(previous.style, draft).filter((r) => r.changed) : []
+  const changed = rows?.filter((r) => r.changed) ?? []
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={`Опубликовать ${next}`}
-      note={previous ? `изменения к ${previous.version}` : 'первая версия стиля канала'}
+      note={previous ? `изменения к ${previous}` : first}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -176,20 +188,23 @@ export function PublishDialog({
     >
       <div className="flex flex-col gap-3 text-13">
         {previous ? (
-          <>
-            <p className="text-muted">{diffSummary(diffStyle(previous.style, draft))}:</p>
-            <ul aria-label="Изменения к прошлой версии" className="flex flex-col gap-1">
-              {rows.map((r) => (
-                <li key={r.label} className="flex gap-2">
-                  <span className="w-37 shrink-0 font-medium text-warning">{r.label}</span>
-                  <span className="min-w-0 text-ink">{r.after}</span>
-                </li>
-              ))}
-            </ul>
-          </>
+          rows && (
+            <>
+              <p className="text-muted">{diffSummary(rows)}:</p>
+              <ul aria-label="Изменения к прошлой версии" className="flex flex-col gap-1">
+                {changed.map((r) => (
+                  <li key={r.label} className="flex gap-2">
+                    <span className="w-37 shrink-0 font-medium text-warning">{r.label}</span>
+                    <span className="min-w-0 text-ink">{r.after}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
         ) : (
-          <p className="text-muted">Черновик станет v001 — первой версией стиля канала.</p>
+          <p className="text-muted">{`Черновик станет v001 — ${first}.`}</p>
         )}
+        {extra}
         <p className="text-12 text-muted">Выпуски на прежних версиях не меняются: перевести выпуск на новую версию — отдельное действие на экране «Сценарий и план».</p>
         {problems.length > 0 && (
           <ul aria-label="Что мешает опубликовать" className="flex flex-col gap-1 text-12 text-failed-text">
@@ -200,5 +215,59 @@ export function PublishDialog({
         )}
       </div>
     </Dialog>
+  )
+}
+
+/* ---- Сравнение версий: было → стало по полям, изменённые помечены ---- */
+
+export interface VersionDiffProps {
+  before: string
+  after: string
+  rows: DiffRow[]
+  onClose: () => void
+}
+
+export function VersionDiff({ before, after, rows, onClose }: VersionDiffProps) {
+  return (
+    <section aria-label="Сравнение версий" className="flex flex-col p-3">
+      <div className="mb-2 flex h-7 items-center gap-2">
+        <h2 className="text-13 font-semibold text-ink">{`Сравнение ${before} и ${after}`}</h2>
+        <span className={cn('text-12', changedCount(rows) ? 'text-warning' : 'text-muted')}>{diffSummary(rows)}</span>
+        <span className="flex-1" />
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Закрыть сравнение
+        </Button>
+      </div>
+      <table className="w-full table-fixed border-collapse text-12">
+        <thead>
+          <tr className="h-6 border-b border-line text-left font-dense text-11 font-medium text-muted">
+            <th scope="col" className="w-37 px-2 font-medium">
+              Поле
+            </th>
+            <th scope="col" className="px-2 font-medium">
+              {before}
+            </th>
+            <th scope="col" className="px-2 font-medium">
+              {after}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr
+              key={r.label}
+              data-changed={r.changed || undefined}
+              className={cn('border-b border-row-border align-top', r.changed && 'bg-surface-warning shadow-[inset_2px_0_0_var(--color-warning)]')}
+            >
+              <th scope="row" className={cn('px-2 py-2 text-left font-medium', r.changed ? 'text-warning' : 'text-muted')}>
+                {r.label}
+              </th>
+              <td className="px-2 py-2 text-muted">{r.before}</td>
+              <td className={cn('px-2 py-2', r.changed ? 'text-ink' : 'text-muted')}>{r.after}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   )
 }
