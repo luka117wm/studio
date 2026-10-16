@@ -368,6 +368,7 @@ id облика начинается с «you@».».
 | `POST /appearances/{id}/anchors/{angle}/reject` | `{candidate}` | `AnchorSetState` |
 | `POST /appearances/{id}/copy` | `{period, appearance_id}` | `CharacterDoc` черновика, 201 |
 | `GET /style/anchors` | — | `AnchorSetState` кадров стиля |
+| `GET /style/anchors/estimate` | — | `AnchorsEstimate` — та же смета без облика, для «Пересобрать (6, ~$0.80)» |
 | `POST /style/anchors` | `{period}` | `Job` `style_anchors`, 201 |
 
 `AnchorSetState`: `channel`, `target` (облик или `style`), `version` (с чем сравнивается выбор; null — облик не

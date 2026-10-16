@@ -39,8 +39,8 @@ queued ──cancel──▶ cancelled
 | `cost_usd_micro`, `cost_stage` | платный джоб (M2.6): оценка при постановке и её этап; пока джоб `queued`, оценка занимает бюджет; у бесплатных — `null` |
 
 Колонка `jobs.channel` (M5.4, миграция `010`) — канал джоба **без выпуска** (джобы опорных, ниже): по ней его оценка
-в очереди занимает месячный бюджет канала. У джоба выпуска она пустая — канал берётся у выпуска. В ответ API колонка
-не входит.
+в очереди занимает месячный бюджет канала. У джоба выпуска она пустая — канал берётся у выпуска. С M5.7 поле
+`channel` есть в джобе и в событии SSE: по нему экран канона находит джоб своего канала в общем потоке.
 
 ## API
 
@@ -197,7 +197,7 @@ retry: 3000
 
 id: 42
 event: job.progress
-data: {"job_id": "…", "kind": "sleep_job", "status": "running", "progress": 0.5, "message": "Шаг 2 из 4", "attempts": 1, "cancel_requested": false, "episode_id": null, "batch_id": null, "error": null}
+data: {"job_id": "…", "kind": "sleep_job", "status": "running", "progress": 0.5, "message": "Шаг 2 из 4", "attempts": 1, "cancel_requested": false, "episode_id": null, "batch_id": null, "channel": null, "error": null}
 
 event: heartbeat
 data: {"ts": "2026-09-23T06:24:21+00:00"}

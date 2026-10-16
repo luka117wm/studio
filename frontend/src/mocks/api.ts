@@ -379,6 +379,7 @@ export const jobs = {
       finished_at: null,
       cost_usd_micro: 2_010_000,
       cost_stage: 'images',
+      channel: null,
     },
   ],
   summary: { total: 1, queued: 0, running: 1, done: 0, failed: 0, cancelled: 0 },

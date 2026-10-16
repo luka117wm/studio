@@ -274,6 +274,7 @@ export function toJobState(job: Job): JobEventData {
     cancel_requested: job.cancel_requested,
     episode_id: job.episode_id,
     batch_id: job.batch_id,
+    channel: job.channel,
     error: job.error,
   }
 }

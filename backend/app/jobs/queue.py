@@ -48,6 +48,9 @@ class Job(BaseModel):
     # Платный джоб (M2.6): оценка при постановке и её этап; пока `queued` — занимает бюджет.
     cost_usd_micro: int | None = None
     cost_stage: str | None = None
+    # Канал джоба без выпуска (M5.4: опорные портреты, кадры стиля): по нему экран канона узнаёт
+    # свой джоб в общем потоке (M5.7). У джоба выпуска — `null`, канал берётся у выпуска.
+    channel: str | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Job":
@@ -69,6 +72,7 @@ class Job(BaseModel):
             cancel_requested=self.cancel_requested,
             episode_id=self.episode_id,
             batch_id=self.batch_id,
+            channel=self.channel,
             error=self.error,
         ).model_dump(mode="json")
 
@@ -85,6 +89,7 @@ class JobEventData(BaseModel):
     cancel_requested: bool
     episode_id: str | None
     batch_id: str | None
+    channel: str | None = None  # канал джоба без выпуска, как у `Job`
     error: str | None
 
 

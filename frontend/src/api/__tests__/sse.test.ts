@@ -15,6 +15,7 @@ const job = (status: JobEventData['status'], progress = 0): JobEventData => ({
   cancel_requested: false,
   episode_id: null,
   batch_id: null,
+  channel: null,
   error: null,
 })
 

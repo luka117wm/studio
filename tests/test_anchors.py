@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from app.cost import ledger
 from app.cost.ledger import LedgerRow
 from app.jobs import queue
+from app.jobs.events import read_events_after
 from app.jobs.handlers.anchors import ANGLE_KIND
 from app.jobs.queue import NewJob
 from app.main import create_app
@@ -567,6 +568,21 @@ def test_estimate_before_click(env: Env) -> None:
     }
     assert estimate["sheet"]["usd"]["usd"] == "$1.61"
     assert estimate["sheet"]["cost"]["stage"] == "anchors"
+    # Кадрам стиля облик не нужен: та же смета по адресу стиля (M5.7)
+    assert env.get(f"{BASE}/style/anchors/estimate") == estimate
+
+
+def test_channel_job_names_its_channel_in_api_and_events(idle: Env) -> None:
+    """Экран канона ищет свой джоб в общем потоке по каналу: у джоба выпуска канала нет."""
+    job = idle.post(f"{BASE}/style/anchors", {"period": "caribbean-1716"})
+    assert (job["kind"], job["channel"], job["episode_id"]) == ("style_anchors", "cursus", None)
+    assert [j["channel"] for j in idle.get("/api/jobs")["items"]] == ["cursus"]
+    conn = connect(idle.paths.db_path)
+    try:
+        events = [json.loads(e.data) for e in read_events_after(conn, 0)]
+    finally:
+        conn.close()
+    assert [(e["job_id"], e["channel"]) for e in events] == [(job["id"], "cursus")]
 
 
 def test_channel_budget_refuses_before_queue(env: Env) -> None:

@@ -158,6 +158,18 @@
           ],
           "default": null,
           "title": "Cost Stage"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
         }
       },
       "required": [
@@ -178,7 +190,8 @@
         "started_at",
         "finished_at",
         "cost_usd_micro",
-        "cost_stage"
+        "cost_stage",
+        "channel"
       ],
       "title": "Job",
       "type": "object"
@@ -309,6 +322,18 @@
           ],
           "title": "Batch Id"
         },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
         "error": {
           "anyOf": [
             {
@@ -331,6 +356,7 @@
         "cancel_requested",
         "episode_id",
         "batch_id",
+        "channel",
         "error"
       ],
       "title": "JobEventData",

@@ -710,6 +710,15 @@ async def get_style_anchors(
     return anchors.style_anchors(paths, channel, config)
 
 
+@router.get("/{channel}/style/anchors/estimate")
+async def get_style_anchors_estimate(
+    channel: str, db: DbDep, gateway: GatewayDep, config: CanonConfigDep
+) -> AnchorsEstimate:
+    """Цена до клика «Пересобрать (6, ~$0.80)» без облика: та же смета, строка `style`."""
+    require_channel(db, channel)
+    return anchors_estimate(gateway, config)
+
+
 @router.post("/{channel}/style/anchors", status_code=201)
 async def collect_style_anchors(
     channel: str,

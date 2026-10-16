@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/job.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:1355d2c638bb594a2b2779d9f3a9ce4b1367fca821ac3453240019245e4ff8aa
+ * @generated sha256:0c92fc032d38229c32bfb5c06cf1127463cbc66efeef1382026f324c0d4b2e52
  */
 export interface Job {
   id: string
@@ -26,6 +26,7 @@ export interface Job {
   finished_at: string | null
   cost_usd_micro: number | null
   cost_stage: string | null
+  channel: string | null
 }
 
 export interface JobCreate {
@@ -51,6 +52,7 @@ export interface JobEventData {
   cancel_requested: boolean
   episode_id: string | null
   batch_id: string | null
+  channel: string | null
   error: string | null
 }
 

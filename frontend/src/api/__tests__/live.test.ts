@@ -17,6 +17,7 @@ const job = (fields: Partial<JobEventData> = {}): JobEventData => ({
   cancel_requested: false,
   episode_id: 'monastery',
   batch_id: 'batch-monastery',
+  channel: null,
   error: null,
   ...fields,
 })
