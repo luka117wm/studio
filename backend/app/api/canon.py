@@ -78,6 +78,7 @@ from app.pipeline.canon.episode_canon import (
     CanonNeeded,
     EpisodePlan,
     canon_needed,
+    canon_overview,
     published_canon,
 )
 from app.pipeline.canon.period_bridge import (
@@ -203,8 +204,10 @@ def _same_id(path_id: str, body_id: str) -> None:
 
 @router.get("/{channel}")
 async def get_canon(channel: str, paths: PathsDep, db: DbDep) -> CanonSummary:
+    """Сводка слоёв: версии и черновики, у эпохи — сколько выпусков на неё ссылаются, у персонажа —
+    сколько листов обликов готово."""
     require_channel(db, channel)
-    return canon_store.summary(paths, channel)
+    return canon_overview(paths, channel, _channel_plans(paths, db, channel))
 
 
 # --- стиль канала --------------------------------------------------------------------------------

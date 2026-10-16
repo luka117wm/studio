@@ -332,6 +332,8 @@ def summary(paths: StudioPaths, channel: str) -> CanonSummary:
             CanonPeriodItem(
                 id=period_id,
                 label=period.label,
+                region=period.region,
+                years=period.years,
                 versions=list_versions(paths, channel, PERIODS, period_id),
                 draft=StudioPaths.canon_draft_path(
                     paths.canon_period_dir(channel, period_id)

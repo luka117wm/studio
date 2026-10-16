@@ -20,7 +20,7 @@ from app.models.channel import ChannelProfile
 from app.models.director import StrictModel
 from app.models.validators import find_style_tokens
 from app.pipeline.bridge import BridgeAnswerError, BridgeIssue, json_block
-from app.pipeline.canon.episode_canon import EpisodePlan
+from app.pipeline.canon.episode_canon import EpisodePlan, uses_period
 from app.pipeline.script.plan_bridge import errors_word, plural
 
 PROMPT_CANON_PERIOD = "canon_period"
@@ -68,9 +68,8 @@ def period_episodes(period_id: str, plans: Iterable[EpisodePlan]) -> list[Period
     found: list[PeriodEpisode] = []
     for plan in plans:
         director = plan.director
-        shots = sum(shot.image.period == period_id for shot in director.shots)
-        pinned = director.canon_ref is not None and period_id in director.canon_ref.periods
-        if shots or pinned:
+        if uses_period(director, period_id):
+            shots = sum(shot.image.period == period_id for shot in director.shots)
             found.append(
                 PeriodEpisode(
                     id=plan.episode_id,

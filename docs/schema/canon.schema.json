@@ -371,7 +371,7 @@
     },
     "CanonCharacterItem": {
       "additionalProperties": false,
-      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.",
+      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.\n`sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел\nпротив последней опубликованной версии с обликом; считает `episode_canon.canon_overview`.",
       "properties": {
         "id": {
           "title": "Id",
@@ -395,6 +395,11 @@
         "appearances_count": {
           "title": "Appearances Count",
           "type": "integer"
+        },
+        "sheets_ready": {
+          "default": 0,
+          "title": "Sheets Ready",
+          "type": "integer"
         }
       },
       "required": [
@@ -402,7 +407,8 @@
         "label",
         "versions",
         "draft",
-        "appearances_count"
+        "appearances_count",
+        "sheets_ready"
       ],
       "title": "CanonCharacterItem",
       "type": "object"
@@ -439,7 +445,7 @@
     },
     "CanonPeriodItem": {
       "additionalProperties": false,
-      "description": "Подпись и число запретов — из черновика, а без него — из последней версии.",
+      "description": "Подпись, регион, годы и число запретов — из черновика, а без него — из последней версии.\n`episodes` — сколько выпусков ссылаются на эпоху текущими планами (`canon_ref` или кадры);\nсчитает `episode_canon.canon_overview`, хранилище оставляет 0.",
       "properties": {
         "id": {
           "title": "Id",
@@ -448,6 +454,20 @@
         "label": {
           "title": "Label",
           "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "years": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Years"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "versions": {
           "items": {
@@ -463,14 +483,22 @@
         "forbidden_count": {
           "title": "Forbidden Count",
           "type": "integer"
+        },
+        "episodes": {
+          "default": 0,
+          "title": "Episodes",
+          "type": "integer"
         }
       },
       "required": [
         "id",
         "label",
+        "region",
+        "years",
         "versions",
         "draft",
-        "forbidden_count"
+        "forbidden_count",
+        "episodes"
       ],
       "title": "CanonPeriodItem",
       "type": "object"

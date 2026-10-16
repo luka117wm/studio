@@ -405,9 +405,18 @@ def test_summary_lists_layers(seeded: TestClient) -> None:
     )
     assert [v["version"] for v in caribbean["versions"]] == ["v001"]
     assert caribbean["forbidden_count"] == len(PERIOD["forbidden"])
+    assert (caribbean["region"], caribbean["years"]) == (PERIOD["region"], PERIOD["years"])
     assert (venice["id"], venice["draft"], venice["forbidden_count"]) == ("venice-1570", True, 0)
+    assert (venice["region"], venice["years"], venice["episodes"]) == ("", None, 0)
     assert summary["characters"] == [
-        {"id": "you", "label": "Ты", "versions": [], "draft": True, "appearances_count": 3}
+        {
+            "id": "you",
+            "label": "Ты",
+            "versions": [],
+            "draft": True,
+            "appearances_count": 3,
+            "sheets_ready": 0,
+        }
     ]
 
 

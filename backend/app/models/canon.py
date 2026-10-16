@@ -389,23 +389,31 @@ class CanonStyleSummary(StrictModel):
 
 
 class CanonPeriodItem(StrictModel):
-    """Подпись и число запретов — из черновика, а без него — из последней версии."""
+    """Подпись, регион, годы и число запретов — из черновика, а без него — из последней версии.
+    `episodes` — сколько выпусков ссылаются на эпоху текущими планами (`canon_ref` или кадры);
+    считает `episode_canon.canon_overview`, хранилище оставляет 0."""
 
     id: str
     label: str
+    region: str
+    years: Years | None
     versions: list[CanonVersionInfo]
     draft: bool
     forbidden_count: int
+    episodes: int = 0
 
 
 class CanonCharacterItem(StrictModel):
-    """Подпись и число обликов — из черновика, а без него — из последней версии."""
+    """Подпись и число обликов — из черновика, а без него — из последней версии.
+    `sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел
+    против последней опубликованной версии с обликом; считает `episode_canon.canon_overview`."""
 
     id: str
     label: str
     versions: list[CanonVersionInfo]
     draft: bool
     appearances_count: int
+    sheets_ready: int = 0
 
 
 class CanonSummary(StrictModel):

@@ -918,9 +918,9 @@ export const CURSUS_STYLE: CanonVersionFile[] = [
 
 /** Эпохи Cursus в сводке артборда: две опубликованы, Венеция — только черновик без запретов */
 const CURSUS_PERIODS: CanonSummary['periods'] = [
-  { id: 'caribbean-1716', label: 'Карибы, 1716', versions: [{ version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' }], draft: false, forbidden_count: 14 },
-  { id: 'england-1347', label: 'Англия, 1347', versions: [{ version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' }], draft: false, forbidden_count: 11 },
-  { id: 'venice-1560', label: 'Венеция, 1560', versions: [], draft: true, forbidden_count: 0 },
+  { id: 'caribbean-1716', label: 'Карибы, 1716', region: 'Caribbean Sea, Nassau', years: { from: 1716, to: 1726 }, versions: [{ version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' }], draft: false, forbidden_count: 14, episodes: 3 },
+  { id: 'england-1347', label: 'Англия, 1347', region: 'East Anglia', years: { from: 1347, to: 1350 }, versions: [{ version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' }], draft: false, forbidden_count: 11, episodes: 2 },
+  { id: 'venice-1560', label: 'Венеция, 1560', region: 'Venetian Arsenal', years: { from: 1560, to: 1580 }, versions: [], draft: true, forbidden_count: 0, episodes: 0 },
 ]
 
 /** Шаблоны кадров стиля — `config/canon.yaml → style_frames` */

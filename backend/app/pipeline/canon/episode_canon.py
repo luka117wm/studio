@@ -9,8 +9,11 @@
 - `updated_ref` — `canon_ref` для «Перевести на новые версии»: последние опубликованные, где есть.
 - `episode_canon` — состояние канона выпуска: статусы, лист облика, проблемы для «Утвердить план».
 - `canon_needed` — «нужно каналу»: id из планов выпусков, у которых нет опубликованной версии.
+- `canon_overview` — сводка канона для экрана 12: сколько выпусков ссылаются на эпоху и сколько
+  листов обликов готово.
 
-Всё, кроме `published_canon`, `sheet_state` и `load_episode_canon`, — чистые функции от снимка.
+Всё, кроме `published_canon`, `sheet_state`, `load_episode_canon` и `canon_overview`, — чистые
+функции от снимка.
 Лист облика читает `pipeline/canon/anchors.py` (M5.4).
 Контракты — `docs/canon_schema.md`, `docs/director_schema.md`, `docs/episodes.md`.
 """
@@ -23,8 +26,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.models.canon import CanonSummary
 from app.models.director import CanonRef, Director
-from app.pipeline.canon.anchors import SheetStatus, sheet_status
+from app.pipeline.canon.anchors import SheetStatus, latest_appearance, sheet_status
 from app.storage import canon_store
 from app.storage.canon_store import CHARACTERS
 from app.storage.paths import StudioPaths
@@ -466,3 +470,41 @@ def canon_needed(
             for key, episodes in sorted(appearances.items())
         ],
     )
+
+
+def uses_period(director: Director, period_id: str) -> bool:
+    """Эпоха есть в `canon_ref` плана или хотя бы в одном его кадре."""
+    pinned = director.canon_ref is not None and period_id in director.canon_ref.periods
+    return pinned or any(shot.image.period == period_id for shot in director.shots)
+
+
+# --- сводка экрана 12 ----------------------------------------------------------------------------
+
+
+def _ready_sheets(paths: StudioPaths, channel: str, character_id: str) -> int:
+    """Облики персонажа (черновик, без него — последняя версия), чей лист готов 6/6 против
+    последней опубликованной версии персонажа с обликом. Облик без версии листа не имеет."""
+    head = canon_store.read_entry(paths, channel, CHARACTERS, character_id).data
+    ready = 0
+    for appearance in head.appearances:
+        found = latest_appearance(paths, channel, appearance.id)
+        if found is not None:
+            status, _ = sheet_status(paths, channel, appearance.id, found[2], SHEET_ANGLES)
+            ready += status == "ready"
+    return ready
+
+
+def canon_overview(paths: StudioPaths, channel: str, plans: Iterable[EpisodePlan]) -> CanonSummary:
+    """Сводка канона канала (`canon_store.summary`) со счётчиками экрана 12: у эпохи — сколько
+    выпусков ссылаются на неё текущими планами, у персонажа — сколько листов обликов готово."""
+    summary = canon_store.summary(paths, channel)
+    directors = [plan.director for plan in plans]
+    periods = [
+        item.model_copy(update={"episodes": sum(uses_period(d, item.id) for d in directors)})
+        for item in summary.periods
+    ]
+    characters = [
+        item.model_copy(update={"sheets_ready": _ready_sheets(paths, channel, item.id)})
+        for item in summary.characters
+    ]
+    return summary.model_copy(update={"periods": periods, "characters": characters})

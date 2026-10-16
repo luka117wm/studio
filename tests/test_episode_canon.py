@@ -521,6 +521,20 @@ def test_needed_over_two_episodes(two_plans: TestClient, paths: StudioPaths) -> 
     assert after["appearances"] == []
 
 
+def test_summary_counts_episodes_of_each_period(two_plans: TestClient, paths: StudioPaths) -> None:
+    """Экран 12: сколько выпусков ссылаются на эпоху текущими планами (`canon_ref` или кадры)."""
+    publish(paths, PERIODS, "caribbean-1716", PERIOD_V1)
+    canon_store.save_draft(paths, "cursus", PERIODS, "england-1347", Period(id="england-1347"))
+    canon_store.save_draft(paths, "cursus", PERIODS, "venice-1570", Period(id="venice-1570"))
+    summary = two_plans.get("/api/canon/cursus").json()
+    assert [(p["id"], p["episodes"]) for p in summary["periods"]] == [
+        ("caribbean-1716", 2),
+        ("england-1347", 1),
+        ("venice-1570", 0),
+    ]
+    assert two_plans.get("/api/canon/otto").json()["periods"] == []
+
+
 def test_needed_unknown_channel_is_404(seeded: TestClient) -> None:
     assert seeded.get("/api/canon/nope/needed").status_code == 404
 

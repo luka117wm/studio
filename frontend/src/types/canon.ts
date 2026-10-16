@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:e7271b99df9742e5bfac8247af7a96dd47b5cc4472ea03e3de6709b56313745e
+ * @generated sha256:c849a8852932160edba3e6a85a7f9e9a23b975673a9954c21b52c93f015f7af4
  */
 export interface AnchorCandidate {
   id: string
@@ -87,6 +87,8 @@ export interface CandidatePick {
 
 /**
  * Подпись и число обликов — из черновика, а без него — из последней версии.
+ * `sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел
+ * против последней опубликованной версии с обликом; считает `episode_canon.canon_overview`.
  */
 export interface CanonCharacterItem {
   id: string
@@ -94,6 +96,7 @@ export interface CanonCharacterItem {
   versions: CanonVersionInfo[]
   draft: boolean
   appearances_count: number
+  sheets_ready: number
 }
 
 /**
@@ -107,14 +110,19 @@ export interface CanonNeeded {
 }
 
 /**
- * Подпись и число запретов — из черновика, а без него — из последней версии.
+ * Подпись, регион, годы и число запретов — из черновика, а без него — из последней версии.
+ * `episodes` — сколько выпусков ссылаются на эпоху текущими планами (`canon_ref` или кадры);
+ * считает `episode_canon.canon_overview`, хранилище оставляет 0.
  */
 export interface CanonPeriodItem {
   id: string
   label: string
+  region: string
+  years: Years | null
   versions: CanonVersionInfo[]
   draft: boolean
   forbidden_count: number
+  episodes: number
 }
 
 export interface CanonStyleSummary {

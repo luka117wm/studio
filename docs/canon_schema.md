@@ -175,12 +175,21 @@ data/channels/<channel>/canon/
 ```jsonc
 { "channel": "cursus",
   "style": { "versions": [{ "version": "v001", "based_on": null, "published_at": "…" }], "draft": false },
-  "periods": [{ "id": "caribbean-1716", "label": "Карибы, 1716", "versions": […], "draft": true, "forbidden_count": 12 }],
-  "characters": [{ "id": "you", "label": "Ты", "versions": […], "draft": false, "appearances_count": 3 }] }
+  "periods": [{ "id": "caribbean-1716", "label": "Карибы, 1716", "region": "Caribbean Sea, Nassau",
+                "years": { "from": 1716, "to": 1726 }, "versions": […], "draft": true,
+                "forbidden_count": 12, "episodes": 3 }],
+  "characters": [{ "id": "you", "label": "Ты", "versions": […], "draft": false, "appearances_count": 3,
+                   "sheets_ready": 2 }] }
 ```
 
-Подпись и счётчики берутся из черновика, а без него — из последней версии. В список попадают только каталоги, где
-есть черновик или версия.
+Подпись, регион, годы и счётчики берутся из черновика, а без него — из последней версии. В список попадают только
+каталоги, где есть черновик или версия. Счётчики экрана 12 (M5.8, `episode_canon.canon_overview`):
+
+- `episodes` — сколько выпусков канала ссылаются на эпоху текущей версией плана: в `canon_ref` или хотя бы в одном
+  кадре (то же правило, что у контекста моста эпохи). Выпуски без плана не считаются.
+- `sheets_ready` — у скольких обликов персонажа (из черновика, без него — из последней версии) лист опорных
+  портретов `ready`: 6/6 и не устарел против последней опубликованной версии персонажа, где облик есть (раздел
+  «Устаревание»). Облик без опубликованной версии листа не имеет.
 
 ## Нужно каналу
 
