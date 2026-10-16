@@ -4,6 +4,246 @@
   "title": "canon",
   "description": "Модели API Studio, группа «canon». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnchorCandidate": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "rejected",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ref"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cached": {
+          "title": "Cached",
+          "type": "boolean"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "n",
+        "status",
+        "file",
+        "error",
+        "seed",
+        "version",
+        "ref",
+        "usd",
+        "cached",
+        "created_at"
+      ],
+      "title": "AnchorCandidate",
+      "type": "object"
+    },
+    "AnchorSetState": {
+      "description": "Лист облика (`GET …/appearances/{id}/anchors`) или кадры стиля (`GET …/style/anchors`).",
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "partial",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/AnchorSlot"
+          },
+          "title": "Slots",
+          "type": "array"
+        },
+        "spent": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "channel",
+        "target",
+        "version",
+        "status",
+        "chosen",
+        "total",
+        "stale",
+        "slots",
+        "spent"
+      ],
+      "title": "AnchorSetState",
+      "type": "object"
+    },
+    "AnchorSlot": {
+      "description": "Ракурс листа или шаблон кадра стиля.",
+      "properties": {
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "hint": {
+          "title": "Hint",
+          "type": "string"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/AnchorCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "chosen": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChosenAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale"
+        }
+      },
+      "required": [
+        "slot",
+        "label",
+        "hint",
+        "candidates",
+        "chosen",
+        "stale"
+      ],
+      "title": "AnchorSlot",
+      "type": "object"
+    },
+    "AnchorsEstimate": {
+      "description": "Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля.",
+      "properties": {
+        "sheet": {
+          "$ref": "#/$defs/EstimateLine"
+        },
+        "angle": {
+          "$ref": "#/$defs/EstimateLine"
+        },
+        "style": {
+          "$ref": "#/$defs/EstimateLine"
+        }
+      },
+      "required": [
+        "sheet",
+        "angle",
+        "style"
+      ],
+      "title": "AnchorsEstimate",
+      "type": "object"
+    },
     "Appearance": {
       "additionalProperties": false,
       "description": "Облик: персонаж в одной эпохе и одном возрасте. Свой лист опорных портретов.",
@@ -90,6 +330,43 @@
         "negative_local"
       ],
       "title": "Appearance",
+      "type": "object"
+    },
+    "AppearanceCopy": {
+      "additionalProperties": false,
+      "description": "Тело «Копировать облик в другую эпоху»: эпоха и id нового облика того же персонажа.",
+      "properties": {
+        "period": {
+          "title": "Period",
+          "type": "string"
+        },
+        "appearance_id": {
+          "title": "Appearance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "period",
+        "appearance_id"
+      ],
+      "title": "AppearanceCopy",
+      "type": "object"
+    },
+    "CandidatePick": {
+      "additionalProperties": false,
+      "description": "Тело «Выбрать» и «Отбраковать»: id кандидата из состояния листа.",
+      "properties": {
+        "candidate": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Candidate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate"
+      ],
+      "title": "CandidatePick",
       "type": "object"
     },
     "CanonCharacterItem": {
@@ -372,6 +649,114 @@
       "title": "CharacterDoc",
       "type": "object"
     },
+    "ChosenAnchor": {
+      "properties": {
+        "candidate": {
+          "title": "Candidate",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "chosen_at": {
+          "title": "Chosen At",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "candidate",
+        "file",
+        "seed",
+        "version",
+        "chosen_at",
+        "usd"
+      ],
+      "title": "ChosenAnchor",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "EstimateLine": {
+      "description": "Строка сметы плана для экрана: что, сколько и почём.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cost": {
+          "$ref": "#/$defs/StageCost"
+        }
+      },
+      "required": [
+        "title",
+        "label",
+        "usd",
+        "cost"
+      ],
+      "title": "EstimateLine",
+      "type": "object"
+    },
     "Light": {
       "additionalProperties": false,
       "properties": {
@@ -397,6 +782,25 @@
         "direction"
       ],
       "title": "Light",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
       "type": "object"
     },
     "Nature": {
@@ -723,6 +1127,62 @@
       "title": "PeriodDoc",
       "type": "object"
     },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
+      "type": "object"
+    },
     "Style": {
       "additionalProperties": false,
       "description": "Стиль канала — один на канал, одинаков для всех выпусков (артборд 12, слой «Стиль»).",
@@ -796,6 +1256,21 @@
         "negative_global"
       ],
       "title": "Style",
+      "type": "object"
+    },
+    "StyleAnchorsCreate": {
+      "additionalProperties": false,
+      "description": "Тело «Пересобрать кадры стиля»: эпоха, в которой показать стиль.",
+      "properties": {
+        "period": {
+          "title": "Period",
+          "type": "string"
+        }
+      },
+      "required": [
+        "period"
+      ],
+      "title": "StyleAnchorsCreate",
       "type": "object"
     },
     "StyleDoc": {

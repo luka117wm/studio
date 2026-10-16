@@ -358,6 +358,17 @@ def test_gemini_image_network_is_transient() -> None:
         draw(handler)
 
 
+def test_network_error_names_the_exception_when_its_text_is_empty() -> None:
+    """Вживую (M5.4) обрыв через VPN пришёл с пустым текстом: «нет соединения:» без причины."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadError("")
+
+    with pytest.raises(TransientError) as caught:
+        draw(handler)
+    assert str(caught.value) == "Gemini: нет соединения (ReadError)"
+
+
 @pytest.mark.parametrize(
     ("body", "message"),
     [

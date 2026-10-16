@@ -10,7 +10,6 @@ import anthropic
 import httpx2
 from pydantic import SecretStr
 
-from app.jobs.worker import TransientError
 from app.providers.base import (
     AnyRequest,
     KeyStatus,
@@ -20,6 +19,7 @@ from app.providers.base import (
     RouteError,
     TextRequest,
     Usage,
+    network_error,
     parse_retry_after,
     request_usage,
     status_error,
@@ -75,7 +75,7 @@ class AnthropicProvider:
             )
             return KeyStatus(provider=self.name, configured=True, ok=False, message=str(error))
         except anthropic.APIConnectionError as exc:
-            error = TransientError(f"{TITLE}: нет соединения: {exc}")
+            error = network_error(TITLE, exc)
             return KeyStatus(provider=self.name, configured=True, ok=False, message=str(error))
         finally:
             await client.close()

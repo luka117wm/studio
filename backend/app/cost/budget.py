@@ -2,8 +2,9 @@
 
 Занятое бюджетом = журнал (`charged` и резерв `estimated` идущих вызовов) + оценки платных
 джобов в очереди (`jobs.cost_usd_micro`): пачка из многих `POST /api/jobs` упирается в лимит на
-том джобе, который его превышает, а не после оплаты. Превышение — `BudgetExceeded` (в API —
-409) без тихого перехода на модель дешевле. Месяц — календарный, UTC.
+том джобе, который его превышает, а не после оплаты. Джоб без выпуска (M5.4: листы портретов,
+кадры стиля) занимает месячный бюджет своего канала (`jobs.channel`). Превышение —
+`BudgetExceeded` (в API — 409) без тихого перехода на модель дешевле. Месяц — календарный, UTC.
 """
 
 import sqlite3
@@ -119,7 +120,7 @@ def committed_month(conn: sqlite3.Connection, channel: str, now: datetime) -> Co
         conn,
         "channel = ? AND ts >= ? AND ts < ?",
         (channel, start, end),
-        "e.channel = ?",
+        "COALESCE(j.channel, e.channel) = ?",
         (channel,),
     )
 
@@ -154,7 +155,7 @@ def _committed(
         )
     }
     queued = conn.execute(
-        "SELECT COALESCE(SUM(j.cost_usd_micro), 0) FROM jobs j JOIN episodes e"
+        "SELECT COALESCE(SUM(j.cost_usd_micro), 0) FROM jobs j LEFT JOIN episodes e"
         f" ON e.id = j.episode_id WHERE {jobs_where} AND j.status = 'queued'",
         jobs_params,
     ).fetchone()[0]

@@ -11,6 +11,7 @@
 - `canon_needed` — «нужно каналу»: id из планов выпусков, у которых нет опубликованной версии.
 
 Всё, кроме `published_canon`, `sheet_state` и `load_episode_canon`, — чистые функции от снимка.
+Лист облика читает `pipeline/canon/anchors.py` (M5.4).
 Контракты — `docs/canon_schema.md`, `docs/director_schema.md`, `docs/episodes.md`.
 """
 
@@ -23,6 +24,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.models.director import CanonRef, Director
+from app.pipeline.canon.anchors import SheetStatus, sheet_status
 from app.storage import canon_store
 from app.storage.canon_store import CHARACTERS
 from app.storage.paths import StudioPaths
@@ -38,7 +40,6 @@ CanonKind = Literal["style", "period", "appearance"]
 CanonStatus = Literal["missing", "draft_only", "ready", "outdated"]
 # unpublished — нет опубликованной версии; unresolved — ссылка не находит версию, а новее есть.
 CanonIssue = Literal["unpublished", "unresolved", "no_sheet", "sheet_incomplete", "sheet_outdated"]
-SheetStatus = Literal["missing", "partial", "ready", "outdated"]
 
 _REF_TAG_RE = re.compile(r"/(v\d{3})(?:#[^/]*)?$")
 _SUBJECT: dict[CanonKind, str] = {"style": "стиль канала", "period": "эпоха", "appearance": "облик"}
@@ -206,9 +207,10 @@ def no_sheet() -> AnchorSheet:
 
 
 def sheet_state(paths: StudioPaths, channel: str, appearance_id: str, version: str) -> AnchorSheet:
-    """Лист облика `appearance_id` версии персонажа `version`. Листов до M5.4 нет — всегда «не
-    собран»; M5.4 читает здесь `canon/anchors/<облик>/chosen.json`."""
-    return no_sheet()
+    """Лист облика `appearance_id` против версии персонажа `version`, к которой прибит выпуск:
+    сколько ракурсов выбрано в `chosen.json` и не устарел ли выбор (M5.4)."""
+    status, chosen = sheet_status(paths, channel, appearance_id, version, SHEET_ANGLES)
+    return AnchorSheet(status=status, chosen=chosen)
 
 
 # --- канон выпуска -------------------------------------------------------------------------------

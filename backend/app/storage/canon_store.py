@@ -416,3 +416,38 @@ def resolve_appearance(paths: StudioPaths, channel: str, ref: str) -> tuple[Char
     if appearance is None:
         raise CanonRefError(ref, f"облик {appearance_id} не найден в {file_ref}")
     return character, appearance
+
+
+# --- копия облика в другую эпоху (M5.4) -----------------------------------------------------------
+
+
+def copy_appearance(
+    paths: StudioPaths, channel: str, source_id: str, new_id: str, period: str
+) -> Entry[Character]:
+    """Облик `source_id` → новый облик `new_id` эпохи `period` в черновике персонажа: тот же
+    человек в другой эпохе (устав M5, решение 5). `face`, `build`, `hair`, `age` и `negative_local`
+    переносятся побайтово, неизменяемое персонажа общее; одежда, износ, предметы и подпись —
+    пустые, листа у копии нет. Источник — черновик персонажа, а без него — последняя версия."""
+    character_id = source_id.split("@", 1)[0]
+    entry = read_entry(paths, channel, CHARACTERS, character_id)
+    where = "черновике" if entry.version is None else entry.version
+    source = entry.data.appearance(source_id)
+    if source is None:
+        raise CanonNotFound(
+            f"Облика {source_id} нет в персонаже {character_id} ({where}) — копировать нечего."
+        )
+    if entry.data.appearance(new_id) is not None:
+        raise CanonConflict(
+            f"Облик {new_id} уже есть в персонаже {character_id} — выберите другой id копии."
+        )
+    copy = Appearance(
+        id=new_id,
+        period=period,
+        age=source.age,
+        build=source.build,
+        face=source.face,
+        hair=source.hair,
+        negative_local=list(source.negative_local),
+    )
+    character = entry.data.model_copy(update={"appearances": [*entry.data.appearances, copy]})
+    return save_draft(paths, channel, CHARACTERS, character_id, character)

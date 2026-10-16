@@ -119,6 +119,16 @@ class StudioPaths:
         """Опорные кадры стиля канала."""
         return self.anchors_root(channel) / "style"
 
+    @staticmethod
+    def anchor_manifest_path(set_dir: Path) -> Path:
+        """`sheet.json` листа облика или кадров стиля: все кандидаты с seed, версией, ценой и
+        статусом (M5.4). Выбор — рядом, в `chosen.json`."""
+        return set_dir / "sheet.json"
+
+    @staticmethod
+    def anchor_set_chosen_path(set_dir: Path) -> Path:
+        return set_dir / "chosen.json"
+
     def canon_cache_dir(self, channel: str, stage: str) -> Path:
         """Файлы платных вызовов уровня канала, если вызывающий не назвал каталог (M5.3)."""
         return self.canon_dir(channel) / "cache" / check_id(stage, "stage")

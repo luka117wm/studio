@@ -18,7 +18,6 @@ from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import SecretStr
 
-from app.jobs.worker import TransientError
 from app.providers.base import (
     AnyRequest,
     ImageRequest,
@@ -31,6 +30,7 @@ from app.providers.base import (
     Usage,
     VideoRequest,
     image_mime,
+    network_error,
     parse_retry_after,
     request_usage,
     status_error,
@@ -102,7 +102,7 @@ class GeminiProvider:
         except genai_errors.APIError as exc:
             raise _api_error(exc) from None
         except httpx.TransportError as exc:
-            raise TransientError(f"{TITLE}: нет соединения: {exc}") from None
+            raise network_error(TITLE, exc) from None
         finally:
             await client.aclose()
         images = _final_images(response)
@@ -132,7 +132,7 @@ class GeminiProvider:
                 )
             return KeyStatus(provider=self.name, configured=True, ok=False, message=message)
         except httpx.TransportError as exc:
-            error = TransientError(f"{TITLE}: нет соединения: {exc}")
+            error = network_error(TITLE, exc)
             return KeyStatus(provider=self.name, configured=True, ok=False, message=str(error))
         finally:
             await client.aclose()

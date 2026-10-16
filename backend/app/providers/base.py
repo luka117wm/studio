@@ -269,6 +269,16 @@ def status_error(
     return ProviderError(f"{title}: {message} — см. docs/api_keys.md.", status)
 
 
+def network_error(title: str, exc: BaseException) -> TransientError:
+    """Сбой сети SDK → `TransientError` (очередь повторит). Тип исключения — в тексте всегда: у
+    транспортных ошибок httpx (`ReadError`, `RemoteProtocolError`) текст бывает пустым, и «нет
+    соединения:» без причины ничего не скажет (найдено вживую в M5.4)."""
+    detail = str(exc).strip()
+    return TransientError(
+        f"{title}: нет соединения ({type(exc).__name__}{': ' + detail if detail else ''})"
+    )
+
+
 class Provider(Protocol):
     """Провайдер модели. `usage` — без сети; `call` и `check` — один запрос, без повторов.
     `refs` — байты референсов картинки в порядке `ImageRequest.refs`."""

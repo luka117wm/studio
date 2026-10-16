@@ -108,6 +108,9 @@ class NewJob:
     batch_id: str | None = None
     cost_usd_micro: int | None = None
     cost_stage: str | None = None
+    # Канал джоба без выпуска (M5.4: листы портретов, кадры стиля) — для месячного бюджета.
+    # У джоба выпуска не задаётся: канал — у выпуска.
+    channel: str | None = None
 
 
 def _emit(conn: sqlite3.Connection, job: Job, event_type: EventType) -> None:
@@ -131,8 +134,8 @@ def enqueue_many(conn: sqlite3.Connection, jobs: Sequence[NewJob]) -> list[tuple
             job = _one(
                 conn,
                 "INSERT INTO jobs (id, kind, status, payload, idempotency_key, episode_id,"
-                " batch_id, cost_usd_micro, cost_stage, created_at)"
-                " VALUES (?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?)"
+                " batch_id, cost_usd_micro, cost_stage, channel, created_at)"
+                " VALUES (?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT(idempotency_key) DO NOTHING RETURNING *",
                 (
                     uuid.uuid4().hex,
@@ -143,6 +146,7 @@ def enqueue_many(conn: sqlite3.Connection, jobs: Sequence[NewJob]) -> list[tuple
                     new.batch_id,
                     new.cost_usd_micro,
                     new.cost_stage,
+                    new.channel,
                     now_iso(),
                 ),
             )

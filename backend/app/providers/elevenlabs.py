@@ -11,7 +11,6 @@ from typing import Any
 import httpx
 from pydantic import SecretStr
 
-from app.jobs.worker import TransientError
 from app.providers.base import (
     AnyRequest,
     CharQuota,
@@ -22,6 +21,7 @@ from app.providers.base import (
     RouteError,
     SpeechRequest,
     Usage,
+    network_error,
     parse_retry_after,
     request_usage,
     status_error,
@@ -70,7 +70,7 @@ class ElevenLabsProvider:
             try:
                 response = await client.get("/v1/user/subscription")
             except httpx.TransportError as exc:
-                offline = TransientError(f"{TITLE}: нет соединения: {exc}")
+                offline = network_error(TITLE, exc)
                 return KeyStatus(
                     provider=self.name, configured=True, ok=False, message=str(offline)
                 )

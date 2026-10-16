@@ -18,6 +18,7 @@ from app.providers.base import (
 )
 
 _EXT = {"text": "txt", "image": "png", "speech": "mp3", "video": "mp4"}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 class FakeProvider:
@@ -40,6 +41,9 @@ class FakeProvider:
             raise self.errors.pop(0)
         seed = f"{route.model}\n{request.model_dump_json()}".encode()
         data = hashlib.sha256(seed).digest() * 4
+        if request.kind == "image":
+            # Сигнатура PNG: такую картинку шлюз примет референсом (фас листа портретов, M5.4).
+            data = PNG_SIGNATURE + data
         return Result(usage=request_usage(request), data=data, ext=_EXT[request.kind])
 
     async def check(self, expected_models: Collection[str] = ()) -> KeyStatus:

@@ -1,8 +1,58 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:e3990c6a4bc2fe24b4492e1544e0498f8ed5d6c8b17e2956ea1778f9564fd574
+ * @generated sha256:ad34697b1667b9cf98aa1bc05f284bc0d745a6a2a327d400bc3555240e251e67
  */
+export interface AnchorCandidate {
+  id: string
+  n: number
+  status: 'ready' | 'rejected' | 'failed'
+  file: string | null
+  error: string | null
+  seed: number
+  version: string
+  ref: string | null
+  usd: Money
+  cached: boolean
+  created_at: string
+}
+
+/**
+ * Лист облика (`GET …/appearances/{id}/anchors`) или кадры стиля (`GET …/style/anchors`).
+ */
+export interface AnchorSetState {
+  channel: string
+  target: string
+  version: string | null
+  status: 'missing' | 'partial' | 'ready' | 'outdated'
+  chosen: number
+  total: number
+  stale: string | null
+  slots: AnchorSlot[]
+  spent: Money
+}
+
+/**
+ * Ракурс листа или шаблон кадра стиля.
+ */
+export interface AnchorSlot {
+  slot: string
+  label: string
+  hint: string
+  candidates: AnchorCandidate[]
+  chosen: ChosenAnchor | null
+  stale: string | null
+}
+
+/**
+ * Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля.
+ */
+export interface AnchorsEstimate {
+  sheet: EstimateLine
+  angle: EstimateLine
+  style: EstimateLine
+}
+
 /**
  * Облик: персонаж в одной эпохе и одном возрасте. Свой лист опорных портретов.
  */
@@ -18,6 +68,21 @@ export interface Appearance {
   wear: string
   props: string[]
   negative_local: string[]
+}
+
+/**
+ * Тело «Копировать облик в другую эпоху»: эпоха и id нового облика того же персонажа.
+ */
+export interface AppearanceCopy {
+  period: string
+  appearance_id: string
+}
+
+/**
+ * Тело «Выбрать» и «Отбраковать»: id кандидата из состояния листа.
+ */
+export interface CandidatePick {
+  candidate: string
 }
 
 /**
@@ -89,10 +154,44 @@ export interface CharacterDoc {
   data: Character
 }
 
+export interface ChosenAnchor {
+  candidate: string
+  file: string
+  seed: number
+  version: string
+  chosen_at: string
+  usd: Money
+}
+
+export interface CostLine {
+  unit: 'image' | 'char' | 'second' | 'token_in' | 'token_out' | 'search'
+  quantity: number
+  variant: string | null
+  usd_micro: number
+}
+
+/**
+ * Строка сметы плана для экрана: что, сколько и почём.
+ */
+export interface EstimateLine {
+  title: string
+  label: string
+  usd: Money
+  cost: StageCost
+}
+
 export interface Light {
   character: string
   contrast: string
   direction: string
+}
+
+/**
+ * Деньги в ответе API: по `usd_micro` считать, `usd` показывать.
+ */
+export interface Money {
+  usd_micro: number
+  usd: string
 }
 
 /**
@@ -164,6 +263,20 @@ export interface PeriodDoc {
 }
 
 /**
+ * Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;
+ * у платного этапа поля нет.
+ */
+export interface StageCost {
+  stage: string
+  provider: string
+  model: string
+  lines: CostLine[]
+  usd_micro: number
+  stale_pricing: boolean
+  via?: 'bridge' | null
+}
+
+/**
  * Стиль канала — один на канал, одинаков для всех выпусков (артборд 12, слой «Стиль»).
  */
 export interface Style {
@@ -176,6 +289,13 @@ export interface Style {
   grain: string
   composition: string
   negative_global: string[]
+}
+
+/**
+ * Тело «Пересобрать кадры стиля»: эпоха, в которой показать стиль.
+ */
+export interface StyleAnchorsCreate {
+  period: string
 }
 
 export interface StyleDoc {

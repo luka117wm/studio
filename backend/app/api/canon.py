@@ -7,17 +7,40 @@
 
 «Нужно каналу» (M5.2) — эпохи и облики из планов выпусков без опубликованной версии и скелеты
 черновиков для них (`docs/canon_schema.md`, «Нужно каналу»).
+
+Опорные (M5.4) — лист портретов облика и кадры стиля: состояние, цена до клика, сборка джобом с
+бюджетом канала до очереди, выбор и отбраковка, копия облика в другую эпоху (`docs/canon_schema.md`,
+«Листы опорных портретов»).
 """
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import Field
 
 from app.api.channels import require_channel
-from app.api.deps import DbDep, PathsDep
+from app.api.deps import (
+    CanonConfigDep,
+    DbDep,
+    GatewayDep,
+    JobsDep,
+    PathsDep,
+    PromptsDep,
+)
 from app.api.episodes import channel_episodes, load_sources
+from app.cost.budget import BudgetExceeded
+from app.jobs.handlers.anchors import (
+    ANGLE_KIND,
+    SHEET_KIND,
+    STYLE_KIND,
+    AnchorsEstimate,
+    anchors_estimate,
+    enqueue_order,
+)
+from app.jobs.queue import Job
+from app.jobs.worker import JobPool
 from app.models.canon import (
     Appearance,
     AppearanceId,
@@ -31,12 +54,17 @@ from app.models.canon import (
     StyleDoc,
     VersionTag,
 )
+from app.models.director import StrictModel
+from app.pipeline.canon import anchors
+from app.pipeline.canon.anchors import AnchorOrder, AnchorSetState
 from app.pipeline.canon.episode_canon import (
     CanonNeeded,
     EpisodePlan,
     canon_needed,
     published_canon,
 )
+from app.providers.base import RouteError
+from app.providers.gateway import Gateway
 from app.storage import canon_store
 from app.storage.canon_store import (
     CHARACTERS,
@@ -50,6 +78,26 @@ from app.storage.canon_store import (
 from app.storage.paths import StudioPaths
 
 router = APIRouter(prefix="/canon", tags=["canon"])
+
+
+class CandidatePick(StrictModel):
+    """Тело «Выбрать» и «Отбраковать»: id кандидата из состояния листа."""
+
+    candidate: str = Field(min_length=1, max_length=200)
+
+
+class AppearanceCopy(StrictModel):
+    """Тело «Копировать облик в другую эпоху»: эпоха и id нового облика того же персонажа."""
+
+    period: CanonId
+    appearance_id: AppearanceId
+
+
+class StyleAnchorsCreate(StrictModel):
+    """Тело «Пересобрать кадры стиля»: эпоха, в которой показать стиль."""
+
+    period: CanonId
+
 
 EntityIdParam = CanonId
 VersionQuery = Annotated[VersionTag | None, Query()]
@@ -297,3 +345,157 @@ def _appearance_skeleton(paths: StudioPaths, channel: str, appearance_id: str) -
         )
     character = entry.data.model_copy(update={"appearances": [*entry.data.appearances, skeleton]})
     return canon_store.save_draft(paths, channel, CHARACTERS, character_id, character)
+
+
+# --- опорные: лист портретов облика, кадры стиля -------------------------------------------------
+
+
+def _enqueue(db: DbDep, gateway: Gateway, jobs: JobPool, kind: str, order: AnchorOrder) -> Job:
+    """Джоб заказа: бюджет канала до очереди — 409 с телом `BudgetRefusal`, джоб не создаётся."""
+    try:
+        job = enqueue_order(db, gateway, kind, order)
+    except RouteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except BudgetExceeded as exc:
+        raise HTTPException(status_code=409, detail=exc.detail()) from exc
+    jobs.kick()
+    return job
+
+
+@router.get("/{channel}/appearances/{appearance_id}/anchors")
+async def get_appearance_anchors(
+    channel: str, appearance_id: AppearanceId, paths: PathsDep, db: DbDep, config: CanonConfigDep
+) -> AnchorSetState:
+    """Лист облика: ракурсы с кандидатами и выбором, готовность 6/6, устаревание против последней
+    опубликованной версии персонажа с этим обликом, оплаченное."""
+    require_channel(db, channel)
+    return anchors.appearance_anchors(paths, channel, appearance_id, config)
+
+
+@router.get("/{channel}/appearances/{appearance_id}/anchors/estimate")
+async def get_anchors_estimate(
+    channel: str,
+    appearance_id: AppearanceId,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+) -> AnchorsEstimate:
+    """Цена до клика: лист, перегенерация ракурса, кадры стиля."""
+    require_channel(db, channel)
+    return anchors_estimate(gateway, config)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/anchors", status_code=201)
+async def collect_sheet(
+    channel: str,
+    appearance_id: AppearanceId,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    jobs: JobsDep,
+    prompts: PromptsDep,
+    config: CanonConfigDep,
+) -> Job:
+    """«Собрать лист»: джоб `anchor_sheet` — фасы, затем остальные ракурсы с фасом-референсом."""
+    require_channel(db, channel)
+    order = anchors.sheet_order(paths, channel, appearance_id, config, prompts)
+    return _enqueue(db, gateway, jobs, SHEET_KIND, order)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/anchors/{angle}/regenerate", status_code=201)
+async def regenerate_angle(
+    channel: str,
+    appearance_id: AppearanceId,
+    angle: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    jobs: JobsDep,
+    prompts: PromptsDep,
+    config: CanonConfigDep,
+) -> Job:
+    """«Перегенерировать ракурс»: джоб `anchor_angle` — новые кандидаты одного ракурса."""
+    require_channel(db, channel)
+    order = anchors.angle_order(paths, channel, appearance_id, angle, config, prompts)
+    return _enqueue(db, gateway, jobs, ANGLE_KIND, order)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/anchors/{angle}/choose")
+async def choose_candidate(
+    channel: str,
+    appearance_id: AppearanceId,
+    angle: str,
+    body: CandidatePick,
+    paths: PathsDep,
+    db: DbDep,
+    config: CanonConfigDep,
+) -> AnchorSetState:
+    require_channel(db, channel)
+    anchors.choose(paths, channel, appearance_id, angle, body.candidate, config)
+    return anchors.appearance_anchors(paths, channel, appearance_id, config)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/anchors/{angle}/reject")
+async def reject_candidate(
+    channel: str,
+    appearance_id: AppearanceId,
+    angle: str,
+    body: CandidatePick,
+    paths: PathsDep,
+    db: DbDep,
+    config: CanonConfigDep,
+) -> AnchorSetState:
+    require_channel(db, channel)
+    anchors.reject(paths, db, channel, appearance_id, angle, body.candidate, config)
+    return anchors.appearance_anchors(paths, channel, appearance_id, config)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/copy", status_code=201)
+async def copy_appearance(
+    channel: str, appearance_id: AppearanceId, body: AppearanceCopy, paths: PathsDep, db: DbDep
+) -> CharacterDoc:
+    """Копия облика в другую эпоху — в черновик персонажа; лист у копии свой, пустой."""
+    require_channel(db, channel)
+    character_id = appearance_id.split("@", 1)[0]
+    if not body.appearance_id.startswith(f"{character_id}@"):
+        raise RequestValidationError(
+            [
+                {
+                    "type": "canon_appearance_owner",
+                    "loc": ("body", "appearance_id"),
+                    "msg": f"Облик {body.appearance_id} не принадлежит персонажу {character_id} — "
+                    f"id облика начинается с «{character_id}@».",
+                    "input": body.appearance_id,
+                }
+            ]
+        )
+    entry = canon_store.copy_appearance(
+        paths, channel, appearance_id, body.appearance_id, body.period
+    )
+    return _doc(CharacterDoc, entry)
+
+
+@router.get("/{channel}/style/anchors")
+async def get_style_anchors(
+    channel: str, paths: PathsDep, db: DbDep, config: CanonConfigDep
+) -> AnchorSetState:
+    """Кадры стиля: по шаблону, устаревание против последней версии стиля."""
+    require_channel(db, channel)
+    return anchors.style_anchors(paths, channel, config)
+
+
+@router.post("/{channel}/style/anchors", status_code=201)
+async def collect_style_anchors(
+    channel: str,
+    body: StyleAnchorsCreate,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    jobs: JobsDep,
+    prompts: PromptsDep,
+    config: CanonConfigDep,
+) -> Job:
+    """«Пересобрать кадры стиля»: джоб `style_anchors` — по кадру на шаблон в эпохе `period`."""
+    require_channel(db, channel)
+    order = anchors.style_order(paths, channel, body.period, config, prompts)
+    return _enqueue(db, gateway, jobs, STYLE_KIND, order)
