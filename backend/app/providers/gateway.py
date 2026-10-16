@@ -1,10 +1,14 @@
 """Единая точка платного вызова (принципы 5, 6, 8) и сборка слоя провайдеров из конфигов.
 
-Порядок вызова: маршрут → оценка → хэш входов → кэш (`cached`, $0) → бюджет (`refused`) → резерв
-(`estimated`) → вызов → `charged` или `failed` → файл результата в `media/` и строка `assets`.
-Бюджет и резерв — одна транзакция `BEGIN IMMEDIATE`: два воркера не пройдут в лимит вдвоём.
-Отказ по бюджету — `BudgetExceeded`, без перехода на модель дешевле. Соединения с БД — свои,
-короткие, в потоке вызывающего (L-014).
+Порядок вызова: маршрут → оценка (и лимит референсов) → хэш входов → кэш (`cached`, $0) →
+референсы с диска → бюджет (`refused`) → резерв (`estimated`) → вызов → `charged` или `failed` →
+файл результата и строка `assets`. Бюджет и резерв — одна транзакция `BEGIN IMMEDIATE`: два
+воркера не пройдут в лимит вдвоём. Отказ по бюджету — `BudgetExceeded`, без перехода на модель
+дешевле. Соединения с БД — свои, короткие, в потоке вызывающего (L-014).
+
+Вызов уровня канала (M5.3) — `CallContext(channel=…)` без выпуска: файл — в каталог канона
+канала, строка `assets` и журнала — без выпуска, бюджет — только месячный. Референсы — только
+файлы канона канала (принципы 9, 13), в ключ кэша идут их хэши.
 """
 
 import asyncio
@@ -24,7 +28,19 @@ from app.cost.budget import BudgetExceeded, check_budget, load_budgets
 from app.cost.ledger import LedgerContext
 from app.cost.pricing import Pricing, today_utc
 from app.providers.anthropic import AnthropicProvider
-from app.providers.base import AnyRequest, Cost, KeyStatus, Provider, Result, Route, RouteError
+from app.providers.base import (
+    AnyRequest,
+    Cost,
+    ImageRef,
+    ImageRequest,
+    KeyStatus,
+    Provider,
+    RefImage,
+    Result,
+    Route,
+    RouteError,
+    image_mime,
+)
 from app.providers.elevenlabs import ElevenLabsProvider
 from app.providers.fake import FakeProvider
 from app.providers.gemini import GeminiProvider
@@ -44,9 +60,12 @@ KEY_STATUS_TTL_S = 60.0
 class CallContext:
     stage: str
     episode_id: str | None = None
-    channel: str | None = None  # по умолчанию — канал выпуска
+    channel: str | None = None  # по умолчанию — канал выпуска; без выпуска — обязателен
     shot_id: str | None = None
     job_id: str | None = None
+    # Куда положить файл результата: внутри выпуска (`media/…`) или, без выпуска, внутри канала
+    # (`canon/anchors/…`). По умолчанию — `media/<этап>/` или `canon/cache/<этап>/`.
+    asset_dir: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -55,18 +74,21 @@ class CallOutcome:
     cost: Cost  # факт для `charged`; для `cached` — сколько стоил бы вызов
     status: Literal["charged", "cached"]
     input_hash: str
-    asset_path: Path | None  # файл результата; None — результат без файла или вызов без выпуска
+    asset_path: Path | None  # файл результата; None — результат без файла
     result: Result | None  # None у `cached`
 
 
 def input_hash(route: Route, request: AnyRequest) -> str:
     """Хэш входов (принцип 8): модель, параметры маршрута и весь запрос — версии канона, промпт,
-    референсы, seed. Канонический JSON: одинаковые входы дают одинаковый хэш."""
+    референсы (хэши файлов, не пути), seed. Канонический JSON: одинаковые входы — одинаковый хэш."""
+    dumped = request.model_dump(mode="json")
+    if isinstance(request, ImageRequest):
+        dumped["refs"] = [ref.sha256 for ref in request.refs]
     payload = {
         "provider": route.provider,
         "model": route.model,
         "params": route.params,
-        "request": request.model_dump(mode="json"),
+        "request": dumped,
     }
     text = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -103,11 +125,13 @@ class Gateway:
         conn: sqlite3.Connection,
         cost: Cost,
         *,
-        episode_id: str,
+        episode_id: str | None = None,
+        channel: str | None = None,
         job_id: str | None = None,
     ) -> None:
-        """Проверка до постановки джоба (`POST /api/jobs`). Отказ пишет строки `refused`."""
-        channel = self._channel_of(conn, episode_id)
+        """Проверка до постановки джоба (`POST /api/jobs`). Отказ пишет строки `refused`. Без
+        выпуска (вызов уровня канала) — только месячный бюджет канала."""
+        channel = self._call_channel(conn, episode_id, channel)
         budgets = load_budgets(self.paths, channel)
         try:
             check_budget(
@@ -139,7 +163,8 @@ class Gateway:
         digest = input_hash(route, request)
         conn = connect(self.paths.db_path)
         try:
-            channel = ctx.channel or self._require_channel(conn, ctx.episode_id)
+            channel = self._call_channel(conn, ctx.episode_id, ctx.channel)
+            asset_dir = self._asset_dir(channel, ctx, route)
             entry = LedgerContext(channel, ctx.episode_id, ctx.stage, ctx.job_id, digest)
             cached = self._cached_asset(conn, route.stage, digest)
             if cached is not None:
@@ -148,11 +173,12 @@ class Gateway:
                 log.info("%s/%s: cache hit %s", route.stage, route.key, digest[:12])
                 return CallOutcome(route, estimate, "cached", digest, cached, None)
 
+            refs = self._load_refs(channel, request)
             call_id = ledger.new_call_id()
             self._reserve(conn, entry, estimate, call_id)
             provider = self.registry.provider(route.provider)
             try:
-                result = await provider.call(route, request)
+                result = await provider.call(route, request, refs)
             except BaseException:
                 with conn:
                     ledger.settle_failed(conn, call_id)
@@ -161,11 +187,22 @@ class Gateway:
             with conn:
                 ledger.settle_charged(conn, call_id, actual)
             asset = None
-            if result.data is not None and ctx.episode_id is not None:
-                asset = self._store(conn, channel, ctx, route, digest, result)
+            if result.data is not None:
+                asset = self._store(conn, channel, ctx, route, digest, result, asset_dir)
             return CallOutcome(route, actual, "charged", digest, asset, result)
         finally:
             conn.close()
+
+    def image_ref(self, path: Path) -> ImageRef:
+        """Референс для `ImageRequest.refs`: путь относительно `data/` и sha256 содержимого."""
+        try:
+            relative = path.resolve().relative_to(self.paths.root.resolve())
+        except ValueError:
+            raise RouteError(f"Референс {path} лежит вне каталога данных.") from None
+        if not path.is_file():
+            raise RouteError(f"Референс {relative.as_posix()} не найден.")
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        return ImageRef(path=relative.as_posix(), sha256=digest)
 
     async def check_keys(self, *, max_age_s: float = 0) -> list[KeyStatus]:
         """Проверка ключей всех провайдеров из конфига, кроме тестового, параллельно. Результат
@@ -189,8 +226,61 @@ class Gateway:
             raise RouteError(
                 f"Этап «{route.stage}» принимает запросы «{route.kind}», а пришёл «{request.kind}»."
             )
+        if isinstance(request, ImageRequest) and request.refs:
+            limit = route.max_refs or 0
+            if len(request.refs) > limit:
+                allowed = f"не больше {limit}" if limit else "без референсов"
+                raise RouteError(
+                    f"Референсов {len(request.refs)}, а модель {route.model} этапа «{route.stage}»"
+                    f" принимает {allowed} — уберите лишние (лимит — max_refs в"
+                    " config/providers.yaml)."
+                )
         provider = self.registry.provider(route.provider)
         return self.pricing.cost(route, provider.usage(route, request))
+
+    def _load_refs(self, channel: str, request: AnyRequest) -> list[RefImage]:
+        """Байты референсов для провайдера. Только файлы канона канала (принципы 9, 13); файл
+        должен быть на месте и совпадать с хэшем запроса — иначе кэш соврал бы (принцип 8)."""
+        if not isinstance(request, ImageRequest):
+            return []
+        canon = self.paths.canon_dir(channel).resolve()
+        loaded: list[RefImage] = []
+        for ref in request.refs:
+            path = (self.paths.root / ref.path).resolve()
+            if not path.is_relative_to(canon):
+                raise RouteError(
+                    f"Референс {ref.path} — не из канона канала {channel}: референсами служат"
+                    " только опорные портреты и кадры стиля (принцип 13)."
+                )
+            if not path.is_file():
+                raise RouteError(f"Референс {ref.path} не найден — пересоберите запрос.")
+            data = path.read_bytes()
+            if hashlib.sha256(data).hexdigest() != ref.sha256:
+                raise RouteError(
+                    f"Референс {ref.path} изменился после расчёта хэша — пересоберите запрос."
+                )
+            mime_type = image_mime(data)
+            if mime_type is None:
+                raise RouteError(f"Референс {ref.path} — не PNG, JPEG или WEBP.")
+            loaded.append(RefImage(data=data, mime_type=mime_type))
+        return loaded
+
+    def _asset_dir(self, channel: str, ctx: CallContext, route: Route) -> Path:
+        """Каталог файла результата: внутри выпуска или, без выпуска, внутри канона канала."""
+        if ctx.episode_id is not None:
+            home = self.paths.episode_dir(channel, ctx.episode_id)
+            default = self.paths.media_dir(channel, ctx.episode_id) / route.stage
+        else:
+            home = self.paths.canon_dir(channel)
+            default = self.paths.canon_cache_dir(channel, route.stage)
+        if ctx.asset_dir is None:
+            return default
+        if not ctx.asset_dir.resolve().is_relative_to(home.resolve()):
+            raise RouteError(
+                f"Каталог результата {ctx.asset_dir} — вне {home.relative_to(self.paths.root)}:"
+                " файлы вызова лежат в своём выпуске или в каноне своего канала."
+            )
+        return ctx.asset_dir
 
     def _reserve(
         self, conn: sqlite3.Connection, entry: LedgerContext, estimate: Cost, call_id: str
@@ -238,23 +328,25 @@ class Gateway:
         route: Route,
         digest: str,
         result: Result,
+        asset_dir: Path,
     ) -> Path:
-        """Файл результата — в `media/<этап>/`, строка `assets` — индекс кэша (принцип 8)."""
-        assert ctx.episode_id is not None and result.data is not None
+        """Файл результата — в `asset_dir`, строка `assets` — индекс кэша (принцип 8)."""
+        assert result.data is not None
         name = f"{ctx.shot_id or route.stage}-{digest[:16]}.{result.ext or 'bin'}"
-        path = self.paths.media_dir(channel, ctx.episode_id) / route.stage / name
+        path = asset_dir / name
         write_bytes_atomic(path, result.data)
         with conn:
             version = conn.execute(
                 "SELECT COALESCE(MAX(version), 0) + 1 FROM assets"
-                " WHERE episode_id = ? AND shot_id IS ? AND kind = ?",
-                (ctx.episode_id, ctx.shot_id, route.stage),
+                " WHERE channel = ? AND episode_id IS ? AND shot_id IS ? AND kind = ?",
+                (channel, ctx.episode_id, ctx.shot_id, route.stage),
             ).fetchone()[0]
             conn.execute(
-                "INSERT INTO assets (id, episode_id, shot_id, kind, version, path, input_hash,"
-                " status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ready', ?)",
+                "INSERT INTO assets (id, channel, episode_id, shot_id, kind, version, path,"
+                " input_hash, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ready', ?)",
                 (
                     uuid.uuid4().hex,
+                    channel,
                     ctx.episode_id,
                     ctx.shot_id,
                     route.stage,
@@ -273,12 +365,26 @@ class Gateway:
             raise RouteError(f"Выпуск «{episode_id}» не найден.")
         return str(row["channel"])
 
-    def _require_channel(self, conn: sqlite3.Connection, episode_id: str | None) -> str:
-        if episode_id is None:
+    def _call_channel(
+        self, conn: sqlite3.Connection, episode_id: str | None, channel: str | None
+    ) -> str:
+        """Канал вызова: канал выпуска или названный. Без выпуска канал обязателен и должен быть;
+        с выпуском — совпадать с каналом выпуска (каналы изолированы, принцип 9)."""
+        if episode_id is not None:
+            own = self._channel_of(conn, episode_id)
+            if channel is not None and channel != own:
+                raise RouteError(
+                    f"Выпуск «{episode_id}» — канала {own}, а вызов назвал канал {channel}."
+                )
+            return own
+        if channel is None:
             raise RouteError(
                 "Платный вызов без выпуска должен назвать канал (CallContext.channel)."
             )
-        return self._channel_of(conn, episode_id)
+        row = conn.execute("SELECT 1 FROM channels WHERE id = ?", (channel,)).fetchone()
+        if row is None:
+            raise RouteError(f"Канал «{channel}» не найден.")
+        return channel
 
 
 def default_providers(settings: Settings) -> dict[str, Provider]:

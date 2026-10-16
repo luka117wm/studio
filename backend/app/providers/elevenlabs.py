@@ -4,7 +4,7 @@
 `/v1/user/subscription`, а не из профиля канала. Ключу нужно право User (чтение подписки).
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,6 +16,7 @@ from app.providers.base import (
     AnyRequest,
     CharQuota,
     KeyStatus,
+    RefImage,
     Result,
     Route,
     RouteError,
@@ -45,7 +46,9 @@ class ElevenLabsProvider:
             raise RouteError(f"{TITLE} в этом этапе принимает только голос, а не «{request.kind}».")
         return request_usage(request)
 
-    async def call(self, route: Route, request: AnyRequest) -> Result:
+    async def call(
+        self, route: Route, request: AnyRequest, refs: Sequence[RefImage] = ()
+    ) -> Result:
         raise NotImplementedError("Голос ElevenLabs появится в модуле голоса (M7).")
 
     async def check(self, expected_models: Collection[str] = ()) -> KeyStatus:

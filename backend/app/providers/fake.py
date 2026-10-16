@@ -5,11 +5,12 @@
 """
 
 import hashlib
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 
 from app.providers.base import (
     AnyRequest,
     KeyStatus,
+    RefImage,
     Result,
     Route,
     Usage,
@@ -24,13 +25,17 @@ class FakeProvider:
 
     def __init__(self) -> None:
         self.calls: list[tuple[Route, AnyRequest]] = []
+        self.refs: list[list[RefImage]] = []  # байты референсов каждого вызова
         self.errors: list[Exception] = []  # следующий вызов бросит первое из них
 
     def usage(self, route: Route, request: AnyRequest) -> list[Usage]:
         return request_usage(request)
 
-    async def call(self, route: Route, request: AnyRequest) -> Result:
+    async def call(
+        self, route: Route, request: AnyRequest, refs: Sequence[RefImage] = ()
+    ) -> Result:
         self.calls.append((route, request))
+        self.refs.append(list(refs))
         if self.errors:
             raise self.errors.pop(0)
         seed = f"{route.model}\n{request.model_dump_json()}".encode()

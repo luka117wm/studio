@@ -35,15 +35,25 @@ stages:
       opus-5-5: {provider: anthropic, model: claude-opus-5-5}
     profiles: {economy: sonnet-5, standard: opus-5, premium: opus-5-5}
 
-  # Кадры (M6). `size` выбирает цену: 1K, 2K, 4K.
+  # Кадры (M6). `size` выбирает цену: 1K, 2K, 4K. `max_refs` — референсов за вызов: у моделей
+  # Gemini 3 до 14 (ai.google.dev, «Image generation»; разбивка по видам — docs/providers.md).
   images:
     kind: image
     catalog:
-      nb2-lite: {provider: gemini, model: gemini-3.1-flash-lite-image, params: {size: 1K}}
-      nb2: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 1K}}
-      nb2-2k: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 2K}}
-      nb-pro: {provider: gemini, model: gemini-3-pro-image, params: {size: 2K}}
+      nb2-lite:
+        {provider: gemini, model: gemini-3.1-flash-lite-image, params: {size: 1K}, max_refs: 14}
+      nb2: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 1K}, max_refs: 14}
+      nb2-2k: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 2K}, max_refs: 14}
+      nb-pro: {provider: gemini, model: gemini-3-pro-image, params: {size: 2K}, max_refs: 14}
     profiles: {economy: nb2-lite, standard: nb2, premium: nb-pro}
+
+  # Листы опорных портретов и кадры стиля (M5.4): эталон внешности делается один раз — одна модель
+  # Pro во всех профилях (устав M5, решение 5).
+  anchors:
+    kind: image
+    catalog:
+      nb-pro-1k: {provider: gemini, model: gemini-3-pro-image, params: {size: 1K}, max_refs: 14}
+    profiles: {economy: nb-pro-1k, standard: nb-pro-1k, premium: nb-pro-1k}
 
   # Голос (M7). Порядок выбора модели голоса — docs/providers.md.
   voice:

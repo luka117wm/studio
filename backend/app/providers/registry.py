@@ -31,6 +31,8 @@ class CatalogEntry(StrictModel):
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
     params: dict[str, Any] = Field(default_factory=dict)
+    # Референсов за вызов (картинки): лимит модели по документации провайдера; нет — не принимает.
+    max_refs: int | None = Field(default=None, ge=1)
 
 
 class StageConfig(StrictModel):
@@ -46,6 +48,9 @@ class StageConfig(StrictModel):
         for profile, key in self.profiles.items():
             if key not in self.catalog:
                 raise ValueError(f"profile {profile!r} points to {key!r}, not in catalog")
+        for key, entry in self.catalog.items():
+            if entry.max_refs is not None and self.kind != "image":
+                raise ValueError(f"catalog {key!r}: max_refs is only for image stages")
         return self
 
 
@@ -170,4 +175,5 @@ class Registry:
             provider=entry.provider,
             model=entry.model,
             params=dict(entry.params),
+            max_refs=entry.max_refs,
         )

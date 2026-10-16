@@ -119,6 +119,10 @@ class StudioPaths:
         """Опорные кадры стиля канала."""
         return self.anchors_root(channel) / "style"
 
+    def canon_cache_dir(self, channel: str, stage: str) -> Path:
+        """Файлы платных вызовов уровня канала, если вызывающий не назвал каталог (M5.3)."""
+        return self.canon_dir(channel) / "cache" / check_id(stage, "stage")
+
     # --- выпуск: data/projects/<channel>/<episode>/{director/, project.json, media/, ...} -------
 
     def episode_dir(self, channel: str, episode: str) -> Path:
