@@ -79,9 +79,13 @@ describe('слой «Персонажи»', () => {
     expect(within(quartermaster).getByRole('img').getAttribute('data-status')).toBe('failed')
     expect(within(form).getByRole('region', { name: 'Облики' }).textContent).toContain('5 обликов · 3 листа готово')
 
-    // Карточка выбирает облик: под карточками — его форма
+    // Карточка выбирает облик и открывает его лист (M5.9); после Esc под карточками — форма облика
     await userEvent.click(quartermaster)
     await waitFor(() => expect(window.location.search).toContain('appearance=you%40quartermaster-41'))
+    expect(window.location.search).toContain('sheet=you%40quartermaster-41')
+    expect(await screen.findByRole('dialog', { name: 'Лист опорных портретов: You · квартирмейстер · 41 год · Карибы 1716' })).toBeTruthy()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /^Лист опорных портретов/ })).toBeNull())
     expect(within(form).getByRole('region', { name: 'Облик you@quartermaster-41' })).toBeTruthy()
   })
 

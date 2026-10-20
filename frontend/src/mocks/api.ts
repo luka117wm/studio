@@ -1119,6 +1119,21 @@ export const CANON_CHARACTERS: Record<ChannelId, Record<string, LayerState<Chara
             appearances: [look({ id: 'captain@caribbean-1716', label: 'капитан', period: 'caribbean-1716', age: 48, build: 'Tall, upright', clothing: 'Worn blue coat, sash' })],
           },
         },
+        {
+          // Другое лицо: лист Капитана выбран в v001 и устарел целиком (M5.9)
+          info: { version: 'v002', based_on: 'v001', published_at: '2026-09-20T09:00:00+00:00' },
+          data: {
+            id: 'captain',
+            label: 'Капитан (второй план)',
+            nature: {
+              personality: 'Says little, waits for the crew to decide on its own.',
+              posture: 'Stands half-turned, hands behind his back.',
+              manner: 'Never raises his voice, keeps his distance from the crew.',
+              face: 'Lean face, deep nasolabial folds, a white scar across the chin.',
+            },
+            appearances: [look({ id: 'captain@caribbean-1716', label: 'капитан', period: 'caribbean-1716', age: 48, build: 'Tall, upright', clothing: 'Worn blue coat, sash' })],
+          },
+        },
       ],
       draft: null,
     },
@@ -1173,15 +1188,48 @@ export const SHEET_ANGLES: [string, string, string][] = [
   ['detail', 'Деталь', 'руки и предметы'],
 ]
 
-/** Выбрано ракурсов в листе облика (по порядку ракурсов): 6 — готов, 3 — наполовину, нет записи — не собран */
+/** Листы артборда — выбрано ракурсов по порядку (6 — готов, 3 — наполовину, нет записи — не собран), по 2 кандидата на
+ *  ракурс. Выбор сделан в первой версии персонажа с обликом: у Капитана в v002 другое лицо — лист устарел целиком */
 const SHEETS_CHOSEN: Record<string, number> = {
   'you@powder-monkey-11': 6,
   'you@landsman-19': 6,
   'you@able-seaman-23': 6,
   'you@boatswain-34': 3,
+  'captain@caribbean-1716': 6,
   'otto@england-1347': 6,
   'otto@london-1850': 6,
   'otto@tenochtitlan-1500': 6,
+}
+
+/** Кандидат листа в моке — строка `sheet.json` бэкенда */
+export interface MockCandidate {
+  id: string
+  slot: string
+  n: number
+  status: 'ready' | 'rejected' | 'failed'
+  version: string
+  error: string | null
+  seed: number
+  usd_micro: number
+  created_at: string
+}
+
+/** Лист облика в моке: кандидаты всех сборок и выбор ракурс → id кандидата (`chosen.json`) */
+export interface MockSheet {
+  candidates: MockCandidate[]
+  chosen: Record<string, string>
+}
+
+interface MockStale {
+  whole: string[]
+  body: string[]
+  missing: boolean
+}
+
+/** Удавшийся кандидат: id — ракурс, номер и хэш входов (облик, версия, ракурс, номер) */
+export function mockCandidate(appearanceId: string, version: string, slot: string, n: number): MockCandidate {
+  const hash = hex16(`${appearanceId}:${version}:${slot}:${n}`)
+  return { id: `${slot}-${n}-${hash}`, slot, n, status: 'ready', version, error: null, seed: parseInt(hash.slice(0, 7), 16), usd_micro: ANCHOR_PRICE, created_at: NOW }
 }
 
 /** Шаблоны кадров стиля — `config/canon.yaml → style_frames` */
@@ -1196,6 +1244,39 @@ export const STYLE_FRAMES: [string, string][] = [
 
 /** Цена Pro 1K из `config/pricing.yaml`, микродоллары: лист 12 картинок, ракурс 2, кадры стиля 6 */
 const ANCHOR_PRICE = 134_000
+/** Кандидатов на ракурс за одну сборку — `config/canon.yaml → anchors.candidates` */
+const ANCHOR_CANDIDATES = 2
+/** Устаревание листа (docs/canon_schema.md, «Устаревание»): эти поля — весь лист, одежда — три ракурса */
+const SHEET_FIELDS = ['nature.face', 'face', 'build', 'hair', 'age'] as const
+const BODY_FIELDS = ['clothing', 'props', 'wear'] as const
+const BODY_ANGLES: ReadonlySet<string> = new Set(['full_body', 'in_action', 'detail'])
+
+/** 16 hex-знаков от строки — как хэш входов в id кандидата бэкенда (`front-1-3f9ab2c4d5e6f7a8`), детерминированно */
+function hex16(text: string): string {
+  let a = 0x811c9dc5
+  let b = 0x9747b28c
+  for (let i = 0; i < text.length; i += 1) {
+    a = Math.imul(a ^ text.charCodeAt(i), 0x01000193) >>> 0
+    b = Math.imul(b ^ text.charCodeAt(i), 0x5bd1e995) >>> 0
+  }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')
+}
+
+/** Миниатюра кандидата в моке: силуэт и подпись поверх прозрачного фона. Это картинка-заглушка (данные), не цвет
+ *  интерфейса: только белый с прозрачностью */
+export function thumbSvg(caption: string, width: number, ratio = 4 / 3): string {
+  const height = Math.round(width * ratio)
+  const head = Math.round(width * 0.16)
+  // Атрибуты без имён вида `fill-*`/`text-*`: сканер утилит Tailwind в тесте токенов принял бы их за классы
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><g fill="white">`,
+    `<rect width="${width}" height="${height}" opacity="0.04"/>`,
+    `<circle cx="${width / 2}" cy="${Math.round(height * 0.36)}" r="${head}" opacity="0.16"/>`,
+    `<rect x="${Math.round(width * 0.24)}" y="${Math.round(height * 0.36 + head * 1.3)}" width="${Math.round(width * 0.52)}" height="${height}" rx="${head}" opacity="0.12"/>`,
+    `<text x="8" y="${height - 12}" font-family="sans-serif" font-size="13" opacity="0.5">${caption}</text>`,
+    '</g></svg>',
+  ].join('')
+}
 const STYLE_ANCHOR_FIELDS = ['render', 'material', 'processing', 'optics', 'light'] as const
 
 function anchorLine(title: string, label: string, images: number) {
@@ -1234,6 +1315,8 @@ interface StyleState extends LayerState<Style> {
 export interface MockResponse {
   status: number
   body: unknown
+  /** Не JSON: тело — строка этого типа (миниатюра кандидата — SVG) */
+  contentType?: string
 }
 
 const ok = (body: unknown, status = 200): MockResponse => ({ status, body })
@@ -1283,6 +1366,24 @@ export function createMockApi() {
     otto: costSummaries.otto.budget.limit.usd_micro,
   }
   let canonJobs = 0
+  /** Джобы опорных: ответ постановки — `queued`, а `GET /jobs/{id}` — уже итог. Мок рисует сразу, конец джоба экрану
+   *  сообщает поток SSE (в тестах — фейковый) */
+  const canonJobRecords = new Map<string, Job>()
+  /** Листы обликов (M5.9) — как `sheet.json` и `chosen.json` бэкенда: кандидаты всех сборок и выбор по ракурсу */
+  const canonSheets: Record<ChannelId, Map<string, MockSheet>> = { cursus: new Map(), otto: new Map() }
+  for (const channel of ['cursus', 'otto'] as const) {
+    for (const [id, count] of Object.entries(SHEETS_CHOSEN)) {
+      const state = canonCharacters[channel].get(id.split('@')[0]!)
+      const first = state?.versions.find((v) => v.data.appearances.some((a) => a.id === id))
+      if (!first) continue
+      const sheet: MockSheet = { candidates: [], chosen: {} }
+      for (const [slot] of SHEET_ANGLES.slice(0, count)) {
+        for (let n = 1; n <= ANCHOR_CANDIDATES; n += 1) sheet.candidates.push(mockCandidate(id, first.info.version, slot, n))
+        sheet.chosen[slot] = sheet.candidates.at(-ANCHOR_CANDIDATES)!.id
+      }
+      canonSheets[channel].set(id, sheet)
+    }
+  }
 
   /** Создание референса: таймкоды есть — реплики и длительность по ним, нет — 422 как у бэкенда */
   function createReference(body: { channel: ChannelId; url?: string; subtitles: string }): MockResponse {
@@ -2061,33 +2162,50 @@ export function createMockApi() {
       return fail(409, `Эпоха ${period} не опубликована — опубликуйте её на экране «Канон».`)
     }
     const cost = STYLE_FRAMES.length * ANCHOR_PRICE
+    const refusal = budgetRefusalOf(channel, cost)
+    if (refusal) return refusal
+    style.frames = last.info.version // мок «дорисует» кадры: экран увидит их после конечного события джоба
+    return canonJob('style_anchors', channel, { channel, target: 'style', period }, cost, {
+      target: 'style',
+      done: STYLE_FRAMES.length,
+      charged: STYLE_FRAMES.length,
+      cached: 0,
+      failed: 0,
+      spent_usd_micro: cost,
+    })
+  }
+
+  /** Месячный бюджет канала — до очереди: превышение — 409 `BudgetRefusal`, джоб не создаётся (docs/providers.md) */
+  function budgetRefusalOf(channel: ChannelId, cost: number): MockResponse | null {
     const { budget } = costSummaries[channel]
     const spent = budget.charged.usd_micro + budget.reserved.usd_micro
     const limit = monthlyLimit[channel]
-    if (spent + cost > limit) {
-      const head =
-        spent >= limit
-          ? `Месячный лимит ${formatUsd(limit)} исчерпан, потрачено ${formatUsd(spent)}`
-          : `Месячный лимит ${formatUsd(limit)}: потрачено ${formatUsd(spent)}, операция — ${formatUsd(cost)}, не хватает ${formatUsd(spent + cost - limit)}`
-      return fail(409, {
-        code: 'budget_exceeded',
-        level: 'month',
-        limit_usd_micro: limit,
-        spent_usd_micro: spent,
-        queued_usd_micro: 0,
-        cost_usd_micro: cost,
-        message: `${head}; поднять лимит можно в настройках канала.`,
-      } satisfies BudgetRefusal as unknown as Record<string, unknown>)
-    }
+    if (spent + cost <= limit) return null
+    const head =
+      spent >= limit
+        ? `Месячный лимит ${formatUsd(limit)} исчерпан, потрачено ${formatUsd(spent)}`
+        : `Месячный лимит ${formatUsd(limit)}: потрачено ${formatUsd(spent)}, операция — ${formatUsd(cost)}, не хватает ${formatUsd(spent + cost - limit)}`
+    return fail(409, {
+      code: 'budget_exceeded',
+      level: 'month',
+      limit_usd_micro: limit,
+      spent_usd_micro: spent,
+      queued_usd_micro: 0,
+      cost_usd_micro: cost,
+      message: `${head}; поднять лимит можно в настройках канала.`,
+    } satisfies BudgetRefusal as unknown as Record<string, unknown>)
+  }
+
+  /** Джоб опорных уровня канала: ответ — `queued`, итог `result` — в `GET /jobs/{id}` */
+  function canonJob(kind: string, channel: ChannelId, payload: Job['payload'], cost: number, result: NonNullable<Job['result']>): MockResponse {
     canonJobs += 1
-    style.frames = last.info.version // мок «дорисует» кадры: экран увидит их после конечного события джоба
     const job: Job = {
-      id: `job-style-anchors-${canonJobs}`,
-      kind: 'style_anchors',
+      id: `job-${kind.replaceAll('_', '-')}-${canonJobs}`,
+      kind,
       status: 'queued',
       progress: 0,
       message: null,
-      payload: { channel, target: 'style', period },
+      payload,
       result: null,
       error: null,
       attempts: 0,
@@ -2102,6 +2220,8 @@ export function createMockApi() {
       cost_stage: 'anchors',
       channel,
     }
+    const total = Number(result.done)
+    canonJobRecords.set(job.id, { ...job, status: 'done', progress: 1, message: `Готово ${total} из ${total}: сбоев 0`, result, attempts: 1, started_at: NOW, finished_at: NOW })
     return ok(job, 201)
   }
 
@@ -2190,28 +2310,207 @@ export function createMockApi() {
     return found?.info.version ?? null
   }
 
-  /** Лист облика против последней опубликованной версии с ним: ракурсы по порядку, по 2 кандидата на выбранный */
+  /** Облик в версии персонажа: неизменяемое и сам облик — для устаревания листа */
+  function appearanceAt(channel: ChannelId, appearanceId: string, version: string): { nature: Character['nature']; look: Appearance } | null {
+    const data = canonCharacters[channel].get(appearanceId.split('@')[0]!)?.versions.find((v) => v.info.version === version)?.data
+    const found = data?.appearances.find((a) => a.id === appearanceId)
+    return data && found ? { nature: data.nature, look: found } : null
+  }
+
+  /** Что изменилось у облика между версией выбора и текущей — как `_sheet_picks` бэкенда; null — ракурс годен */
+  function slotStale(channel: ChannelId, appearanceId: string, from: string, to: string, slot: string): MockStale | null {
+    if (from === to) return null
+    const before = appearanceAt(channel, appearanceId, from)
+    const after = appearanceAt(channel, appearanceId, to)
+    if (!before || !after) return { whole: [], body: [], missing: true }
+    const value = (side: NonNullable<typeof before>, name: string) => JSON.stringify(name === 'nature.face' ? side.nature.face : side.look[name as keyof Appearance])
+    const changed = (names: readonly string[]) => names.filter((name) => value(before, name) !== value(after, name))
+    const whole = changed(SHEET_FIELDS)
+    const body = BODY_ANGLES.has(slot) ? changed(BODY_FIELDS) : []
+    return whole.length || body.length ? { whole, body, missing: false } : null
+  }
+
+  function sheetOf(channel: ChannelId, appearanceId: string): MockSheet {
+    const sheets = canonSheets[channel]
+    if (!sheets.has(appearanceId)) sheets.set(appearanceId, { candidates: [], chosen: {} })
+    return sheets.get(appearanceId)!
+  }
+
+  /** Лист облика против последней опубликованной версии с ним: ракурсы по порядку, устаревание по правилу бэкенда */
   function appearanceAnchors(channel: ChannelId, appearanceId: string): AnchorSetState {
     const version = latestWith(channel, appearanceId)
-    const chosen = version ? (SHEETS_CHOSEN[appearanceId] ?? 0) : 0
-    const slots = SHEET_ANGLES.map(([slot, label, hint], i): AnchorSlot => {
-      if (i >= chosen) return { slot, label, hint, candidates: [], chosen: null, stale: null }
-      const id = `${slot}-1-${(0x5b2c + i * 613).toString(16)}`
-      const file = `channels/${channel}/canon/anchors/${appearanceId}/candidates/${id}.jpg`
-      const candidate = (n: number) => ({ id: `${slot}-${n}-${(0x5b2c + i * 613 + n).toString(16)}`, n, status: 'ready' as const, file, error: null, seed: 52_000 + i * 17 + n, version: version!, ref: null, usd: money(ANCHOR_PRICE), cached: false, created_at: NOW })
-      return { slot, label, hint, candidates: [candidate(1), candidate(2)], chosen: { candidate: id, file, seed: 52_000 + i * 17, version: version!, chosen_at: NOW, usd: money(ANCHOR_PRICE) }, stale: null }
+    const sheet = sheetOf(channel, appearanceId)
+    const dir = `channels/${channel}/canon/anchors/${appearanceId}`
+    const stale = new Map<string, MockStale>()
+    const slots = SHEET_ANGLES.map(([slot, label, hint]): AnchorSlot => {
+      const pick = sheet.candidates.find((c) => c.id === sheet.chosen[slot] && c.status === 'ready')
+      const reason = pick && version ? slotStale(channel, appearanceId, pick.version, version, slot) : null
+      if (reason) stale.set(slot, reason)
+      return {
+        slot,
+        label,
+        hint,
+        candidates: sheet.candidates
+          .filter((c) => c.slot === slot)
+          .map((c) => ({
+            id: c.id,
+            n: c.n,
+            status: c.status,
+            file: c.status === 'failed' ? null : `${dir}/${c.status === 'rejected' ? 'rejected' : 'candidates'}/${c.id}.jpg`,
+            error: c.error,
+            seed: c.seed,
+            version: c.version,
+            ref: null,
+            usd: money(c.usd_micro),
+            cached: false,
+            created_at: c.created_at,
+          })),
+        chosen: pick ? { candidate: pick.id, file: `${dir}/candidates/${pick.id}.jpg`, seed: pick.seed, version: pick.version, chosen_at: NOW, usd: money(pick.usd_micro) } : null,
+        stale: reason ? (reason.missing ? 'версии выбора нет в каноне — пересоберите' : `в ${version} изменились ${[...reason.whole, ...reason.body].join(', ')}`) : null,
+      }
     })
+    const chosen = slots.filter((slot) => slot.chosen).length
+    const reasons = [...stale.values()]
+    const whole = [...new Set(reasons.flatMap((r) => r.whole))]
+    const summary = !reasons.length
+      ? null
+      : whole.length
+        ? `Лист устарел: в ${version} изменились ${whole.join(', ')} — пересоберите лист.`
+        : reasons.some((r) => r.missing)
+          ? 'Лист устарел: версии, с которой сделан выбор, нет в каноне — пересоберите лист.'
+          : `Устарели ракурсы ${slots
+              .filter((slot) => stale.has(slot.slot))
+              .map((slot) => `«${slot.label}»`)
+              .join(', ')}: в ${version} изменились ${[...new Set(reasons.flatMap((r) => r.body))].join(', ')} — перегенерируйте их.`
     return {
       channel,
       target: appearanceId,
       version,
-      status: chosen === 0 ? 'missing' : chosen < SHEET_ANGLES.length ? 'partial' : 'ready',
+      status: chosen === 0 ? 'missing' : stale.size ? 'outdated' : chosen < SHEET_ANGLES.length ? 'partial' : 'ready',
       chosen,
       total: SHEET_ANGLES.length,
-      stale: null,
+      stale: summary,
       slots,
-      spent: money(chosen * 2 * ANCHOR_PRICE),
+      spent: money(sheet.candidates.reduce((sum, c) => sum + c.usd_micro, 0)),
     }
+  }
+
+  /** Смета листа по адресу облика: строка `stale` — устаревшие ракурсы */
+  function appearanceEstimate(channel: ChannelId, appearanceId: string): AnchorsEstimate {
+    const n = appearanceAnchors(channel, appearanceId).slots.filter((slot) => slot.stale).length
+    const label = `${n} ${ru(n, ['ракурс', 'ракурса', 'ракурсов'])} × ${ANCHOR_CANDIDATES} кандидата`
+    return { ...anchorsEstimate, stale: n ? anchorLine('Пересобрать устаревшие ракурсы', label, n * ANCHOR_CANDIDATES) : null }
+  }
+
+  /** Канон листа опубликован — версия персонажа с обликом; нет — 409 с тем, что опубликовать */
+  function sheetVersion(channel: ChannelId, appearanceId: string): string | MockResponse {
+    if (!canonStyles[channel].versions.length) return fail(409, 'Стиль канала не опубликован — опубликуйте его на экране «Канон», потом собирайте опорные.')
+    const version = latestWith(channel, appearanceId)
+    if (!version) return fail(409, `Облик ${appearanceId} не опубликован — опубликуйте персонажа с этим обликом на экране «Канон», потом собирайте лист.`)
+    const period = appearanceAt(channel, appearanceId, version)!.look.period
+    if (!canonPeriods[channel].get(period)?.versions.length) return fail(409, `Эпоха ${period} облика ${appearanceId} не опубликована — опубликуйте её на экране «Канон».`)
+    return version
+  }
+
+  /** Фас-референс годен: выбранный фас, если лицо с его версии не менялось, или удавшийся фас версии заказа */
+  function hasFront(channel: ChannelId, appearanceId: string, version: string): boolean {
+    const sheet = sheetOf(channel, appearanceId)
+    const pick = sheet.candidates.find((c) => c.id === sheet.chosen.front && c.status === 'ready')
+    if (pick && !slotStale(channel, appearanceId, pick.version, version, 'front')) return true
+    return sheet.candidates.some((c) => c.slot === 'front' && c.status === 'ready' && c.version === version)
+  }
+
+  /** Заказ листа: кандидаты рисуются сразу (тот же кандидат — из «кэша», $0), джоб — с итогом */
+  function drawSheet(channel: ChannelId, appearanceId: string, version: string, kind: string, order: [string, number][]): MockResponse {
+    const cost = order.length * ANCHOR_PRICE
+    const refusal = budgetRefusalOf(channel, cost)
+    if (refusal) return refusal
+    const sheet = sheetOf(channel, appearanceId)
+    let charged = 0
+    for (const [slot, n] of order) {
+      const candidate = mockCandidate(appearanceId, version, slot, n)
+      if (sheet.candidates.some((c) => c.id === candidate.id && c.status !== 'failed')) continue
+      sheet.candidates = sheet.candidates.filter((c) => !(c.status === 'failed' && c.slot === slot && c.n === n && c.version === version))
+      sheet.candidates.push(candidate)
+      charged += 1
+    }
+    const items = order.map(([slot, n]) => ({ key: `${slot}-${n}`, slot, label: SHEET_ANGLES.find(([id]) => id === slot)![1], n }))
+    return canonJob(kind, channel, { channel, target: appearanceId, version, items }, cost, {
+      target: appearanceId,
+      done: order.length,
+      charged,
+      cached: order.length - charged,
+      failed: 0,
+      spent_usd_micro: charged * ANCHOR_PRICE,
+    })
+  }
+
+  const nextNumber = (sheet: MockSheet, slot: string) => Math.max(0, ...sheet.candidates.filter((c) => c.slot === slot).map((c) => c.n)) + 1
+  const numbers = (from: number) => Array.from({ length: ANCHOR_CANDIDATES }, (_, i) => from + i)
+  const angleOf = (slot: string) => SHEET_ANGLES.find(([id]) => id === slot)
+  const noAngle = (slot: string) => fail(404, `Ракурса «${slot}» в листе нет — есть: ${SHEET_ANGLES.map(([id]) => id).join(', ')}.`)
+  const needFront = (appearanceId: string, label: string, version: string) =>
+    fail(409, `Для ракурса «${label}» нужен фас облика ${appearanceId} (${version}) — соберите лист или перегенерируйте фас.`)
+
+  function collectSheet(channel: ChannelId, appearanceId: string): MockResponse {
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    return drawSheet(channel, appearanceId, version, 'anchor_sheet', SHEET_ANGLES.flatMap(([slot]) => numbers(1).map((n): [string, number] => [slot, n])))
+  }
+
+  function regenerateAngle(channel: ChannelId, appearanceId: string, slot: string): MockResponse {
+    const angle = angleOf(slot)
+    if (!angle) return noAngle(slot)
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    if (slot !== 'front' && !hasFront(channel, appearanceId, version)) return needFront(appearanceId, angle[1], version)
+    const start = nextNumber(sheetOf(channel, appearanceId), slot)
+    return drawSheet(channel, appearanceId, version, 'anchor_angle', numbers(start).map((n): [string, number] => [slot, n]))
+  }
+
+  function regenerateStale(channel: ChannelId, appearanceId: string): MockResponse {
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    const stale = appearanceAnchors(channel, appearanceId).slots.filter((slot) => slot.stale)
+    if (!stale.length) return fail(409, `Устаревших ракурсов в листе ${appearanceId} нет — пересобирать нечего.`)
+    if (stale[0]!.slot !== 'front' && !hasFront(channel, appearanceId, version)) return needFront(appearanceId, stale[0]!.label, version)
+    const sheet = sheetOf(channel, appearanceId)
+    return drawSheet(channel, appearanceId, version, 'anchor_angle', stale.flatMap(({ slot }) => numbers(nextNumber(sheet, slot)).map((n): [string, number] => [slot, n])))
+  }
+
+  /** Выбор и отбраковка — одна запись; отказы — тексты бэкенда (docs/canon_schema.md, «API опорных») */
+  function pickCandidate(channel: ChannelId, appearanceId: string, slot: string, action: string, candidateId: string): MockResponse | null {
+    const angle = angleOf(slot)
+    if (!angle) return noAngle(slot)
+    const sheet = sheetOf(channel, appearanceId)
+    const candidate = sheet.candidates.find((c) => c.id === candidateId && c.slot === slot)
+    if (!candidate) return fail(404, `У ракурса «${angle[1]}» облика ${appearanceId} нет кандидата ${candidateId} — обновите лист.`)
+    if (action === 'choose') {
+      if (candidate.status === 'rejected') return fail(409, `Кандидат ${candidateId} отбракован — выберите другого.`)
+      if (candidate.status === 'failed') return fail(409, `Кандидат ${candidateId} не получился — перегенерируйте ракурс «${angle[1]}».`)
+      sheet.chosen[slot] = candidateId
+      return ok(appearanceAnchors(channel, appearanceId))
+    }
+    if (action !== 'reject') return null
+    if (candidate.status === 'rejected') return fail(409, `Кандидат ${candidateId} уже отбракован.`)
+    if (candidate.status === 'failed') return fail(409, `Кандидат ${candidateId} не получился — отбраковывать нечего.`)
+    if (sheet.chosen[slot] === candidateId) {
+      return fail(409, `Кандидат ${candidateId} выбран для ракурса «${angle[1]}» — выберите другого, потом отбракуйте этого.`)
+    }
+    candidate.status = 'rejected'
+    return ok(appearanceAnchors(channel, appearanceId))
+  }
+
+  /** Миниатюра кандидата — SVG-заглушка с ракурсом и номером; ширина 160 или 320, как у бэкенда */
+  function candidateThumb(channel: ChannelId, target: string, candidateId: string, width: string | null): MockResponse {
+    const w = Number(width ?? 320)
+    if (w !== 160 && w !== 320) return shapeError(['query', 'w'], `Ширины миниатюры ${width} нет — есть 160 и 320.`, 'thumb_width')
+    const slots = target === 'style' ? styleAnchors(canonStyles[channel], channel).slots : appearanceAnchors(channel, target).slots
+    const slot = slots.find((s) => s.candidates.some((c) => c.id === candidateId))
+    const candidate = slot?.candidates.find((c) => c.id === candidateId)
+    if (!slot || !candidate) return fail(404, `У ${target === 'style' ? 'кадров стиля' : `листа ${target}`} нет кандидата ${candidateId} — обновите страницу.`)
+    if (!candidate.file) return fail(404, `Кандидат ${candidateId} не получился, картинки нет — перегенерируйте ракурс.`)
+    return { status: 200, body: thumbSvg(`${slot.label} · ${candidate.n}`, w, target === 'style' ? 9 / 16 : 4 / 3), contentType: 'image/svg+xml' }
   }
 
   function canonSummary(channel: ChannelId, style: StyleState): CanonSummary {
@@ -2462,6 +2761,9 @@ export function createMockApi() {
     if (method === 'GET' && path === 'style/anchors') return ok(styleAnchors(style, channel))
     if (method === 'GET' && path === 'style/anchors/estimate') return ok(anchorsEstimate)
     if (method === 'POST' && path === 'style/anchors') return collectStyleAnchors(style, channel, (body as { period: string }).period)
+    if (method === 'GET' && rest[0] === 'anchors' && rest[1] && rest[2] && rest[3] === 'thumb' && rest.length === 4) {
+      return candidateThumb(channel, rest[1], rest[2], query.get('w'))
+    }
     if (method === 'GET' && path === 'needed') return ok(canonNeeded(channel))
     if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'periods' && rest[2]) return createNeededPeriod(channel, rest[2])
     if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'appearances' && rest[2]) return createNeededAppearance(channel, rest[2])
@@ -2472,7 +2774,14 @@ export function createMockApi() {
       }
       const sub = rest.slice(2).join('/')
       if (method === 'GET' && sub === 'anchors') return ok(appearanceAnchors(channel, id))
-      if (method === 'GET' && sub === 'anchors/estimate') return ok(anchorsEstimate)
+      if (method === 'GET' && sub === 'anchors/estimate') return ok(appearanceEstimate(channel, id))
+      if (method === 'POST' && sub === 'anchors') return collectSheet(channel, id)
+      if (method === 'POST' && sub === 'anchors/stale') return regenerateStale(channel, id)
+      const [, angle, action] = rest.slice(2)
+      if (method === 'POST' && rest[2] === 'anchors' && angle && action === 'regenerate' && rest.length === 5) return regenerateAngle(channel, id, angle)
+      if (method === 'POST' && rest[2] === 'anchors' && angle && action && rest.length === 5) {
+        return pickCandidate(channel, id, angle, action, (body as { candidate: string }).candidate)
+      }
       if (method === 'POST' && sub === 'copy') return copyAppearance(channel, id, body as { period: string; appearance_id: string })
       return null
     }
@@ -2558,6 +2867,17 @@ export function createMockApi() {
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
     if (method === 'GET' && path === '/slots') return ok(currentSlots())
     if (method === 'GET' && path === '/jobs') return ok(jobs)
+    if (parts[0] === 'jobs' && parts[1]) {
+      const id = decodeURIComponent(parts[1])
+      const job = canonJobRecords.get(id) ?? jobs.items.find((j) => j.id === id)
+      if (!job) return fail(404, `Джоба ${id} нет.`)
+      if (method === 'GET' && parts.length === 2) return ok(job)
+      if (method === 'POST' && parts[2] === 'cancel') {
+        const cancelled: Job = { ...job, status: 'cancelled', finished_at: NOW }
+        canonJobRecords.set(id, cancelled)
+        return ok(cancelled)
+      }
+    }
     if (method === 'GET' && path === '/bridge/settings') return ok(bridgeSettings)
     if (method === 'GET' && path === '/cost/summary') {
       return channel && costSummaries[channel] ? ok(costSummaries[channel]) : fail(422, 'Неизвестный канал.')
@@ -2653,7 +2973,12 @@ export function createMockApi() {
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
 
-  return { handle, episodes: state, projects, canon: { styles: canonStyles, periods: canonPeriods, characters: canonCharacters, monthlyLimit } }
+  return {
+    handle,
+    episodes: state,
+    projects,
+    canon: { styles: canonStyles, periods: canonPeriods, characters: canonCharacters, sheets: canonSheets, jobs: canonJobRecords, monthlyLimit },
+  }
 }
 
 export type MockApi = ReturnType<typeof createMockApi>

@@ -1,11 +1,11 @@
 /* Панель «Опорные кадры стиля» экрана 12 (480, layout.md): сетка шести шаблонов с подписями и статусом, устаревание
    после смены рендера, оптики или света, «Пересобрать (6, ~$0.80)» в выбранной эпохе — цена из сметы бэкенда до клика,
-   отказ бюджета и канона текстом, прогресс джоба из потока SSE. Картинки кадров на экране — M5.9: здесь рамка 16:9. */
+   отказ бюджета и канона текстом, прогресс джоба из потока SSE. Кадры — миниатюры 320 выбранных кандидатов (M5.9). */
 import { Image } from 'lucide-react'
 import { useState } from 'react'
 import type { AnchorSlot, CanonPeriodItem } from '@/types/canon'
 import { budgetRefusal } from '../../api/client'
-import { useAnchorsEstimate, useCollectStyleAnchors, useJobs, useStyleAnchors, type ChannelId } from '../../api/queries'
+import { anchorThumb, useAnchorsEstimate, useCollectStyleAnchors, useJobs, useStyleAnchors, type ChannelId } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
 import { Button, EmptyState, ProgressBar, Select, Skeleton, StatusGlyph, cn, type Status } from '../../ui'
 
@@ -81,8 +81,9 @@ export function StyleAnchors({ channel, published, periods }: StyleAnchorsProps)
             <li key={slot.slot} className="flex flex-col gap-1">
               <div
                 data-status={slotStatus(slot)}
-                className={cn('relative aspect-video rounded-clip border bg-hover', slot.stale ? 'border-warning' : 'border-line')}
+                className={cn('relative aspect-video overflow-hidden rounded-clip border bg-hover', slot.stale ? 'border-warning' : 'border-line')}
               >
+                {slot.chosen && <img src={anchorThumb(channel, 'style', slot.chosen.candidate)} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" />}
                 <span className="absolute top-0.5 left-1 font-script text-11 text-muted">{String(index + 1).padStart(2, '0')}</span>
                 <StatusGlyph status={slotStatus(slot)} label={`${slot.label}: ${slotStatusText(slot)}`} className="absolute right-1 bottom-1" />
               </div>

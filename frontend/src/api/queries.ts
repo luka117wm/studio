@@ -54,10 +54,14 @@ export const qk = {
   episodeLists: ['episodes', 'list'] as const,
   episodeList: (scope: ChannelScope) => ['episodes', 'list', scope] as const,
   episode: (id: string) => ['episodes', 'one', id] as const,
+  /** Префикс сводок расходов: конец любого джоба перезапрашивает их — платный джоб списал деньги */
+  cost: ['cost'] as const,
   costSummary: (channel: ChannelId) => ['cost', 'summary', channel] as const,
   slots: ['slots'] as const,
   format: (channel: ChannelId) => ['formats', channel] as const,
   jobs: ['jobs'] as const,
+  /** Джоб целиком, с payload и result (`GET /api/jobs/{id}`): снимок `qk.jobs` их не несёт */
+  job: (id: string) => ['job', id] as const,
   bridgeSettings: ['bridge', 'settings'] as const,
   /** Идеи канала всех статусов: экран делит их на бэклог, убранные и «Идеи из чата» */
   ideas: (channel: ChannelId) => ['ideas', channel] as const,
@@ -80,6 +84,8 @@ export const qk = {
   /** Документ слоя (`style`, `periods/<id>`, `characters/<id>`): `head` — черновик, а без него последняя версия;
    *  `vNNN` — версия как есть */
   canonDoc: (channel: string, path: string, version: string | null) => ['canon', channel, ...path.split('/'), version ?? 'head'] as const,
+  /** Префикс наборов опорных канала (листы обликов, кадры стиля, сметы) — по ходу джоба опорных */
+  canonAnchors: (channel: string) => ['canon', channel, 'anchors'] as const,
   styleAnchors: (channel: string) => ['canon', channel, 'anchors', 'style'] as const,
   anchorsEstimate: (channel: string) => ['canon', channel, 'anchors', 'estimate'] as const,
   appearanceAnchors: (channel: string, appearance: string) => ['canon', channel, 'anchors', appearance] as const,
@@ -503,11 +509,127 @@ export function useCollectStyleAnchors(channel: ChannelId) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (period: string) => api.post<Job>(canonPath(channel, '/style/anchors'), { period }),
-    onSuccess: (job) => {
-      client.setQueryData<LiveJobs>(qk.jobs, (jobs) =>
-        !jobs || jobs.items.some((item) => item.job_id === job.id) ? jobs : { ...jobs, items: [...jobs.items, toJobState(job)] },
-      )
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** Джоб из ответа постановки или отмены — целиком в `qk.job`, в снимок — если его там ещё нет: событие потока
+ *  могло прийти раньше ответа и новее его */
+function rememberJob(client: QueryClient, job: Job) {
+  client.setQueryData(qk.job(job.id), job)
+  client.setQueryData<LiveJobs>(qk.jobs, (jobs) =>
+    !jobs || jobs.items.some((item) => item.job_id === job.id) ? jobs : { ...jobs, items: [...jobs.items, toJobState(job)] },
+  )
+}
+
+// --- лист опорных портретов облика (M5.9, docs/canon_schema.md, «API опорных») ---------------------
+
+const anchorsPath = (channel: ChannelId, appearanceId: string, rest = '') => canonPath(channel, `/appearances/${segment(appearanceId)}/anchors${rest}`)
+
+/** Миниатюра webp кандидата (принцип 12): сетки не грузят полноразмерные картинки. `target` — облик или `style` */
+export function anchorThumb(channel: ChannelId, target: string, candidate: string, width: 160 | 320 = 320): string {
+  return `/api${canonPath(channel, `/anchors/${segment(target)}/${segment(candidate)}/thumb`)}?w=${width}`
+}
+
+/** «Собрать лист»: джоб `anchor_sheet` — фасы, затем остальные ракурсы с фасом-референсом */
+export function useCollectSheet(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Job>(anchorsPath(channel, appearanceId)),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** «Перегенерировать ракурс»: джоб `anchor_angle`, новые кандидаты одного ракурса */
+export function useRegenerateAngle(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (angle: string) => api.post<Job>(anchorsPath(channel, appearanceId, `/${segment(angle)}/regenerate`)),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** «Пересобрать устаревшие ракурсы»: один джоб `anchor_angle` на все устаревшие ракурсы листа */
+export function useRegenerateStale(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Job>(anchorsPath(channel, appearanceId, '/stale')),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** Выбор и отбраковка кандидата — одна запись; ответ — лист целиком: карточка облика видит его сразу */
+function useSheetPick(channel: ChannelId, appearanceId: string, action: 'choose' | 'reject') {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ angle, candidate }: { angle: string; candidate: string }) =>
+      api.post<AnchorSetState>(anchorsPath(channel, appearanceId, `/${segment(angle)}/${action}`), { candidate }),
+    onSuccess: (state) => {
+      client.setQueryData(qk.appearanceAnchors(channel, appearanceId), state)
+      void client.invalidateQueries({ queryKey: qk.appearanceEstimate(channel, appearanceId) })
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
     },
+  })
+}
+
+export const useChooseCandidate = (channel: ChannelId, appearanceId: string) => useSheetPick(channel, appearanceId, 'choose')
+export const useRejectCandidate = (channel: ChannelId, appearanceId: string) => useSheetPick(channel, appearanceId, 'reject')
+
+/** Заказ джоба опорных (`AnchorOrder`, docs/jobs.md): набор и кандидаты в порядке рисования */
+export interface AnchorOrderPayload {
+  target: string
+  /** Версия персонажа облика, с которой рисует заказ */
+  version: string
+  items: { slot: string; label: string; n: number }[]
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+export function anchorOrderOf(job: Job | undefined): AnchorOrderPayload | null {
+  const payload = job?.payload
+  if (!payload || typeof payload.target !== 'string' || !Array.isArray(payload.items)) return null
+  const items = payload.items.filter(isRecord).map((item) => ({ slot: String(item.slot), label: String(item.label), n: Number(item.n) }))
+  return { target: payload.target, version: String(payload.version), items }
+}
+
+/** Джобы листа облика: сборка и перегенерация ракурсов (кадры стиля — `style_anchors`) */
+export const SHEET_KINDS: ReadonlySet<string> = new Set(['anchor_sheet', 'anchor_angle'])
+export const ACTIVE_JOB: ReadonlySet<JobEventData['status']> = new Set(['queued', 'running'])
+
+export interface SheetJob {
+  state: JobEventData
+  order: AnchorOrderPayload
+}
+
+/** Идущий джоб листа облика. Событие SSE набора не называет: набор — в payload джоба, его даёт `GET /api/jobs/{id}`
+ *  (один запрос на джоб: payload не меняется) */
+export function useSheetJob(channel: ChannelId, appearanceId: string): SheetJob | null {
+  const items = useJobs().data?.items ?? []
+  const active = items.filter((job) => job.channel === channel && SHEET_KINDS.has(job.kind) && ACTIVE_JOB.has(job.status))
+  const details = useQueries({
+    queries: active.map((job) => ({
+      queryKey: qk.job(job.job_id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => api.get<Job>(`/jobs/${segment(job.job_id)}`, { signal }),
+      staleTime: Infinity,
+    })),
+  })
+  const index = details.findIndex((detail) => anchorOrderOf(detail.data)?.target === appearanceId)
+  const order = index === -1 ? null : anchorOrderOf(details[index]?.data)
+  const state = index === -1 ? undefined : active[index]
+  return order && state ? { state, order } : null
+}
+
+/** Джоб целиком заново — итог (`result`) после конечного события */
+export function fetchJob(client: QueryClient, id: string): Promise<Job> {
+  return client.fetchQuery({ queryKey: qk.job(id), queryFn: ({ signal }) => api.get<Job>(`/jobs/${segment(id)}`, { signal }), staleTime: 0 })
+}
+
+/** «Отменить»: `queued` — сразу `cancelled`, `running` — флаг, джоб остановится между кандидатами */
+export function useCancelJob() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post<Job>(`/jobs/${segment(id)}/cancel`),
+    onSuccess: (job) => rememberJob(client, job),
   })
 }
 

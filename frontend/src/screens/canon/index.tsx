@@ -32,7 +32,10 @@ const LAYERS: { value: Layer; label: string; keys: string; note: string }[] = [
 ]
 
 const isLayer = (value: string | null): value is Layer => LAYERS.some((l) => l.value === value)
-const setLayer = (next: Layer) => setSearchParam('layer', next === 'style' ? null : next)
+const setLayer = (next: Layer) => {
+  setSearchParam('sheet', null) // лист опорных портретов — часть слоя «Персонажи»
+  setSearchParam('layer', next === 'style' ? null : next)
+}
 
 export function CanonScreen(_props: { params: RouteParams }) {
   const scope = useUiStore((s) => s.channel)

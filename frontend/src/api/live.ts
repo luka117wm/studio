@@ -2,8 +2,9 @@
 // курсор, поток догоняет с него без пропусков. Событие джоба заменяет его строку в кэше целиком; выпуск джоба
 // перезапрашивается: прогресс — не чаще раза в секунду на выпуск, конечное событие — сразу.
 // Поток — ещё и датчик бэкенда: обрыв → проверочный перезапрос экрана (лёг — экран «Бэкенд недоступен»),
-// поток снова открыт → всё перезапрашивается, а экран ошибки снимается сам. Конец джоба уровня канала (опорные, M5.7)
-// перезапрашивает канон этого канала.
+// поток снова открыт → всё перезапрашивается, а экран ошибки снимается сам. Джоб уровня канала (опорные): прогресс
+// перезапрашивает наборы опорных канала с тем же порогом — новые кандидаты видны по ходу сборки (M5.9), конец —
+// канон этого канала (M5.7). Конец любого джоба перезапрашивает сводки расходов: шапка показывает расход месяца.
 import type { QueryClient } from '@tanstack/react-query'
 import type { JobEventData } from '@/types/job'
 import { fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
@@ -31,7 +32,7 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
   const subscribe = options.subscribe ?? subscribeSse
   let stopped = false
   let unsubscribe: (() => void) | null = null
-  // Выпуск → окно порога: пока окно открыто, прогресс только помечает, что перезапрос нужен в конце окна
+  // Выпуск или канал → окно порога: пока окно открыто, прогресс только помечает, что перезапрос нужен в конце окна
   const windows = new Map<string, { timer: ReturnType<typeof setTimeout>; pending: boolean }>()
   // Поток переподключился (бэкенд мог перезапуститься) или снимка не было — перезапросить всё при открытии
   let resync = false
@@ -41,37 +42,54 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
     void client.invalidateQueries({ queryKey: qk.episodeLists })
   }
 
-  const throttled = (episodeId: string) => {
-    const open = windows.get(episodeId)
+  const throttled = (key: string, refresh: () => void) => {
+    const open = windows.get(key)
     if (open) {
       open.pending = true
       return
     }
-    refreshEpisode(episodeId)
+    refresh()
     const entry = {
       pending: false,
       timer: setTimeout(() => {
-        windows.delete(episodeId)
-        if (entry.pending) throttled(episodeId)
+        windows.delete(key)
+        if (entry.pending) throttled(key, refresh)
       }, SUMMARY_THROTTLE_MS),
     }
-    windows.set(episodeId, entry)
+    windows.set(key, entry)
+  }
+
+  const closeWindow = (key: string) => {
+    const open = windows.get(key)
+    if (open) clearTimeout(open.timer)
+    windows.delete(key)
   }
 
   const onEvent = (event: JobEvent) => {
     client.setQueryData<LiveJobs>(qk.jobs, (jobs) => applyJobEvent(jobs, event))
-    // Джоб уровня канала (опорные): по концу — канон канала заново, там его картинки и устаревание
+    const final = FINAL.has(event.type)
+    // Конец джоба: платный списал деньги — расход месяца в шапке заново (найдено вживую в M5.9)
+    if (final) void client.invalidateQueries({ queryKey: qk.cost })
+    // Джоб уровня канала (опорные): по ходу — наборы опорных канала, по концу — канон канала заново, там его картинки
+    // и устаревание
     const channel = event.data.channel
-    if (channel !== null && FINAL.has(event.type)) void client.invalidateQueries({ queryKey: qk.canon(channel) })
+    if (channel !== null) {
+      const key = `canon:${channel}`
+      if (final) {
+        closeWindow(key)
+        void client.invalidateQueries({ queryKey: qk.canon(channel) })
+      } else if (event.type === 'job.progress') {
+        throttled(key, () => void client.invalidateQueries({ queryKey: qk.canonAnchors(channel) }))
+      }
+    }
     const episodeId = event.data.episode_id
     if (episodeId === null) return
-    if (!FINAL.has(event.type)) {
-      throttled(episodeId)
+    const key = `episode:${episodeId}`
+    if (!final) {
+      throttled(key, () => refreshEpisode(episodeId))
       return
     }
-    const open = windows.get(episodeId)
-    if (open) clearTimeout(open.timer)
-    windows.delete(episodeId)
+    closeWindow(key)
     refreshEpisode(episodeId)
     // Стадия и статус выпуска меняются по итогам джоба — риск слота тоже
     void client.invalidateQueries({ queryKey: qk.slots })

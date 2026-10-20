@@ -93,6 +93,31 @@ export function sheetView(state: AnchorSetState | undefined): SheetView | null {
   return { status: 'failed', text: 'лист не собран', blocked: true }
 }
 
+/** Шапка листа (артборд 12): «готов 6/6», «собран наполовину 3/6», «не собран» */
+export function sheetHead(state: AnchorSetState): { status: Status; text: string } {
+  const view = sheetView(state)!
+  return state.status === 'missing' ? { status: 'failed', text: 'не собран' } : { status: view.status, text: view.text }
+}
+
+/** Подвал листа: сколько ракурсов готово */
+export function sheetProgressText(state: AnchorSetState): string {
+  return state.chosen === 0
+    ? 'Ни одного ракурса: кадры с этим обликом не генерируются'
+    : `Готово ${state.chosen} из ${state.total} ${plural(state.total, ['ракурса', 'ракурсов', 'ракурсов'])}, выбрано по одному кандидату в каждом`
+}
+
+/** Баннер устаревания: весь лист (сменилось лицо — устарел и фас) или только ракурсы одежды */
+export function sheetStale(state: AnchorSetState): { whole: boolean; title: string; slots: number } | null {
+  const stale = state.slots.filter((slot) => slot.stale)
+  if (!state.stale || stale.length === 0) return null
+  const whole = stale.some((slot) => slot.slot === 'front')
+  return {
+    whole,
+    title: whole ? 'Лист устарел, пересоберите' : `Достаточно пересобрать: ${stale.map((slot) => slot.label.toLowerCase()).join(', ')}`,
+    slots: stale.length,
+  }
+}
+
 /** Строка списка персонажей: «Cursus · 5 обликов · 3 листа готовы» */
 export function characterMeta(item: CanonCharacterItem, channelName: string): string {
   const n = item.appearances_count

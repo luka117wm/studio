@@ -1,15 +1,17 @@
 /* Слой «Персонажи» экрана 12 (артборд 12): список персонажей канала 280 слева, карточка персонажа в центре,
    «Нужно каналу» (облики из планов) справа. Строка списка — имя, канал, число обликов и готовых листов, глиф статуса.
-   Карточка — «Неизменяемое» (характер, осанка, манера, черты лица) и «Облики» карточками: фас листа (плейсхолдер до
-   показа картинок, M5.9), подпись, статус листа и цена. У облика без листа — «Кадры с этим обликом не генерируются».
-   Под карточками — форма выбранного облика. Канон изолирован по каналам: список — только своего канала. */
+   Карточка — «Неизменяемое» (характер, осанка, манера, черты лица) и «Облики» карточками: миниатюра выбранного фаса
+   листа, подпись, статус листа и цена. У облика без листа — «Кадры с этим обликом не генерируются». Карточка выбирает
+   облик и открывает его лист опорных портретов (`?sheet=`, M5.9); под карточками — форма выбранного облика. Канон
+   изолирован по каналам: список — только своего канала. */
 import { ListTodo, Plus, Users } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import type { Appearance, CanonCharacterItem, CanonPeriodItem, CanonSummary, Character } from '@/types/canon'
-import { useSearchParam } from '../../app/navigation'
+import { setSearchParam, useSearchParam } from '../../app/navigation'
 import { ScreenLayout, type LeftPanelKind, type RightPanelKind, type SidePanel } from '../../app/ScreenLayout'
 import { useStatusNote } from '../../app/useStatusNote'
 import {
+  anchorThumb,
   useAppearanceAnchors,
   useAppearanceEstimate,
   useAppearanceSheets,
@@ -22,6 +24,7 @@ import { useUiStore } from '../../store/uiStore'
 import { Button, Dialog, EmptyState, Input, StatusGlyph, Textarea, cn, formatPrice } from '../../ui'
 import { plural } from '../episodes/board'
 import { CYRILLIC_HINT, isCyrillic, messageOf, selectCanon } from './canonFields'
+import { AnchorSheet } from './AnchorSheet'
 import { AppearanceForm, CopyAppearanceDialog, NewAppearanceDialog } from './AppearanceForm'
 import {
   NATURE_ROWS,
@@ -37,6 +40,7 @@ import {
 import { LEVEL_NOTE, LayerWorkspace, type LayerBodyProps } from './LayerWorkspace'
 import { NeededPanel } from './NeededPanel'
 import { PERIOD_ID_RE } from './periodFields'
+import { useSheetToasts } from './sheetJobs'
 import { ReadOnlyValue } from './StyleLayer'
 
 const charactersNote = (n: number) => `${n} ${plural(n, ['персонаж', 'персонажа', 'персонажей'])}`
@@ -49,6 +53,7 @@ export function CharactersLayer({ channel, summary, view }: { channel: ChannelId
   const needed = useCanonNeeded(channel)
   const channelName = useChannels().data?.find((c) => c.id === channel)?.name ?? channel
   const [creating, setCreating] = useState(false)
+  useSheetToasts(channel)
 
   const left = {
     kind: 'canon' as const,
@@ -180,6 +185,8 @@ function CharacterCard({
 }: LayerBodyProps<Character> & { channel: ChannelId; periods: CanonPeriodItem[] }) {
   const param = useSearchParam('appearance')
   const appearance = character.appearances.find((a) => a.id === param) ?? character.appearances[0] ?? null
+  const sheetParam = useSearchParam('sheet')
+  const sheetOf = character.appearances.find((a) => a.id === sheetParam) ?? null
   const [dialog, setDialog] = useState<'new' | 'copy' | null>(null)
   const set = (patch: Partial<Character>) => onChange?.({ ...character, ...patch })
   const setAppearance = (next: Appearance) => set({ appearances: character.appearances.map((a) => (a.id === next.id ? next : a)) })
@@ -278,6 +285,7 @@ function CharacterCard({
           onClose={() => setDialog(null)}
         />
       )}
+      {sheetOf && <AnchorSheet channel={channel} character={character} appearance={sheetOf} periods={periods} onClose={() => setSearchParam('sheet', null)} />}
     </form>
   )
 }
@@ -290,7 +298,7 @@ function useReadySheets(channel: ChannelId, appearances: Appearance[]): number {
   ).filter((state) => state?.status === 'ready').length
 }
 
-/** Карточка облика 168: фас листа (плейсхолдер до M5.9), подпись, статус листа, цена */
+/** Карточка облика 168: миниатюра выбранного фаса листа, подпись, статус листа, цена; клик открывает лист */
 function AppearanceCard({
   channel,
   character,
@@ -307,6 +315,7 @@ function AppearanceCard({
   const anchors = useAppearanceAnchors(channel, appearance.id)
   const estimate = useAppearanceEstimate(channel, appearance.id)
   const sheet = sheetView(anchors.data)
+  const front = anchors.data?.slots.find((slot) => slot.slot === 'front')?.chosen ?? null
   const sheetLine = estimate.data?.sheet
   const cost =
     anchors.data?.status === 'ready'
@@ -321,7 +330,7 @@ function AppearanceCard({
         type="button"
         aria-label={title}
         aria-current={selected || undefined}
-        onClick={() => selectCanon('characters', { character: character.id, appearance: appearance.id })}
+        onClick={() => selectCanon('characters', { character: character.id, appearance: appearance.id, sheet: appearance.id })}
         className={cn(
           'flex h-full w-full flex-col gap-1.5 rounded-panel border bg-panel p-2 text-left hover:border-line-strong',
           selected ? 'border-accent' : 'border-line',
@@ -329,7 +338,11 @@ function AppearanceCard({
         )}
       >
         <span className={cn('relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-clip border bg-hover', sheet?.blocked ? 'border-failed' : 'border-line')}>
-          <span className="font-dense text-11 text-muted">{appearance.age ?? '—'}</span>
+          {front ? (
+            <img src={anchorThumb(channel, appearance.id, front.candidate)} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" />
+          ) : (
+            <span className="font-dense text-11 text-muted">{appearance.age ?? '—'}</span>
+          )}
           {sheet?.blocked && (
             <span className="absolute inset-x-0 bottom-0 border-t border-failed bg-surface-failed px-1.5 py-1 text-11 text-failed-text">Кадры с этим обликом не генерируются</span>
           )}
