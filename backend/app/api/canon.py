@@ -21,7 +21,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.channels import read_profile, require_channel
@@ -46,6 +46,7 @@ from app.jobs.handlers.anchors import (
 from app.jobs.queue import Job
 from app.jobs.worker import JobPool
 from app.models.canon import (
+    AnchorTarget,
     Appearance,
     AppearanceId,
     CanonId,
@@ -108,6 +109,7 @@ from app.storage.canon_store import (
     Entry,
 )
 from app.storage.paths import StudioPaths
+from app.storage.thumbs import ThumbWidth
 
 router = APIRouter(prefix="/canon", tags=["canon"])
 
@@ -127,6 +129,8 @@ class AppearanceCopy(StrictModel):
 
 # Ответ чата на эпоху — несколько килобайт; предел — от вставки не того.
 ANSWER_MAX_CHARS = 200_000
+THUMB_WIDTHS = (160, 320)
+IMMUTABLE = "public, max-age=31536000, immutable"  # в id кандидата — хэш входов
 
 
 class PeriodPrompt(BaseModel):
@@ -605,13 +609,15 @@ async def get_appearance_anchors(
 async def get_anchors_estimate(
     channel: str,
     appearance_id: AppearanceId,
+    paths: PathsDep,
     db: DbDep,
     gateway: GatewayDep,
     config: CanonConfigDep,
 ) -> AnchorsEstimate:
-    """Цена до клика: лист, перегенерация ракурса, кадры стиля."""
+    """Цена до клика: лист, перегенерация ракурса, кадры стиля, устаревшие ракурсы облика."""
     require_channel(db, channel)
-    return anchors_estimate(gateway, config)
+    stale = len(anchors.stale_angles(paths, channel, appearance_id))
+    return anchors_estimate(gateway, config, stale)
 
 
 @router.post("/{channel}/appearances/{appearance_id}/anchors", status_code=201)
@@ -646,6 +652,23 @@ async def regenerate_angle(
     """«Перегенерировать ракурс»: джоб `anchor_angle` — новые кандидаты одного ракурса."""
     require_channel(db, channel)
     order = anchors.angle_order(paths, channel, appearance_id, angle, config, prompts)
+    return _enqueue(db, gateway, jobs, ANGLE_KIND, order)
+
+
+@router.post("/{channel}/appearances/{appearance_id}/anchors/stale", status_code=201)
+async def regenerate_stale(
+    channel: str,
+    appearance_id: AppearanceId,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    jobs: JobsDep,
+    prompts: PromptsDep,
+    config: CanonConfigDep,
+) -> Job:
+    """«Пересобрать устаревшие ракурсы»: один джоб `anchor_angle` на все устаревшие ракурсы."""
+    require_channel(db, channel)
+    order = anchors.stale_order(paths, channel, appearance_id, config, prompts)
     return _enqueue(db, gateway, jobs, ANGLE_KIND, order)
 
 
@@ -702,6 +725,28 @@ async def copy_appearance(
         paths, channel, appearance_id, body.appearance_id, body.period
     )
     return _doc(CharacterDoc, entry)
+
+
+@router.get("/{channel}/anchors/{target}/{candidate}/thumb")
+async def get_candidate_thumb(
+    channel: str, target: AnchorTarget, candidate: str, paths: PathsDep, db: DbDep, w: int = 320
+) -> FileResponse:
+    """Миниатюра webp кандидата (принцип 12): `target` — облик или `style`, `w` — 160 или 320.
+    В id кандидата — хэш входов, содержимое по адресу не меняется."""
+    require_channel(db, channel)
+    if w not in THUMB_WIDTHS:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "thumb_width",
+                    "loc": ("query", "w"),
+                    "msg": f"Ширины миниатюры {w} нет — есть 160 и 320.",
+                    "input": w,
+                }
+            ]
+        )
+    path = anchors.candidate_thumb(paths, channel, target, candidate, cast(ThumbWidth, w))
+    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": IMMUTABLE})
 
 
 @router.get("/{channel}/style/anchors")

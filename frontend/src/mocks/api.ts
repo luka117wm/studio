@@ -1206,6 +1206,7 @@ export const anchorsEstimate = {
   sheet: anchorLine('Собрать лист', '6 ракурсов × 2 кандидата', 12),
   angle: anchorLine('Перегенерировать ракурс', '2 кандидата', 2),
   style: anchorLine('Пересобрать кадры стиля', '6 кадров', STYLE_FRAMES.length),
+  stale: null,
 } satisfies AnchorsEstimate
 
 /** Изменённые поля стиля, от которых устаревают кадры стиля: рендер, оптика, свет (docs/canon_schema.md) */

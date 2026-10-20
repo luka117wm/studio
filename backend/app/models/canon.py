@@ -62,6 +62,11 @@ def _check_appearance_id(value: str) -> str:
     return value
 
 
+def _check_anchor_target(value: str) -> str:
+    """Набор опорных: лист облика (`you@powder-monkey-11`) или кадры стиля `style`."""
+    return value if value == "style" else _check_appearance_id(value)
+
+
 def _check_version(value: str) -> str:
     if not _VERSION_RE.fullmatch(value):
         raise PydanticCustomError(
@@ -92,6 +97,7 @@ def _check_age(value: int | None) -> int | None:
 
 CanonId = Annotated[str, AfterValidator(_check_canon_id)]
 AppearanceId = Annotated[str, AfterValidator(_check_appearance_id)]
+AnchorTarget = Annotated[str, AfterValidator(_check_anchor_target)]
 VersionTag = Annotated[str, AfterValidator(_check_version)]
 HexColor = Annotated[str, AfterValidator(_check_hex)]
 

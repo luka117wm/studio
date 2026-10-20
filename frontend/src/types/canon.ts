@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:c849a8852932160edba3e6a85a7f9e9a23b975673a9954c21b52c93f015f7af4
+ * @generated sha256:946f4079026e8b1cfdad793fc94707c2b73a0b2e8638bb28a4fa8a7d548edf8a
  */
 export interface AnchorCandidate {
   id: string
@@ -45,12 +45,14 @@ export interface AnchorSlot {
 }
 
 /**
- * Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля.
+ * Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля и устаревшие ракурсы
+ * листа облика (`null` — устаревших нет или смета без облика).
  */
 export interface AnchorsEstimate {
   sheet: EstimateLine
   angle: EstimateLine
   style: EstimateLine
+  stale: EstimateLine | null
 }
 
 /**

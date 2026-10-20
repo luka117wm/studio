@@ -45,6 +45,7 @@ from app.storage.canon_store import (
 )
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
+from app.storage.thumbs import ThumbError, ThumbWidth, ensure_thumb, thumb_path
 
 ANCHORS_STAGE = "anchors"  # этап `config/providers.yaml`: Pro 1K во всех профилях
 STYLE_TARGET = "style"
@@ -370,6 +371,31 @@ def sheet_order(
     )
 
 
+def _require_front(
+    paths: StudioPaths, channel: str, appearance_id: str, canon: SheetCanon, angle: AngleConfig
+) -> None:
+    if front_reference(paths, channel, appearance_id, canon.character_version) is None:
+        raise CanonConflict(
+            f"Для ракурса «{angle.label}» нужен фас облика {appearance_id}"
+            f" ({canon.character_version}) — соберите лист или перегенерируйте фас."
+        )
+
+
+def _next_items(
+    canon: SheetCanon,
+    angle: AngleConfig,
+    manifest: "Manifest",
+    config: CanonConfig,
+    prompts: PromptLibrary,
+) -> list[AnchorItem]:
+    """k новых кандидатов ракурса: номера — следующие за последним кандидатом ракурса."""
+    start = max((r.n for r in manifest.candidates if r.slot == angle.id), default=0) + 1
+    return [
+        _sheet_item(canon, angle, n, prompts)
+        for n in range(start, start + config.anchors.candidates)
+    ]
+
+
 def angle_order(
     paths: StudioPaths,
     channel: str,
@@ -382,25 +408,52 @@ def angle_order(
     последним кандидатом ракурса, их фиксирует заказ: перезапуск джоба не плодит новых."""
     angle = _angle(config, angle_id)
     canon = sheet_canon(paths, channel, appearance_id)
-    if (
-        angle.id != FRONT
-        and front_reference(paths, channel, appearance_id, canon.character_version) is None
-    ):
-        raise CanonConflict(
-            f"Для ракурса «{angle.label}» нужен фас облика {appearance_id}"
-            f" ({canon.character_version}) — соберите лист или перегенерируйте фас."
-        )
+    if angle.id != FRONT:
+        _require_front(paths, channel, appearance_id, canon, angle)
     manifest = read_manifest(appearance_set(paths, channel, appearance_id))
-    start = max((r.n for r in manifest.candidates if r.slot == angle.id), default=0) + 1
     return AnchorOrder(
         channel=channel,
         target=appearance_id,
         version=canon.character_version,
         canon=canon.refs(),
-        items=[
-            _sheet_item(canon, angle, n, prompts)
-            for n in range(start, start + config.anchors.candidates)
-        ],
+        items=_next_items(canon, angle, manifest, config, prompts),
+    )
+
+
+def stale_angles(paths: StudioPaths, channel: str, appearance_id: str) -> list[str]:
+    """Устаревшие ракурсы листа против последней опубликованной версии персонажа с обликом."""
+    latest = latest_appearance(paths, channel, appearance_id)
+    if latest is None:
+        return []
+    return list(_sheet_picks(paths, channel, appearance_id, latest[2]).stale)
+
+
+def stale_order(
+    paths: StudioPaths,
+    channel: str,
+    appearance_id: str,
+    config: CanonConfig,
+    prompts: PromptLibrary,
+) -> AnchorOrder:
+    """«Пересобрать устаревшие ракурсы»: k новых кандидатов каждого устаревшего ракурса одним
+    джобом — на набор ставится один джоб, а сменилась одежда сразу у трёх ракурсов (M5.9). Фас —
+    первым по порядку конфига: остальные берут его референсом. Номера фиксирует заказ."""
+    canon = sheet_canon(paths, channel, appearance_id)
+    stale = _sheet_picks(paths, channel, appearance_id, canon.character_version).stale
+    angles = [a for a in config.anchors.angles if a.id in stale]
+    if not angles:
+        raise CanonConflict(
+            f"Устаревших ракурсов в листе {appearance_id} нет — пересобирать нечего."
+        )
+    if FRONT not in stale:
+        _require_front(paths, channel, appearance_id, canon, angles[0])
+    manifest = read_manifest(appearance_set(paths, channel, appearance_id))
+    return AnchorOrder(
+        channel=channel,
+        target=appearance_id,
+        version=canon.character_version,
+        canon=canon.refs(),
+        items=[item for a in angles for item in _next_items(canon, a, manifest, config, prompts)],
     )
 
 
@@ -462,6 +515,11 @@ class SetDir:
     @property
     def chosen_path(self) -> Path:
         return StudioPaths.anchor_set_chosen_path(self.root)
+
+    @property
+    def thumbs(self) -> Path:
+        """Миниатюры webp кандидатов (принцип 12), `<id>-<ширина>.webp`."""
+        return self.root / "thumbs"
 
 
 def appearance_set(paths: StudioPaths, channel: str, appearance_id: str) -> SetDir:
@@ -588,26 +646,41 @@ def _chosen_from(record: CandidateRecord) -> ChosenRecord:
 def front_reference(
     paths: StudioPaths, channel: str, appearance_id: str, version: str
 ) -> CandidateRecord | None:
-    """Фас-референс для остальных ракурсов версии `version`: выбранный фас этой версии, а без него
-    — первый удавшийся по времени (порядок манифеста). Не по номеру: дорисованный позже фас-1 не
-    должен сменить референс и перерисовать платно уже готовые ракурсы. Только фас этого же облика
-    (устав M5, решение 5)."""
+    """Фас-референс для остальных ракурсов версии `version`: выбранный фас, если он годен для
+    этой версии, а без него — первый удавшийся фас этой версии по времени (порядок манифеста).
+    Выбранный фас годен, пока с его версии не менялись черты лица, телосложение, волосы и возраст
+    (`SHEET_FIELDS`): после новой подписи или одежды фас тот же, и ракурсы перерисовываются с
+    ним (найдено в M5.9). Не по номеру: дорисованный позже фас-1 не должен сменить референс и
+    перерисовать платно уже готовые ракурсы (L-041). Только фас этого же облика (устав M5,
+    решение 5)."""
     s = appearance_set(paths, channel, appearance_id)
     ready = [
         r
         for r in read_manifest(s).candidates
         if r.slot == FRONT
         and r.status == "ready"
-        and r.version == version
         and r.file is not None
         and (s.root / r.file).is_file()
     ]
     pick = read_chosen(s).slots.get(FRONT)
     if pick is not None:
         for record in ready:
-            if record.id == pick.candidate:
+            if record.id == pick.candidate and _same_person(
+                paths, channel, appearance_id, record.version, version
+            ):
                 return record
-    return ready[0] if ready else None
+    return next((r for r in ready if r.version == version), None)
+
+
+def _same_person(paths: StudioPaths, channel: str, appearance_id: str, old: str, new: str) -> bool:
+    """В версиях `old` и `new` у облика те же черты лица, телосложение, волосы и возраст."""
+    if old == new:
+        return True
+    before = appearance_at(paths, channel, appearance_id, old)
+    after = appearance_at(paths, channel, appearance_id, new)
+    if before is None or after is None:
+        return False
+    return not _changed(_appearance_value(*before), _appearance_value(*after), SHEET_FIELDS)
 
 
 def _candidate(
@@ -687,6 +760,31 @@ def reject(
         update={"status": "rejected", "file": target.relative_to(s.root).as_posix()}
     )
     _write(s.manifest_path, manifest)
+
+
+def candidate_thumb(
+    paths: StudioPaths, channel: str, target: str, candidate: str, width: ThumbWidth
+) -> Path:
+    """Миниатюра webp кандидата набора (принцип 12): лист облика или кадры стиля (`style`).
+    Файл ищется по манифесту — и в `candidates/`, и в `rejected/`: отбракованный тоже виден."""
+    s = set_of(paths, channel, target)
+    style = target == STYLE_TARGET
+    whose = "кадров стиля" if style else f"листа {target}"
+    redo = "пересоберите кадры стиля" if style else "перегенерируйте ракурс"
+    record = next((r for r in read_manifest(s).candidates if r.id == candidate), None)
+    if record is None:
+        raise CanonNotFound(f"У {whose} нет кандидата {candidate} — обновите страницу.")
+    if record.file is None:
+        raise CanonNotFound(f"Кандидат {candidate} не получился, картинки нет — {redo}.")
+    source = s.root / record.file
+    if not source.is_file():
+        raise CanonNotFound(f"Файла кандидата {candidate} нет на диске — {redo}.")
+    try:
+        return ensure_thumb(source, thumb_path(s.thumbs, candidate, width), width)
+    except ThumbError as exc:
+        raise CanonConflict(
+            f"Файл кандидата {candidate} не читается как картинка — {redo}."
+        ) from exc
 
 
 # --- состояние набора ---------------------------------------------------------------------------

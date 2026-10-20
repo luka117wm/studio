@@ -148,16 +148,19 @@ def order_cost(gateway: Gateway, order: AnchorOrder) -> StageCost:
 
 
 class AnchorsEstimate(BaseModel):
-    """Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля."""
+    """Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля и устаревшие ракурсы
+    листа облика (`null` — устаревших нет или смета без облика)."""
 
     sheet: EstimateLine
     angle: EstimateLine
     style: EstimateLine
+    stale: EstimateLine | None = None
 
 
-def anchors_estimate(gateway: Gateway, config: CanonConfig) -> AnchorsEstimate:
+def anchors_estimate(gateway: Gateway, config: CanonConfig, stale: int = 0) -> AnchorsEstimate:
     """«Собрать лист (6 ракурсов × 2 кандидата, ~$1.61)», «Перегенерировать ракурс (~$0.27)»,
-    «Пересобрать (6, ~$0.80)» — сверху, кэш не вычитается."""
+    «Пересобрать (6, ~$0.80)», «Пересобрать 3 ракурса (~$0.80)» (`stale` — сколько ракурсов
+    листа устарело) — сверху, кэш не вычитается."""
     one = gateway.estimate(anchors.ANCHORS_STAGE, ImageRequest(prompt="anchor"))
     k = config.anchors.candidates
     angles = len(config.anchors.angles)
@@ -167,19 +170,21 @@ def anchors_estimate(gateway: Gateway, config: CanonConfig) -> AnchorsEstimate:
         cost = stage_cost(one, calls)
         return EstimateLine(title=title, label=label, usd=money(cost.usd_micro), cost=cost)
 
+    def of_angles(n: int) -> str:
+        return f"{n} {plural(n, 'ракурс', 'ракурса', 'ракурсов')} × {k} {candidates}"
+
     candidates = plural(k, "кандидат", "кандидата", "кандидатов")
     return AnchorsEstimate(
-        sheet=line(
-            "Собрать лист",
-            f"{angles} {plural(angles, 'ракурс', 'ракурса', 'ракурсов')} × {k} {candidates}",
-            angles * k,
-        ),
+        sheet=line("Собрать лист", of_angles(angles), angles * k),
         angle=line("Перегенерировать ракурс", f"{k} {candidates}", k),
         style=line(
             "Пересобрать кадры стиля",
             f"{frames} {plural(frames, 'кадр', 'кадра', 'кадров')}",
             frames,
         ),
+        stale=line("Пересобрать устаревшие ракурсы", of_angles(stale), stale * k)
+        if stale
+        else None,
     )
 
 

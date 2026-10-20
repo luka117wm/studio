@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "google-genai>=2.25.0",
     "httpx>=0.28.1",
+    "opencv-python-headless>=5.0.0.93",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0",

@@ -224,7 +224,7 @@
       "type": "object"
     },
     "AnchorsEstimate": {
-      "description": "Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля.",
+      "description": "Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля и устаревшие ракурсы\nлиста облика (`null` — устаревших нет или смета без облика).",
       "properties": {
         "sheet": {
           "$ref": "#/$defs/EstimateLine"
@@ -234,12 +234,24 @@
         },
         "style": {
           "$ref": "#/$defs/EstimateLine"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EstimateLine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "sheet",
         "angle",
-        "style"
+        "style",
+        "stale"
       ],
       "title": "AnchorsEstimate",
       "type": "object"

@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import cv2
+import numpy as np
 import pytest
 import yaml
 from fastapi.testclient import TestClient
@@ -445,6 +447,26 @@ def test_regenerate_needs_a_front(env: Env) -> None:
     assert job["result"]["charged"] == 2 and env.fake.refs == [[], []]
 
 
+def test_regenerate_after_new_version_takes_the_chosen_front(env: Env) -> None:
+    """M5.9: новая версия персонажа без смены лица — выбранный фас прежней версии годен
+    референсом; сменилось лицо — нет, нужен фас новой версии."""
+    env.run(SHEET_URL)
+    env.choose_all()
+    front = env.slot("front")["chosen"]
+    front_bytes = (env.paths.root / front["file"]).read_bytes()
+
+    publish_character(env, label="Юнга, 11")  # v002: подпись
+    job = env.run(f"{SHEET_URL}/profile/regenerate")
+    assert job["status"] == "done" and job["result"]["charged"] == 2
+    profile = [c for c in env.slot("profile")["candidates"] if c["version"] == "v002"]
+    assert {c["ref"] for c in profile} == {front["candidate"]}
+    assert all(refs[0].data == front_bytes for refs in env.fake.refs[-2:])
+
+    publish_character(env, face="boyish, pale cheeks")  # v003: лицо — фас v001 не годится
+    detail = env.post(f"{SHEET_URL}/profile/regenerate", status=409)["detail"]
+    assert detail.startswith(f"Для ракурса «Профиль» нужен фас облика {LOOK} (v003)")
+
+
 # --- устаревание ---------------------------------------------------------------------------------
 
 
@@ -502,6 +524,54 @@ def test_face_change_outdates_whole_sheet(env: Env) -> None:
     state = env.sheet()
     assert state["stale"] == "Лист устарел: в v002 изменились face — пересоберите лист."
     assert all(s["stale"] == "в v002 изменились face" for s in state["slots"])
+
+
+def test_stale_angles_are_redrawn_in_one_job(env: Env) -> None:
+    """M5.9: сменилась одежда — устаревшие «В полный рост», «В действии», «Деталь» одним джобом
+    (на набор — один джоб), цена до клика — строка сметы `stale`, фас — выбранный."""
+    env.run(SHEET_URL)
+    env.choose_all()
+    assert env.get(f"{SHEET_URL}/estimate")["stale"] is None
+    assert env.post(f"{SHEET_URL}/stale", status=409)["detail"] == (
+        f"Устаревших ракурсов в листе {LOOK} нет — пересобирать нечего."
+    )
+    front = env.slot("front")["chosen"]["candidate"]
+
+    publish_character(env, clothing="oversized wool shirt, canvas breeches, barefoot")  # v002
+    line = env.get(f"{SHEET_URL}/estimate")["stale"]
+    assert (line["label"], line["usd"]["usd_micro"], line["usd"]["usd"]) == (
+        "3 ракурса × 2 кандидата",
+        6 * PRICE,
+        "$0.80",
+    )
+    job = env.run(f"{SHEET_URL}/stale")
+    assert (job["kind"], job["status"], job["result"]["charged"]) == (ANGLE_KIND, "done", 6)
+    items = [(i["slot"], i["n"]) for i in job["payload"]["items"]]
+    assert items == [(a, n) for a in ANGLES if a in BODY_ANGLES for n in (3, 4)]
+    fresh = [r for r in env.manifest() if r["version"] == "v002"]
+    assert {r["ref"] for r in fresh} == {front}
+
+    # Устаревание уходит выбором новых кандидатов, а не самой перерисовкой.
+    assert env.sheet()["status"] == "outdated"
+    for slot in BODY_ANGLES:
+        pick = next(c for c in env.slot(slot)["candidates"] if c["version"] == "v002")
+        env.post(f"{SHEET_URL}/{slot}/choose", {"candidate": pick["id"]}, 200)
+    assert env.sheet()["status"] == "ready"
+    assert env.get(f"{SHEET_URL}/estimate")["stale"] is None
+
+
+def test_stale_whole_sheet_draws_new_fronts_first(env: Env) -> None:
+    env.run(SHEET_URL)
+    env.choose_all()
+    publish_character(env, nature_face="round face, brown eyes")  # v002: весь лист
+    assert env.get(f"{SHEET_URL}/estimate")["stale"]["label"] == "6 ракурсов × 2 кандидата"
+    job = env.run(f"{SHEET_URL}/stale")
+    assert [i["slot"] for i in job["payload"]["items"]][:2] == ["front", "front"]
+    fresh = [r for r in env.manifest() if r["version"] == "v002"]
+    assert len(fresh) == 12
+    first_front = fresh[0]["id"]
+    assert first_front.startswith("front-3-")
+    assert {r["ref"] for r in fresh[2:]} == {first_front}  # фас v001 — другого человека
 
 
 # --- копия облика --------------------------------------------------------------------------------
@@ -572,12 +642,83 @@ def test_style_frames_are_drawn_chosen_and_go_stale_on_light(env: Env) -> None:
     )
 
 
+# --- миниатюры -----------------------------------------------------------------------------------
+
+
+def jpeg(width: int, height: int) -> bytes:
+    """Настоящая картинка вместо байтов фейкового провайдера (PNG-сигнатура + мусор)."""
+    image = np.full((height, width, 3), (40, 90, 160), dtype=np.uint8)
+    ok, data = cv2.imencode(".jpg", image)
+    assert ok
+    return bytes(data.tobytes())
+
+
+def size_of(data: bytes) -> tuple[int, int]:
+    """(высота, ширина) картинки из ответа."""
+    image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    assert image is not None, "not an image"
+    height, width = image.shape[:2]
+    return height, width
+
+
+def test_thumbnail_is_webp_of_the_asked_width_and_made_once(env: Env) -> None:
+    env.run(SHEET_URL)
+    first, second = env.manifest()[:2]
+    (env.sheet_dir / first["file"]).write_bytes(jpeg(768, 1024))
+    url = f"{BASE}/anchors/{LOOK}/{first['id']}/thumb"
+
+    response = env.client.get(url)
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "image/webp"
+    assert "immutable" in response.headers["cache-control"]
+    assert size_of(response.content) == (427, 320)
+    thumb = env.sheet_dir / "thumbs" / f"{first['id']}-320.webp"
+    made = thumb.stat().st_mtime_ns
+    assert env.client.get(url).content == response.content
+    assert thumb.stat().st_mtime_ns == made  # готовая миниатюра не пересчитывается
+
+    small = env.client.get(url, params={"w": 160})
+    assert size_of(small.content)[1] == 160
+    wide = env.client.get(url, params={"w": 500})
+    assert wide.status_code == 422
+    assert wide.json()["detail"][0]["msg"] == "Ширины миниатюры 500 нет — есть 160 и 320."
+
+    # Отбракованный тоже виден: файл ищется по манифесту, в `rejected/`.
+    env.post(f"{SHEET_URL}/front/choose", {"candidate": second["id"]}, 200)
+    env.post(f"{SHEET_URL}/front/reject", {"candidate": first["id"]}, 200)
+    assert env.client.get(url, params={"w": 160}).status_code == 200
+
+    # Байты фейкового провайдера — не картинка: отказ одной фразой.
+    broken = env.client.get(f"{BASE}/anchors/{LOOK}/{second['id']}/thumb")
+    assert broken.status_code == 409
+    assert broken.json()["detail"] == (
+        f"Файл кандидата {second['id']} не читается как картинка — перегенерируйте ракурс."
+    )
+    missing = env.client.get(f"{BASE}/anchors/{LOOK}/front-9-x/thumb")
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == (
+        f"У листа {LOOK} нет кандидата front-9-x — обновите страницу."
+    )
+    bad = env.client.get(f"{BASE}/anchors/powder-monkey/front-1-x/thumb")
+    assert bad.status_code == 422
+
+
+def test_style_frame_thumbnail(env: Env) -> None:
+    env.run(f"{BASE}/style/anchors", {"period": "caribbean-1716"})
+    frame = env.manifest(env.paths.style_anchors_dir("cursus"))[0]
+    (env.paths.style_anchors_dir("cursus") / frame["file"]).write_bytes(jpeg(1280, 720))
+    response = env.client.get(f"{BASE}/anchors/style/{frame['id']}/thumb")
+    assert response.status_code == 200, response.text
+    assert size_of(response.content) == (180, 320)
+
+
 # --- деньги и очередь ----------------------------------------------------------------------------
 
 
 def test_estimate_before_click(env: Env) -> None:
     estimate = env.get(f"{SHEET_URL}/estimate")
-    assert {k: (v["label"], v["usd"]["usd_micro"]) for k, v in estimate.items()} == {
+    assert estimate["stale"] is None  # устаревших ракурсов нет
+    assert {k: (v["label"], v["usd"]["usd_micro"]) for k, v in estimate.items() if v} == {
         "sheet": ("6 ракурсов × 2 кандидата", 12 * PRICE),
         "angle": ("2 кандидата", 2 * PRICE),
         "style": ("6 кадров", 6 * PRICE),
