@@ -1,12 +1,18 @@
 /* Сквозной сценарий экрана 3 на моках API: выпуск Otto из бэклога → заявка → промпт части 1 из 2 в буфере → ответ чата
    → «Часть 1 принята» → часть 2 → план на листе → правка VO → «Сохранено 12:41» → «Утвердить план» → рельс на
-   «Генерации». Ответы чата — `fixtures/plan-part-*.txt`; мок не разбирает план, а собирает свой по числу частей. */
+   «Генерации». Ответы чата — `fixtures/plan-part-*.txt`; мок не разбирает план, а собирает свой по числу частей.
+   С M5.2 утверждение ждёт готовый канон: у Otto в моках стиля нет («Задайте стиль канала»), поэтому до сценария он
+   опубликован — те же поля, что у Cursus. Эпохи и облики плана моки считают готовыми. */
+import type { StyleDoc } from '../src/types/canon'
 import { expect, test } from './api'
 import { chatAnswer, clipboardText, grantClipboard, pasteAnswer } from './chat'
 
 test.skip(({ viewport }) => viewport?.width !== 1536, 'сквозной сценарий идёт на базовой ширине')
 
 test('идея → выпуск → план из моста частями → правка → утверждение', async ({ page, apiMock, baseURL }) => {
+  const style = apiMock.api.handle('GET', '/api/canon/cursus/style').body as StyleDoc
+  expect(apiMock.api.handle('PUT', '/api/canon/otto/style/draft', style.data).status).toBe(200)
+  expect(apiMock.api.handle('POST', '/api/canon/otto/style/publish').status).toBe(201)
   await grantClipboard(page, baseURL)
   await page.clock.install({ time: new Date('2026-09-11T12:41:00+03:00') })
   await page.goto('/episodes')

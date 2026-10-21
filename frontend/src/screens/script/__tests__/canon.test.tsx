@@ -142,7 +142,7 @@ describe('предпросмотр промпта кадра', () => {
     expect(items).toEqual([
       ['Стиль канала', 'style/v003'],
       ['Эпоха: Карибы, 1716', 'periods/caribbean-1716/v001'],
-      ['Облик: you@powder-monkey-11', 'characters/you/v001#powder-monkey-11'],
+      ['Облик: you@powder-monkey-11', 'characters/you/v002#powder-monkey-11'],
       ['Действие', 'кадр'],
       ['Крупность: establishing', 'кадр'],
     ])

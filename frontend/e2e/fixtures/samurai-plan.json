@@ -1,0 +1,86 @@
+{
+  "schema": "studio.director/1",
+  "meta": {
+    "channel": "cursus",
+    "episode_id": "samurai",
+    "working_title": "Samurai Household: every rank",
+    "format": "every_rank",
+    "language": "en",
+    "target_minutes": 20,
+    "part": 1,
+    "parts_total": 1
+  },
+  "sections": [
+    { "id": "r1", "title": "Rank 1: Ashigaru", "chapter": true, "vo_direction": "calm, dry irony" },
+    { "id": "r9", "title": "Rank 9: Daimyo", "chapter": true, "vo_direction": null }
+  ],
+  "shots": [
+    {
+      "id": "s001",
+      "section": "r1",
+      "vo": "You are seventeen, and the castle town wakes before you do.",
+      "image": { "prompt": "a castle town street at dawn, porters carrying rice bales past an earthen wall", "period": "edo-1650", "appearances": [], "shot_size": "establishing" },
+      "motion": { "type": "push_in", "strength": 0.06, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s002",
+      "section": "r1",
+      "vo": "An ashigaru owns one spear, one hat and nothing else worth stealing.",
+      "image": { "prompt": "a young foot soldier tightens the cord of his lacquered hat in a barracks yard", "period": "edo-1650", "appearances": ["you@ashigaru-17"], "shot_size": "action" },
+      "motion": { "type": "pull_out", "strength": 0.08, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s003",
+      "section": "r1",
+      "vo": "Drill is spears in rows, the same thrust a hundred times until it stops feeling like a choice.",
+      "image": { "prompt": "a row of foot soldiers thrusting spears in unison, he is third from the left", "period": "edo-1650", "appearances": ["you@ashigaru-17"], "shot_size": "action" },
+      "motion": { "type": "pan_right", "strength": 0.1, "ease": "linear" },
+      "transition_in": { "type": "cut", "duration": 0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s004",
+      "section": "r1",
+      "vo": "Your rice ration is counted in bales, and the bales are counted twice.",
+      "image": { "prompt": "close view of his hands holding a wooden rice measure over an open bale", "period": "edo-1650", "appearances": ["you@ashigaru-17"], "shot_size": "detail" },
+      "motion": { "type": "push_in", "strength": 0.05, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s005",
+      "section": "r9",
+      "vo": "The lord passes the gate once a season. You kneel, and you do not look up.",
+      "image": { "prompt": "the lord on horseback passes a gate while foot soldiers kneel along the road", "period": "edo-1650", "appearances": ["daimyo@edo-1650", "you@ashigaru-17"], "shot_size": "establishing" },
+      "motion": { "type": "drift", "strength": 0.04, "ease": "linear" },
+      "transition_in": { "type": "crossfade", "duration": 0.3 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    },
+    {
+      "id": "s006",
+      "section": "r9",
+      "vo": "Up close, the daimyo is a tired man counting debts in a cold room.",
+      "image": { "prompt": "the lord kneels alone at a low desk with account books, a brazier beside him", "period": "edo-1650", "appearances": ["daimyo@edo-1650"], "shot_size": "reaction" },
+      "motion": { "type": "push_in", "strength": 0.08, "ease": "in_out_cubic" },
+      "transition_in": { "type": "cut", "duration": 0 },
+      "animate": { "recommended": false, "reason": null, "prompt": null, "seconds": 4 },
+      "sfx": [],
+      "overlay": null
+    }
+  ],
+  "facts": []
+}

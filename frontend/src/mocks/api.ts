@@ -1336,9 +1336,23 @@ export interface CanonTweak {
   sheet?: AnchorSheet
 }
 
-/** Планы мока прибиты к последнему стилю Cursus (v003) и к v001 эпох и обликов */
+/** Канон канала глазами канона выпуска: опубликованные версии сущности (у облика — версии персонажа, где он есть),
+ *  черновик и лист против версии */
+export interface CanonFacts {
+  versions: string[]
+  draft: boolean
+  sheet: (version: string) => AnchorSheet
+}
+/** `null` — сущности нет ни в каноне канала, ни в «нужно каналу»: план артборда 3 ссылается на облики, которых нет в
+ *  артборде 12, — такие считаются прибитыми к последней версии с готовым листом */
+export type CanonLookup = (kind: CanonKind, id: string) => CanonFacts | null
+/** Прибитые версии плана выпуска (`canon_ref`): `style`, `period:<id>`, `appearance:<id>` → vNNN */
+export type CanonPins = Record<string, string>
+
+/** Без канона канала (unit-тесты) стиль прибит к последнему стилю Cursus (v003), эпохи и облики — к v001 */
 const PLAN_STYLE = 'v003'
 const SHEET_READY: AnchorSheet = { status: 'ready', chosen: 6, total: 6 }
+const NO_SHEET: AnchorSheet = { status: 'missing', chosen: 0, total: 6 }
 const ON_CANON_SCREEN = ' на экране «Канон»'
 const CANON_SUBJECT: Record<CanonKind, string> = { style: 'стиль канала', period: 'эпоха', appearance: 'облик' }
 const NOT_PUBLISHED: Record<CanonKind, (id: string) => string> = {
@@ -1354,14 +1368,25 @@ function canonRefOf(kind: CanonKind, id: string, tag: string): string {
   return `characters/${character}/${tag}#${look}`
 }
 
-/** Сущность канона выпуска — правила статуса как у `episode_canon._item` бэкенда */
-function canonItem(kind: CanonKind, id: string, shots: number, tweak: CanonTweak = {}): EpisodeCanonItem {
-  const pinned = tweak.pinned ?? (kind === 'style' ? PLAN_STYLE : 'v001')
-  const latest = tweak.latest === undefined ? pinned : tweak.latest
-  const draft = tweak.draft ?? false
-  const resolved = latest !== null && (tweak.resolved ?? pinned <= latest)
+const canonKey = (kind: CanonKind, id: string) => (kind === 'style' ? 'style' : `${kind}:${id}`)
+
+/** Сущность канона выпуска — правила статуса как у `episode_canon._item` бэкенда: факты канона канала, поверх —
+ *  отличия теста. Лист смотрится только у ссылки, которая находит версию */
+function canonItem(kind: CanonKind, id: string, shots: number, pin: string | undefined, facts: CanonFacts | null, tweak: CanonTweak = {}) {
+  const fallback = kind === 'style' ? PLAN_STYLE : 'v001'
+  const known = facts
+    ? { pinned: pin ?? fallback, latest: facts.versions.at(-1) ?? null, draft: facts.draft }
+    : { pinned: pin ?? fallback, latest: pin ?? fallback, draft: false }
+  const pinned = tweak.pinned ?? known.pinned
+  const latest = tweak.latest === undefined ? known.latest : tweak.latest
+  const draft = tweak.draft ?? known.draft
+  const moved = tweak.pinned !== undefined || tweak.latest !== undefined
+  const resolved =
+    latest !== null && (tweak.resolved ?? (facts && !moved ? facts.versions.includes(pinned) : pinned <= latest))
   const status = latest === null ? (draft ? 'draft_only' : 'missing') : resolved && pinned === latest ? 'ready' : 'outdated'
-  return { id, ref: canonRefOf(kind, id, pinned), pinned, latest, status, resolved, draft, shots }
+  const item: EpisodeCanonItem = { id, ref: canonRefOf(kind, id, pinned), pinned, latest, status, resolved, draft, shots }
+  const sheet = !resolved ? NO_SHEET : (tweak.sheet ?? (facts ? facts.sheet(pinned) : SHEET_READY))
+  return { item, sheet }
 }
 
 function refProblem(kind: CanonKind, item: EpisodeCanonItem): CanonProblem | null {
@@ -1398,18 +1423,53 @@ function sheetProblem(item: EpisodeAppearanceItem): CanonProblem | null {
   return { kind: 'appearance', id: item.id, issue: 'sheet_outdated', message: `${subject}: лист устарел — пересоберите его${ON_CANON_SCREEN}` }
 }
 
-/** Канон выпуска из кадров версии плана: эпохи и облики — в порядке первого появления, у стиля — все кадры */
-export function mockEpisodeCanon(plan: EffectivePlan, tweaks: Record<string, CanonTweak> = {}): EpisodeCanon {
+/** Сущности канона, на которые ссылается план: эпохи и облики — в порядке первого появления в кадрах */
+function planEntities(plan: EffectivePlan): { kind: CanonKind; id: string; shots: number }[] {
   const shots = plan.shots.filter((shot) => shot.status !== 'removed')
-  const style = canonItem('style', 'style', shots.length, tweaks.style)
-  const periods = [...new Set(shots.map((shot) => shot.image.period))].map((id) =>
-    canonItem('period', id, shots.filter((shot) => shot.image.period === id).length, tweaks[`period:${id}`]),
-  )
-  const appearances = [...new Set(shots.flatMap((shot) => shot.image.appearances))].map((id): EpisodeAppearanceItem => {
-    const tweak = tweaks[`appearance:${id}`]
-    const base = canonItem('appearance', id, shots.filter((shot) => shot.image.appearances.includes(id)).length, tweak)
-    return { ...base, sheet: base.resolved ? (tweak?.sheet ?? SHEET_READY) : { status: 'missing', chosen: 0, total: 6 } }
+  return [
+    { kind: 'style' as const, id: 'style', shots: shots.length },
+    ...[...new Set(shots.map((shot) => shot.image.period))].map((id) => ({
+      kind: 'period' as const,
+      id,
+      shots: shots.filter((shot) => shot.image.period === id).length,
+    })),
+    ...[...new Set(shots.flatMap((shot) => shot.image.appearances))].map((id) => ({
+      kind: 'appearance' as const,
+      id,
+      shots: shots.filter((shot) => shot.image.appearances.includes(id)).length,
+    })),
+  ]
+}
+
+/** Прибить новые ссылки плана, как импорт M5.2: прибитые прежде сохраняют версию, новые получают последнюю
+ *  опубликованную, а без неё — заготовку v001 */
+export function pinPlan(plan: EffectivePlan, pins: CanonPins, lookup: CanonLookup): CanonPins {
+  const next = { ...pins }
+  for (const { kind, id } of planEntities(plan)) {
+    const key = canonKey(kind, id)
+    if (next[key]) continue
+    const facts = lookup(kind, id)
+    next[key] = facts ? (facts.versions.at(-1) ?? 'v001') : kind === 'style' ? PLAN_STYLE : 'v001'
+  }
+  return next
+}
+
+/** Канон выпуска из кадров версии плана, прибитых версий и канона канала; у стиля — все кадры */
+export function mockEpisodeCanon(
+  plan: EffectivePlan,
+  tweaks: Record<string, CanonTweak> = {},
+  pins: CanonPins = {},
+  lookup: CanonLookup = () => null,
+): EpisodeCanon {
+  const items = planEntities(plan).map(({ kind, id, shots }) => {
+    const key = canonKey(kind, id)
+    return { kind, ...canonItem(kind, id, shots, pins[key], lookup(kind, id), tweaks[key]) }
   })
+  const style = items[0]!.item
+  const periods = items.filter((entry) => entry.kind === 'period').map((entry) => entry.item)
+  const appearances = items
+    .filter((entry) => entry.kind === 'appearance')
+    .map((entry): EpisodeAppearanceItem => ({ ...entry.item, sheet: entry.sheet }))
   const problems = [
     refProblem('style', style),
     ...periods.map((item) => refProblem('period', item)),
@@ -1619,6 +1679,8 @@ export function createMockApi() {
   /** Канон выпусков (M5.10): по умолчанию план прибит к последним версиям и листы 6/6; тест задаёт отличия
    *  (`CanonTweak` по сущности), перевод на новые версии их обновляет */
   const episodeCanons = new Map<string, Record<string, CanonTweak>>()
+  /** Прибитые версии планов выпусков (`canon_ref`): ставятся при создании версии плана, двигает их только перевод */
+  const episodePins = new Map<string, CanonPins>()
   /** Листы обликов (M5.9) — как `sheet.json` и `chosen.json` бэкенда: кандидаты всех сборок и выбор по ракурсу */
   const canonSheets: Record<ChannelId, Map<string, MockSheet>> = { cursus: new Map(), otto: new Map() }
   for (const channel of ['cursus', 'otto'] as const) {
@@ -1923,6 +1985,7 @@ export function createMockApi() {
     if (!plans.has(episode.id) && episode.id === 'pirate') {
       plans.set(episode.id, artboardPlan(episode))
       overrides.set(episode.id, structuredClone(ART_OVERRIDES))
+      pinEpisode(episode)
     }
     return plans.get(episode.id) ?? null
   }
@@ -2070,6 +2133,7 @@ export function createMockApi() {
       const version = `v${String(number).padStart(3, '0')}`
       const shots = total * SHOTS_PER_PART
       plans.set(episode.id, mockPlan(episode, version, shots))
+      pinEpisode(episode)
       projectOf(episode).director_version = version
       Object.assign(episode, {
         stage: episode.stage === 'idea' ? 'script' : episode.stage,
@@ -2207,6 +2271,7 @@ export function createMockApi() {
       shots,
       facts: (director.facts ?? []).map((fact) => ({ ...fact, source_url: fact.source_url ?? null })),
     })
+    pinEpisode(episode)
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     const ids = new Set(shots.map((shot) => shot.id))
@@ -2251,7 +2316,42 @@ export function createMockApi() {
   /** Канон текущей версии плана (`GET …/canon`); плана нет — `null` */
   function episodeCanonOf(episode: EpisodeListItem): EpisodeCanon | null {
     const plan = plansOf(episode)
-    return plan ? mockEpisodeCanon(plan, episodeCanons.get(episode.id)) : null
+    return plan ? mockEpisodeCanon(plan, episodeCanons.get(episode.id), episodePins.get(episode.id), canonFacts(episode.channel)) : null
+  }
+
+  /** Канон канала для канона выпуска; `null` — сущности нет ни в каноне, ни в «нужно каналу» (облики плана
+   *  артборда 3, которых нет в артборде 12) — она считается готовой */
+  function canonFacts(channel: ChannelId): CanonLookup {
+    return (kind, id) => {
+      if (kind === 'style') {
+        const style = canonStyles[channel]
+        return { versions: style.versions.map((v) => v.info.version), draft: style.draft !== null, sheet: () => SHEET_READY }
+      }
+      const needed = PLAN_REFS[channel]
+      if (kind === 'period') {
+        const state = canonPeriods[channel].get(id)
+        if (!state && !needed.periods.some((item) => item.id === id)) return null
+        return { versions: state?.versions.map((v) => v.info.version) ?? [], draft: Boolean(state?.draft), sheet: () => SHEET_READY }
+      }
+      const character = canonCharacters[channel].get(id.split('@')[0]!)
+      const versions = (character?.versions ?? []).filter((v) => v.data.appearances.some((a) => a.id === id)).map((v) => v.info.version)
+      const draft = Boolean(character?.draft?.data.appearances.some((a) => a.id === id))
+      if (!versions.length && !draft && !needed.appearances.some((item) => item.id === id)) return null
+      return {
+        versions,
+        draft,
+        sheet: (version) => {
+          const { status, chosen, total } = appearanceAnchors(channel, id, version)
+          return { status, chosen, total }
+        },
+      }
+    }
+  }
+
+  /** Новая версия плана прибивает новые ссылки (прежние сохраняют версию) — как импорт M5.2 */
+  function pinEpisode(episode: EpisodeListItem) {
+    const plan = plans.get(episode.id)
+    if (plan) episodePins.set(episode.id, pinPlan(plan, episodePins.get(episode.id) ?? {}, canonFacts(episode.channel)))
   }
 
   /** «Перевести на новые версии», как бэкенд M5.2: новая версия `manual` со ссылками на последние версии; затронутые
@@ -2260,13 +2360,17 @@ export function createMockApi() {
     const plan = plansOf(episode)
     if (!plan) return fail(409, 'Плана ещё нет — переводить на новые версии нечего.')
     const tweaks = { ...episodeCanons.get(episode.id) }
-    const canon = mockEpisodeCanon(plan, tweaks)
+    const pins = { ...episodePins.get(episode.id) }
+    const canon = mockEpisodeCanon(plan, tweaks, pins, canonFacts(episode.channel))
     if (!canon.updatable) return ok({ version: plan.version, created: false, added: 0, changed: 0, removed: 0, changes: [] } satisfies ImportResult)
     const moved: { kind: CanonKind; id: string; reason: string }[] = []
     const move = (kind: CanonKind, key: string, item: EpisodeCanonItem, title: string) => {
       if (item.latest === null || item.latest === item.pinned) return
       moved.push({ kind, id: item.id, reason: `${title}: ${item.ref} → ${canonRefOf(kind, item.id, item.latest)}` })
-      const next: CanonTweak = { ...tweaks[key], pinned: item.latest }
+      pins[key] = item.latest
+      // Отличия теста в прибитой версии и её находимости уступают переводу
+      const next: CanonTweak = { ...tweaks[key] }
+      delete next.pinned
       delete next.resolved
       tweaks[key] = next
     }
@@ -2274,6 +2378,7 @@ export function createMockApi() {
     for (const item of canon.periods) move('period', `period:${item.id}`, item, `Эпоха ${item.id}`)
     for (const item of canon.appearances) move('appearance', `appearance:${item.id}`, item, `Облик ${item.id}`)
     episodeCanons.set(episode.id, tweaks)
+    episodePins.set(episode.id, pins)
 
     const version = `v${String(Number(plan.version.slice(1)) + 1).padStart(3, '0')}`
     const changes: ShotChange[] = []
@@ -2643,9 +2748,10 @@ export function createMockApi() {
     return sheets.get(appearanceId)!
   }
 
-  /** Лист облика против последней опубликованной версии с ним: ракурсы по порядку, устаревание по правилу бэкенда */
-  function appearanceAnchors(channel: ChannelId, appearanceId: string): AnchorSetState {
-    const version = latestWith(channel, appearanceId)
+  /** Лист облика против последней опубликованной версии с ним (у канона выпуска — против прибитой): ракурсы по порядку,
+   *  устаревание по правилу бэкенда */
+  function appearanceAnchors(channel: ChannelId, appearanceId: string, against?: string): AnchorSetState {
+    const version = against ?? latestWith(channel, appearanceId)
     const sheet = sheetOf(channel, appearanceId)
     const dir = `channels/${channel}/canon/anchors/${appearanceId}`
     const stale = new Map<string, MockStale>()
@@ -3282,6 +3388,9 @@ export function createMockApi() {
     }
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
+
+  // План «Пиратов» прибит к канону, каким мок начинается: публикация в тесте не двигает его ссылки (принцип 14)
+  plansOf(state.find((episode) => episode.id === 'pirate')!)
 
   return {
     handle,
