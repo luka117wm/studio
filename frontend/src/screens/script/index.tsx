@@ -174,7 +174,6 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
         episodeId={episode.id}
         shotId={promptShot}
         planStamp={plan.dataUpdatedAt}
-        canon={canon.data}
         onClose={() => setPromptShot(null)}
       />
       <Dialog

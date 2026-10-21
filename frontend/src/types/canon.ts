@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/canon.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:946f4079026e8b1cfdad793fc94707c2b73a0b2e8638bb28a4fa8a7d548edf8a
+ * @generated sha256:ab35a730d9be521a09dad0edbafc2799cb70fd996f365d84a938bc8cc92274cc
  */
 export interface AnchorCandidate {
   id: string
@@ -90,7 +90,8 @@ export interface CandidatePick {
 /**
  * Подпись и число обликов — из черновика, а без него — из последней версии.
  * `sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел
- * против последней опубликованной версии с обликом; считает `episode_canon.canon_overview`.
+ * против последней опубликованной версии с обликом, `sheets_outdated` — у скольких лист устарел
+ * (выбор есть, но лицо или одежда в новой версии другие). Считает `episode_canon.canon_overview`.
  */
 export interface CanonCharacterItem {
   id: string
@@ -99,6 +100,7 @@ export interface CanonCharacterItem {
   draft: boolean
   appearances_count: number
   sheets_ready: number
+  sheets_outdated: number
 }
 
 /**

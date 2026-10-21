@@ -4,11 +4,11 @@
    промпта, со ссылками на экран 12. Диалог lg, а не всплывающее окно: промпт с секциями — тысячи знаков. */
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import type { EpisodeCanon, ShotPrompt as ShotPromptData } from '@/types/plan'
+import type { PromptProblem, ShotPrompt as ShotPromptData } from '@/types/plan'
 import { useShotPrompt } from '../../api/queries'
 import { Button, Dialog, Skeleton, StatusGlyph } from '../../ui'
 import { CanonLink } from './CanonLink'
-import { canonHref } from './canonLinks'
+import { problemHref } from './canonLinks'
 
 export interface ShotPromptProps {
   episodeId: string
@@ -16,11 +16,10 @@ export interface ShotPromptProps {
   shotId: string | null
   /** Время ответа плана: правка кадра — новый предпросмотр */
   planStamp: number
-  canon: EpisodeCanon | null | undefined
   onClose: () => void
 }
 
-export function ShotPrompt({ episodeId, shotId, planStamp, canon, onClose }: ShotPromptProps) {
+export function ShotPrompt({ episodeId, shotId, planStamp, onClose }: ShotPromptProps) {
   const prompt = useShotPrompt(episodeId, shotId, planStamp)
   return (
     <Dialog
@@ -42,7 +41,7 @@ export function ShotPrompt({ episodeId, shotId, planStamp, canon, onClose }: Sho
       ) : !prompt.data ? (
         <Skeleton variant="text" lines={8} />
       ) : prompt.data.problems.length ? (
-        <Problems problems={prompt.data.problems} canon={canon} />
+        <Problems problems={prompt.data.problems} />
       ) : (
         <PromptBody prompt={prompt.data} />
       )}
@@ -151,34 +150,32 @@ function Text({ children, label }: { children: string; label?: string }) {
   )
 }
 
-/** Сущность канона кадра, о которой проблема: облик — по id или пути персонажа, эпоха — по id, стиль — по ссылке.
- *  Тексты проблем — бэкенда (`docs/prompt_assembly.md`, «Проблемы»), адресата в них нет: ищем id сущностей
- *  канона выпуска в тексте. Не нашли (стилевой токен в действии) — проблема без ссылки. */
-function problemLink(problem: string, canon: EpisodeCanon | null | undefined): { href: string; label: string } | null {
-  if (!canon) return null
-  for (const item of canon.appearances) {
-    if (problem.includes(item.id) || problem.includes(`${item.ref.split('#')[0]} `)) {
-      const sheet = item.resolved && item.sheet.status !== 'ready'
-      return { href: canonHref('appearance', item.id, sheet), label: sheet ? `Лист ${item.id}` : `Облик ${item.id}` }
-    }
-  }
-  for (const item of canon.periods) {
-    if (problem.includes(item.id)) return { href: canonHref('period', item.id), label: `Эпоха ${item.id}` }
-  }
-  if (problem.includes(canon.style.ref)) return { href: canonHref('style', 'style'), label: 'Стиль канала' }
-  return null
+/** Куда ведёт проблема: адресат `canon` от бэкенда (как у отказа «Утвердить план») — лист облика, облик, эпоха или
+ *  стиль на экране 12. Без адресата (стилевой токен в действии, лимит референсов) и у «ссылка не находит версию» —
+ *  без ссылки: это чинит перевод выпуска или правка кадра, а не экран 12. */
+function problemLink({ canon: target }: PromptProblem): { href: string; label: string } | null {
+  if (!target || target.issue === 'unresolved') return null
+  const label =
+    target.kind === 'style'
+      ? 'Стиль канала'
+      : target.kind === 'period'
+        ? `Эпоха ${target.id}`
+        : target.issue === 'unpublished'
+          ? `Облик ${target.id}`
+          : `Лист ${target.id}`
+  return { href: problemHref(target), label }
 }
 
-function Problems({ problems, canon }: { problems: string[]; canon: EpisodeCanon | null | undefined }) {
+function Problems({ problems }: { problems: PromptProblem[] }) {
   return (
     <div role="alert" className="flex flex-col gap-2">
       <p className="text-13 text-failed-text">Запрос кадра не собран — рисовать его нельзя:</p>
       <ul aria-label="Проблемы канона" className="flex flex-col gap-1.5">
         {problems.map((problem) => {
-          const link = problemLink(problem, canon)
+          const link = problemLink(problem)
           return (
-            <li key={problem} className="flex flex-col gap-0.5 text-12">
-              <span className="text-ink">{problem}</span>
+            <li key={problem.message} className="flex flex-col gap-0.5 text-12">
+              <span className="text-ink">{problem.message}</span>
               {link && (
                 <CanonLink href={link.href} className="self-start text-accent">
                   {link.label} на экране «Канон»

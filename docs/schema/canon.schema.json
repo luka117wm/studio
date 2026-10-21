@@ -383,7 +383,7 @@
     },
     "CanonCharacterItem": {
       "additionalProperties": false,
-      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.\n`sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел\nпротив последней опубликованной версии с обликом; считает `episode_canon.canon_overview`.",
+      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.\n`sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел\nпротив последней опубликованной версии с обликом, `sheets_outdated` — у скольких лист устарел\n(выбор есть, но лицо или одежда в новой версии другие). Считает `episode_canon.canon_overview`.",
       "properties": {
         "id": {
           "title": "Id",
@@ -412,6 +412,11 @@
           "default": 0,
           "title": "Sheets Ready",
           "type": "integer"
+        },
+        "sheets_outdated": {
+          "default": 0,
+          "title": "Sheets Outdated",
+          "type": "integer"
         }
       },
       "required": [
@@ -420,7 +425,8 @@
         "versions",
         "draft",
         "appearances_count",
-        "sheets_ready"
+        "sheets_ready",
+        "sheets_outdated"
       ],
       "title": "CanonCharacterItem",
       "type": "object"

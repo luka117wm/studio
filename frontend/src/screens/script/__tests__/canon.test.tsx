@@ -130,6 +130,21 @@ describe('перевести на новые версии', () => {
     // Кадры другой эпохи не тронуты
     expect(within(sheet.querySelector<HTMLElement>('[data-shot="s061"]')!).getByRole('img', { name: 'Статус: готов' })).toBeTruthy()
   })
+  test('недособранный набор частей моста — предупреждение до клика: перевод его сбросит', async () => {
+    const api = withCanon({ 'period:caribbean-1716': { latest: 'v002' } })
+    api.parts.set('pirate', { received: [1, 2], lastRun: null })
+    const { section } = await open(api)
+    await userEvent.click(within(section).getByRole('button', { name: 'Перевести на новые версии' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Перевести на новые версии' })
+    expect(
+      await within(dialog).findByText(
+        'Набор частей из чата не закончен (приняты 1, 2 из 4) — перевод его сбросит, части придётся вставить заново.',
+      ),
+    ).toBeTruthy()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Перевести' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(api.parts.get('pirate')?.received ?? []).toEqual([]) // как `_clear_parts` бэкенда
+  })
 })
 
 describe('предпросмотр промпта кадра', () => {
@@ -180,7 +195,7 @@ describe('предпросмотр промпта кадра', () => {
     await waitFor(() => expect(document.activeElement).toBe(cell(1, 2)))
   })
 
-  test('проблемы канона — списком вместо промпта, со ссылками на экран 12', async () => {
+  test('проблемы канона — списком вместо промпта, ссылки — по адресату бэкенда', async () => {
     await open(
       withCanon({
         'period:caribbean-1716': { pinned: 'v009', latest: 'v002' },
@@ -197,10 +212,8 @@ describe('предпросмотр промпта кадра', () => {
       'кадр s001: эпоха periods/caribbean-1716/v009 не найдена в каноне cursus',
       'кадр s001: лист облика you@powder-monkey-11 3/6 — выберите недостающие ракурсы на экране «Канон»',
     ])
-    expect(target(within(items[0]!).getByRole('link', { name: 'Эпоха caribbean-1716 на экране «Канон»' })).params).toEqual({
-      layer: 'periods',
-      period: 'caribbean-1716',
-    })
+    // Адресат — от бэкенда: «ссылка не находит версию» чинит перевод выпуска, а не экран 12 — без ссылки, как в отказе
+    expect(within(items[0]!).queryByRole('link')).toBeNull()
     const sheet = within(items[1]!).getByRole('link', { name: 'Лист you@powder-monkey-11 на экране «Канон»' })
     expect(target(sheet).params.sheet).toBe('you@powder-monkey-11')
     await userEvent.click(sheet)

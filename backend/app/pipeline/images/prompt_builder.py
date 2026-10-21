@@ -12,14 +12,15 @@
 
 Сборка детерминирована: те же входы — побайтово тот же промпт и тот же хэш входов шлюза (ключ кэша
 кадра в M6). Что мешает рисовать, — `problems` по-русски с id кадра, а не исключение: предпросмотр
-показывает их списком.
+показывает их списком. У проблемы канона — адресат `canon` (сущность и вид, как у отказа «Утвердить
+план»): по нему экран ведёт на экран 12, не разбирая текст.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.cost.pricing import Money, format_unit_usd
 from app.models.canon import Appearance, Character, Period, Style
@@ -27,12 +28,18 @@ from app.models.canon_config import CanonConfig
 from app.models.director import CanonRef, Shot
 from app.models.validators import find_style_tokens
 from app.pipeline.canon import anchors
-from app.pipeline.canon.episode_canon import SHEET_ANGLES, ref_tag
+from app.pipeline.canon.episode_canon import (
+    SHEET_ANGLES,
+    CanonIssue,
+    CanonKind,
+    CanonTarget,
+    ref_tag,
+)
 from app.pipeline.director_import.effective import PlanShot
 from app.providers.base import AspectRatio, Cost, ImageRef, ImageRequest
 from app.providers.gateway import Gateway, input_hash
 from app.storage import canon_store
-from app.storage.canon_store import STYLE, CanonNotFound, CanonRefError
+from app.storage.canon_store import CHARACTERS, PERIODS, STYLE, CanonNotFound, CanonRefError
 from app.storage.paths import StudioPaths
 
 IMAGES_STAGE = "images"  # этап кадров в `config/providers.yaml`
@@ -70,6 +77,17 @@ class DroppedRef(PromptRef):
     reason: str
 
 
+def _is_none(value: object) -> bool:
+    return value is None
+
+
+class PromptProblem(BaseModel):
+    """Что мешает рисовать кадр: текст с id кадра и, у проблемы канона, — её адресат."""
+
+    message: str
+    canon: CanonTarget | None = Field(default=None, exclude_if=_is_none)
+
+
 class ShotPrompt(BaseModel):
     """Запрос картинки кадра до траты денег: `GET /api/projects/{id}/shots/{shot_id}/prompt`."""
 
@@ -85,7 +103,7 @@ class ShotPrompt(BaseModel):
     cost: Cost
     usd: Money  # цена одного кадра, до десятых цента: «$0.067»
     input_hash: str | None  # ключ кэша кадра (M6); null — есть проблемы, рисовать нельзя
-    problems: list[str]  # что мешает рисовать, с id кадра
+    problems: list[PromptProblem]  # что мешает рисовать, с id кадра
     warnings: list[str]  # что не попало в запрос, но рисовать не мешает
 
 
@@ -140,11 +158,20 @@ class _Builder:
         self.canon_ref = canon_ref
         self.shot = shot
         self.prefix = f"кадр {shot.id}: "
-        self.problems: list[str] = []
+        self.problems: list[PromptProblem] = []
         self.warnings: list[str] = []
 
-    def problem(self, text: str) -> None:
-        self.problems.append(self.prefix + text)
+    def problem(self, text: str, target: CanonTarget | None = None) -> None:
+        self.problems.append(PromptProblem(message=self.prefix + text, canon=target))
+
+    def ref_problem(self, kind: CanonKind, entity_id: str, exc: CanonRefError) -> None:
+        """Ссылка не резолвится: у сущности нет ни одной версии — «не опубликована», иначе ссылка
+        не находит версию (как `episode_canon._ref_problem`)."""
+        layer_id = None if kind == "style" else entity_id.split("@", 1)[0]
+        layer = {"style": STYLE, "period": PERIODS, "appearance": CHARACTERS}[kind]
+        published = canon_store.list_versions(self.paths, self.channel, layer, layer_id)
+        issue: CanonIssue = "unresolved" if published else "unpublished"
+        self.problem(str(exc), CanonTarget(kind=kind, id=entity_id, issue=issue))
 
     # --- канон --------------------------------------------------------------------------------
 
@@ -152,14 +179,17 @@ class _Builder:
         try:
             return canon_store.resolve_style(self.paths, self.channel, self.canon_ref.style)
         except CanonRefError as exc:
-            self.problem(str(exc))
+            self.ref_problem("style", "style", exc)
             return None
 
     def period_ref(self) -> str | None:
         period_id = self.shot.image.period
         ref = self.canon_ref.periods.get(period_id)
         if ref is None:
-            self.problem(f"эпохи {period_id} нет в canon_ref плана — импортируйте план заново")
+            self.problem(
+                f"эпохи {period_id} нет в canon_ref плана — импортируйте план заново",
+                CanonTarget(kind="period", id=period_id, issue="unresolved"),
+            )
         return ref
 
     def period(self, ref: str | None) -> Period | None:
@@ -168,7 +198,7 @@ class _Builder:
         try:
             return canon_store.resolve_period(self.paths, self.channel, ref)
         except CanonRefError as exc:
-            self.problem(str(exc))
+            self.ref_problem("period", self.shot.image.period, exc)
             return None
 
     def people(self) -> list[_Person]:
@@ -177,7 +207,8 @@ class _Builder:
             ref = self.canon_ref.appearances.get(appearance_id)
             if ref is None:
                 self.problem(
-                    f"облика {appearance_id} нет в canon_ref плана — импортируйте план заново"
+                    f"облика {appearance_id} нет в canon_ref плана — импортируйте план заново",
+                    CanonTarget(kind="appearance", id=appearance_id, issue="unresolved"),
                 )
                 continue
             try:
@@ -185,7 +216,7 @@ class _Builder:
                     self.paths, self.channel, ref
                 )
             except CanonRefError as exc:
-                self.problem(str(exc))
+                self.ref_problem("appearance", appearance_id, exc)
                 continue
             people.append(_Person(appearance_id, ref, character, appearance))
             self.check_sheet(appearance_id, ref)
@@ -199,17 +230,26 @@ class _Builder:
         status, chosen = anchors.sheet_status(
             self.paths, self.channel, appearance_id, tag, SHEET_ANGLES
         )
+
+        def sheet(issue: CanonIssue) -> CanonTarget:
+            return CanonTarget(kind="appearance", id=appearance_id, issue=issue)
+
         if status == "missing":
             self.problem(
-                f"у облика {appearance_id} нет листа опорных портретов — соберите его{_ON_SCREEN}"
+                f"у облика {appearance_id} нет листа опорных портретов — соберите его{_ON_SCREEN}",
+                sheet("no_sheet"),
             )
         elif status == "partial":
             self.problem(
                 f"лист облика {appearance_id} {chosen}/{SHEET_ANGLES} — выберите недостающие"
-                f" ракурсы{_ON_SCREEN}"
+                f" ракурсы{_ON_SCREEN}",
+                sheet("sheet_incomplete"),
             )
         elif status == "outdated":
-            self.problem(f"лист облика {appearance_id} устарел — пересоберите его{_ON_SCREEN}")
+            self.problem(
+                f"лист облика {appearance_id} устарел — пересоберите его{_ON_SCREEN}",
+                sheet("sheet_outdated"),
+            )
 
     # --- референсы ----------------------------------------------------------------------------
 

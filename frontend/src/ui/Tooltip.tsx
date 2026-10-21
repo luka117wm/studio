@@ -73,7 +73,7 @@ export function Tooltip({ content, children, placement = 'top', delayMs = 300 }:
             id={id}
             role="tooltip"
             style={layerStyle(position)}
-            className="pointer-events-none z-40 max-w-64 rounded-control border border-line bg-raised px-2 py-1 text-12 text-ink shadow-overlay"
+            className="pointer-events-none z-60 max-w-64 rounded-control border border-line bg-raised px-2 py-1 text-12 text-ink shadow-overlay"
           >
             {content}
           </div>

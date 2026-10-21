@@ -154,7 +154,7 @@ export function DropdownMenu({
             aria-label={label}
             onKeyDown={onMenuKeyDown}
             style={layerStyle(position)}
-            className="z-40 min-w-44 rounded-panel border border-line bg-raised py-1 shadow-overlay"
+            className="z-60 min-w-44 rounded-panel border border-line bg-raised py-1 shadow-overlay"
           >
             {items.map((item) =>
               'separator' in item ? (

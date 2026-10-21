@@ -481,22 +481,24 @@ def uses_period(director: Director, period_id: str) -> bool:
 # --- сводка экрана 12 ----------------------------------------------------------------------------
 
 
-def _ready_sheets(paths: StudioPaths, channel: str, character_id: str) -> int:
-    """Облики персонажа (черновик, без него — последняя версия), чей лист готов 6/6 против
-    последней опубликованной версии персонажа с обликом. Облик без версии листа не имеет."""
+def _sheet_counts(paths: StudioPaths, channel: str, character_id: str) -> dict[str, int]:
+    """Облики персонажа (черновик, без него — последняя версия), чей лист готов 6/6 и чей устарел
+    против последней опубликованной версии персонажа с обликом. Облик без версии листа не имеет."""
     head = canon_store.read_entry(paths, channel, CHARACTERS, character_id).data
-    ready = 0
+    ready = outdated = 0
     for appearance in head.appearances:
         found = latest_appearance(paths, channel, appearance.id)
         if found is not None:
             status, _ = sheet_status(paths, channel, appearance.id, found[2], SHEET_ANGLES)
             ready += status == "ready"
-    return ready
+            outdated += status == "outdated"
+    return {"sheets_ready": ready, "sheets_outdated": outdated}
 
 
 def canon_overview(paths: StudioPaths, channel: str, plans: Iterable[EpisodePlan]) -> CanonSummary:
     """Сводка канона канала (`canon_store.summary`) со счётчиками экрана 12: у эпохи — сколько
-    выпусков ссылаются на неё текущими планами, у персонажа — сколько листов обликов готово."""
+    выпусков ссылаются на неё текущими планами, у персонажа — сколько листов обликов готово и
+    сколько устарело."""
     summary = canon_store.summary(paths, channel)
     directors = [plan.director for plan in plans]
     periods = [
@@ -504,7 +506,7 @@ def canon_overview(paths: StudioPaths, channel: str, plans: Iterable[EpisodePlan
         for item in summary.periods
     ]
     characters = [
-        item.model_copy(update={"sheets_ready": _ready_sheets(paths, channel, item.id)})
+        item.model_copy(update=_sheet_counts(paths, channel, item.id))
         for item in summary.characters
     ]
     return summary.model_copy(update={"periods": periods, "characters": characters})

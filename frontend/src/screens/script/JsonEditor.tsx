@@ -9,12 +9,13 @@ import type { EffectivePlan, ValidationItem } from '@/types/plan'
 import { DEBOUNCE_MS } from '../../app/autosave'
 import { PanelHeader } from '../../app/PanelHeader'
 import { planRejection } from '../../api/client'
-import { useDirectorVersion, useSaveDirectorVersion, useValidateDirector } from '../../api/queries'
+import { useDirectorVersion, usePlanParts, useSaveDirectorVersion, useValidateDirector } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
 import { Button, Skeleton, StatusGlyph, cn } from '../../ui'
 import { plural } from '../episodes/board'
 import { discardJsonDraft, readJsonDraft, writeJsonDraft } from './jsonDrafts'
 import { locate, parsePlanJson, pathLine, shotLine, tokenizeLine, type TokenKind } from './jsonHighlight'
+import { pendingPartsNote } from './planParts'
 
 /** Высота строки кода, px: `leading-5` у слоя, номеров и `textarea` */
 const LINE_PX = 20
@@ -175,6 +176,8 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
 
   // --- сохранение ---
   const save = useSaveDirectorVersion(episodeId)
+  const parts = usePlanParts(episodeId)
+  const partsNote = dirty ? pendingPartsNote(parts.data, 'новая версия') : null
   const canSave = dirty && parsed.ok && !checking && failure === null && items.length === 0 && !save.isPending
   const submit = async () => {
     if (!parsed.ok) return
@@ -286,6 +289,7 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
             Сохранить как версию
           </Button>
           <p className="text-11 leading-3.5 text-muted">{saveHint(dirty, problems.length > 0, checking, plan)}</p>
+          {partsNote && <p className="text-11 leading-3.5 text-warning">{partsNote}</p>}
         </div>
       </aside>
     </div>

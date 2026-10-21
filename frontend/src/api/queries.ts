@@ -434,10 +434,12 @@ export function usePublishCanon<P extends CanonPath>(channel: ChannelId, path: P
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/publish`)),
-    onSuccess: (doc) => {
+    // Перезапрос ждём: тост «Опубликована vN» и закрытие диалога — уже со статусами листов против новой версии,
+    // иначе карточка облика долю секунды показывала прежний «готов 6/6» (хвост M5.11)
+    onSuccess: async (doc) => {
       client.setQueryData(qk.canonDoc(channel, path, null), doc)
       if (doc.version) client.setQueryData(qk.canonDoc(channel, path, doc.version), doc)
-      void client.invalidateQueries({ queryKey: qk.canon(channel) })
+      await client.invalidateQueries({ queryKey: qk.canon(channel) })
     },
   })
 }

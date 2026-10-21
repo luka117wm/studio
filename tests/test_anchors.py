@@ -501,20 +501,24 @@ def test_sheet_follows_appearance_version(env: Env) -> None:
     assert (late.status, late.chosen) == ("outdated", 6)
 
 
-def test_summary_counts_ready_sheets(env: Env) -> None:
-    """Экран 12: у персонажа — сколько листов обликов готово 6/6 против последней версии."""
+def test_summary_counts_ready_and_outdated_sheets(env: Env) -> None:
+    """Экран 12: у персонажа — сколько листов обликов готово 6/6 и сколько устарело против
+    последней версии; несобранный лист — ни то ни другое."""
 
-    def ready() -> list[tuple[str, int, int]]:
+    def counts() -> list[tuple[str, int, int, int]]:
         characters = env.get(BASE)["characters"]
-        return [(c["id"], c["appearances_count"], c["sheets_ready"]) for c in characters]
+        return [
+            (c["id"], c["appearances_count"], c["sheets_ready"], c["sheets_outdated"])
+            for c in characters
+        ]
 
     count = len(CHARACTER["appearances"])
-    assert ready() == [("you", count, 0)]
+    assert counts() == [("you", count, 0, 0)]
     env.run(SHEET_URL)
     env.choose_all()
-    assert ready() == [("you", count, 1)]
+    assert counts() == [("you", count, 1, 0)]
     publish_character(env, face="boyish, pale cheeks")  # лист устарел — не готов
-    assert ready() == [("you", count, 0)]
+    assert counts() == [("you", count, 0, 1)]
 
 
 def test_face_change_outdates_whole_sheet(env: Env) -> None:

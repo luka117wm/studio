@@ -4,12 +4,13 @@
    версиями канона, только после подтверждения (принцип 14). Статусы и проблемы считает бэкенд (`GET …/canon`). */
 import { useState } from 'react'
 import type { AnchorSheet, EpisodeCanon, EpisodeCanonItem } from '@/types/plan'
-import { useUpdateEpisodeCanon } from '../../api/queries'
+import { usePlanParts, useUpdateEpisodeCanon } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
 import { Button, Dialog, Skeleton, StatusGlyph, cn, type Status } from '../../ui'
 import { plural } from '../episodes/board'
 import { CanonLink } from './CanonLink'
 import { canonHref, canonIssues } from './canonLinks'
+import { pendingPartsNote } from './planParts'
 
 type CanonKind = 'style' | 'period' | 'appearance'
 
@@ -128,6 +129,8 @@ function UpdateDialog({
   approved: boolean
 }) {
   const update = useUpdateEpisodeCanon(episodeId)
+  const parts = usePlanParts(episodeId)
+  const partsNote = pendingPartsNote(parts.data, 'перевод')
   const pushToast = useUiStore((s) => s.pushToast)
   const moves = [
     { subject: 'стиль канала', item: canon.style },
@@ -186,6 +189,7 @@ function UpdateDialog({
           ))}
         </ul>
         <p className="text-12 text-warning">Затронутые кадры станут stale, картинки останутся.</p>
+        {partsNote && <p className="text-12 text-warning">{partsNote}</p>}
         {approved && <p className="text-12 text-muted">План утверждён — после перевода утвердить его нужно будет снова.</p>}
         {update.error && (
           <p role="alert" className="text-12 text-failed-text">

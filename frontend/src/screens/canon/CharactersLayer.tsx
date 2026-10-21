@@ -157,7 +157,7 @@ function CharacterList({ characters, current, channelName, onNew }: { characters
                   <span className="truncate text-13 font-medium text-ink">{c.label || c.id}</span>
                   <span className="truncate text-11 text-muted">{characterMeta(c, channelName)}</span>
                 </span>
-                <StatusGlyph status={status} label={status === 'ready' ? 'Все листы готовы' : status === 'warning' ? 'Не все листы готовы' : 'Готовых листов нет'} />
+                <StatusGlyph status={status} label={status === 'ready' ? 'Все листы готовы' : status === 'warning' ? 'Не все листы готовы' : 'Листы не собраны'} />
               </button>
             </li>
           )

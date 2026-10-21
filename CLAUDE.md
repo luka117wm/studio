@@ -73,7 +73,7 @@ data/             (gitignored)
       style/v003.json                      стиль канала + глобальный negative
       periods/caribbean-1716/v002.json     палитра, материалы, свет, запрещённое
       characters/you/v004.json             персонаж и его облики
-      anchors/you@powder-monkey-11/        лист опорных портретов (6 png) + chosen.json
+      anchors/you@powder-monkey-11/        лист опорных портретов (6 картинок, формат — от модели) + chosen.json
       anchors/style/                       опорные кадры стиля канала
   projects/<channel>/<episode>/
     director/v001.json …   project.json   media/   cache/   exports/   publish/

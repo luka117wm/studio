@@ -239,8 +239,8 @@ def test_fields_filled_by_a_person_are_kept_and_listed(galley: TestClient) -> No
     ]
     assert "label" not in result["filled"] and "materials" in result["filled"]
     assert result["message"] == (
-        "Черновик эпохи: заполнено 8 полей, чат предложил иначе для 2 — сравните на экране «Канон»."
-        " Публикует человек."
+        "Черновик эпохи: заполнено 8 полей, чат предложил иначе для 2 — сравните в списке"
+        " «Чат предложил иначе». Публикует человек."
     )
 
 

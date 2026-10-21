@@ -412,7 +412,9 @@ class CanonPeriodItem(StrictModel):
 class CanonCharacterItem(StrictModel):
     """Подпись и число обликов — из черновика, а без него — из последней версии.
     `sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел
-    против последней опубликованной версии с обликом; считает `episode_canon.canon_overview`."""
+    против последней опубликованной версии с обликом, `sheets_outdated` — у скольких лист устарел
+    (выбор есть, но лицо или одежда в новой версии другие). Считает `episode_canon.canon_overview`.
+    """
 
     id: str
     label: str
@@ -420,6 +422,7 @@ class CanonCharacterItem(StrictModel):
     draft: bool
     appearances_count: int
     sheets_ready: int = 0
+    sheets_outdated: int = 0
 
 
 class CanonSummary(StrictModel):

@@ -317,7 +317,7 @@ def draft_message(merge: DraftMerge) -> str:
     conflicts = len(merge.conflicts)
     text = f"Черновик эпохи: заполнено {filled} {plural(filled, 'поле', 'поля', 'полей')}"
     if conflicts:
-        text += f", чат предложил иначе для {conflicts} — сравните на экране «Канон»"
+        text += f", чат предложил иначе для {conflicts} — сравните в списке «Чат предложил иначе»"
     return text + ". Публикует человек."
 
 

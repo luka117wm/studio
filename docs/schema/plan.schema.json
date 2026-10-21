@@ -1484,6 +1484,31 @@
       "title": "PlanShot",
       "type": "object"
     },
+    "PromptProblem": {
+      "description": "Что мешает рисовать кадр: текст с id кадра и, у проблемы канона, — её адресат.",
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "canon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "PromptProblem",
+      "type": "object"
+    },
     "PromptRef": {
       "description": "Референс кадра: выбранный ракурс листа облика или опорный кадр стиля.",
       "properties": {
@@ -1798,7 +1823,7 @@
         },
         "problems": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/PromptProblem"
           },
           "title": "Problems",
           "type": "array"

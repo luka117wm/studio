@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:f98239b5901fbb353e55c57d5066e56def5b604f1a3e4bae073b30be31bd3f47
+ * @generated sha256:cd30801d66e472a5aa78a230178ddd900ed79b33c8cd05d2d00af85770eead41
  */
 /**
  * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
@@ -323,6 +323,14 @@ export interface PlanShot {
 }
 
 /**
+ * Что мешает рисовать кадр: текст с id кадра и, у проблемы канона, — её адресат.
+ */
+export interface PromptProblem {
+  message: string
+  canon?: CanonTarget | null
+}
+
+/**
  * Референс кадра: выбранный ракурс листа облика или опорный кадр стиля.
  */
 export interface PromptRef {
@@ -389,7 +397,7 @@ export interface ShotPrompt {
   cost: Cost
   usd: Money
   input_hash: string | null
-  problems: string[]
+  problems: PromptProblem[]
   warnings: string[]
 }
 

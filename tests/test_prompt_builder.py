@@ -22,7 +22,7 @@ from app.models.validators import validate_director
 from app.pipeline.canon import anchors
 from app.pipeline.canon.anchors import CandidateRecord
 from app.pipeline.director_import.effective import PlanShot
-from app.pipeline.images.prompt_builder import BuiltShot, build_shot_request
+from app.pipeline.images.prompt_builder import BuiltShot, ShotPrompt, build_shot_request
 from app.providers.gateway import Gateway, build_gateway
 from app.settings import REPO_ROOT, Settings
 from app.storage import canon_store
@@ -155,6 +155,15 @@ class Env:
     def canon_ref(self, **changes: Any) -> CanonRef:
         assert self.director.canon_ref is not None
         return self.director.canon_ref.model_copy(update=changes)
+
+
+def messages(prompt: ShotPrompt) -> list[str]:
+    return [p.message for p in prompt.problems]
+
+
+def targets(prompt: ShotPrompt) -> list[tuple[str, str, str] | None]:
+    """Адресаты проблем канона: (вид сущности, id, вид проблемы)."""
+    return [(p.canon.kind, p.canon.id, p.canon.issue) if p.canon else None for p in prompt.problems]
 
 
 def make_env(tmp_path: Path, *, max_refs: int = 14, sheets: tuple[str, ...] = (YOU, BOSUN)) -> Env:
@@ -356,10 +365,11 @@ def test_ref_limit_drops_style_frames_then_angles_but_never_fronts(tmp_path: Pat
 def test_fronts_that_do_not_fit_are_a_problem(tmp_path: Path) -> None:
     env = make_env(tmp_path, max_refs=1)
     built = env.build("s006")
-    assert built.prompt.problems == [
+    assert messages(built.prompt) == [
         "кадр s006: обликов в кадре 2, а модель fake-image-small принимает референсов не больше 1"
         " — даже фасы не помещаются, уберите облик из кадра"
     ]
+    assert built.prompt.problems[0].canon is None  # не канон: на экран 12 ссылки нет
     assert built.request is None and built.prompt.input_hash is None
 
 
@@ -372,25 +382,55 @@ def test_style_token_in_action_is_a_problem_with_shot_id(env: Env) -> None:
         update={"image": shot.image.model_copy(update={"prompt": "cinematic lighting on the deck"})}
     )
     built = env.build(styled)
-    assert built.prompt.problems == [
+    assert messages(built.prompt) == [
         "кадр s002: в действии стилевой токен «cinematic lighting» (lighting) — стиль задаёт"
         " канон, опишите только действие, композицию и ракурс"
     ]
+    assert built.prompt.problems[0].canon is None
     assert built.request is None
 
 
 def test_missing_sheet_and_unresolved_canon_are_problems(tmp_path: Path) -> None:
+    """Проблема канона — текст и адресат (сущность и вид), как у отказа «Утвердить план»."""
     env = make_env(tmp_path, sheets=(YOU,))
-    assert env.build("s008").prompt.problems == [
+    sheet = env.build("s008").prompt
+    assert messages(sheet) == [
         f"кадр s008: у облика {BOSUN} нет листа опорных портретов — соберите его на экране «Канон»"
     ]
+    assert targets(sheet) == [("appearance", BOSUN, "no_sheet")]
     periods = {"caribbean-1716": "periods/caribbean-1716/v009"}
-    assert env.build("s001", env.canon_ref(periods=periods)).prompt.problems == [
+    late = env.build("s001", env.canon_ref(periods=periods)).prompt
+    assert messages(late) == [
         "кадр s001: эпоха periods/caribbean-1716/v009 не найдена в каноне cursus"
     ]
-    assert env.build("s002", env.canon_ref(appearances={})).prompt.problems == [
+    assert targets(late) == [("period", "caribbean-1716", "unresolved")]  # версии есть, v009 нет
+    unknown = env.build(
+        "s001", env.canon_ref(periods={"tortuga-1690": "periods/tortuga-1690/v001"})
+    )
+    assert targets(unknown.prompt) == [("period", "caribbean-1716", "unresolved")]
+    missing = env.build("s002", env.canon_ref(appearances={})).prompt
+    assert messages(missing) == [
         f"кадр s002: облика {YOU} нет в canon_ref плана — импортируйте план заново"
     ]
+    assert targets(missing) == [("appearance", YOU, "unresolved")]
+
+
+def test_unpublished_canon_is_a_problem_with_its_entity(tmp_path: Path) -> None:
+    """Персонажа без единой версии ссылка не находит — «не опубликован», а не «ссылка не та»."""
+    env = make_env(tmp_path, sheets=(YOU,))
+    ghost = "ghost@caribbean-1716"
+    ref = env.canon_ref(
+        appearances={
+            YOU: f"characters/you/v001#{YOU.split('@')[1]}",
+            ghost: "characters/ghost/v001#caribbean-1716",
+        }
+    )
+    shot = env.shot("s002")
+    with_ghost = shot.model_copy(
+        update={"image": shot.image.model_copy(update={"appearances": [ghost]})}
+    )
+    prompt = env.build(with_ghost, ref).prompt
+    assert targets(prompt) == [("appearance", ghost, "unpublished")]
 
 
 def test_style_frames_of_other_period_or_stale_are_not_served(env: Env) -> None:

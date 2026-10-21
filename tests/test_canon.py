@@ -416,6 +416,7 @@ def test_summary_lists_layers(seeded: TestClient) -> None:
             "draft": True,
             "appearances_count": 3,
             "sheets_ready": 0,
+            "sheets_outdated": 0,
         }
     ]
 

@@ -118,28 +118,36 @@ export function sheetStale(state: AnchorSetState): { whole: boolean; title: stri
   }
 }
 
-/** Строка списка персонажей: «Cursus · 5 обликов · 3 листа готовы». В сводке только `sheets_ready` (готов 6/6 и не
- *  устарел): несобранный, неполный и устаревший лист в ней неразличимы — поэтому «не готов», а не «не собран». */
+/** Строка списка персонажей: «Cursus · 5 обликов · 3 листа готовы, 1 устарел». Готов — 6/6 и не устарел; устарел —
+ *  выбор есть, но лицо или одежда в последней версии другие; остальное — не собран (нет листа или не все ракурсы). */
 export function characterMeta(item: CanonCharacterItem, channelName: string): string {
   const n = item.appearances_count
   const ready = item.sheets_ready
+  const outdated = item.sheets_outdated
+  const parts = [
+    ready ? `${ready} ${plural(ready, ['лист готов', 'листа готовы', 'листов готовы'])}` : '',
+    outdated ? `${outdated} ${plural(outdated, ['устарел', 'устарели', 'устарели'])}` : '',
+  ].filter(Boolean)
   const sheets = !n
     ? 'нет обликов'
     : ready === n
       ? n === 1
         ? 'лист готов'
         : 'все листы готовы'
-      : !ready
-        ? n === 1
-          ? 'лист не готов'
-          : 'листы не готовы'
-        : `${ready} ${plural(ready, ['лист готов', 'листа готовы', 'листов готовы'])}`
+      : n === 1
+        ? outdated
+          ? 'лист устарел'
+          : 'лист не собран'
+        : parts.length
+          ? parts.join(', ')
+          : 'листы не собраны'
   return [channelName, n ? appearancesText(n) : '', sheets].filter(Boolean).join(' · ')
 }
 
+/** Глиф строки: все листы готовы — ready; есть устаревшие или часть готова — warning; ни одного — failed */
 export function characterStatus(item: CanonCharacterItem): Status {
   if (item.appearances_count > 0 && item.sheets_ready === item.appearances_count) return 'ready'
-  return item.sheets_ready === 0 ? 'failed' : 'warning'
+  return item.sheets_ready === 0 && item.sheets_outdated === 0 ? 'failed' : 'warning'
 }
 
 /** Статус-строка слоя: облики канала без полного листа — кадры с ними не сгенерируются */

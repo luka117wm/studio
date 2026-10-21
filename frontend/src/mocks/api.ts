@@ -31,6 +31,7 @@ import type {
   ApprovalProblem,
   ApprovalRefusal,
   CanonProblem,
+  CanonTarget,
   EffectivePlan,
   EpisodeAppearanceItem,
   EpisodeCanon,
@@ -42,6 +43,7 @@ import type {
   PlanParts,
   PlanPrompt,
   PlanShot,
+  PromptProblem,
   PromptRef,
   PromptSection,
   ShotChange,
@@ -1535,19 +1537,23 @@ function refRange(first: number, count: number, style = false): string {
  *  проблемы канона вместо секций, которые не резолвятся. Тексты секций — короткие, по примерам prompt_assembly.md */
 export function mockShotPrompt(channel: ChannelId, shot: PlanShot, canon: EpisodeCanon): ShotPrompt {
   const size = SHOT_SIZES[shot.image.shot_size]
-  const problems: string[] = []
+  const problems: PromptProblem[] = []
+  // Адресат — как у бэкенда: у сущности без версий «не опубликована», иначе ссылка не находит версию
+  const problem = (message: string, kind: CanonKind, item: EpisodeCanonItem, issue?: CanonTarget['issue']) =>
+    problems.push({ message: `кадр ${shot.id}: ${message}`, canon: { kind, id: item.id, issue: issue ?? (item.latest === null ? 'unpublished' : 'unresolved') } })
   const period = canon.periods.find((item) => item.id === shot.image.period)
   const looks = shot.image.appearances.map((id) => canon.appearances.find((item) => item.id === id)).filter((item) => item !== undefined)
-  if (!canon.style.resolved) problems.push(`кадр ${shot.id}: стиль ${canon.style.ref} не найден в каноне ${channel}`)
-  if (period && !period.resolved) problems.push(`кадр ${shot.id}: эпоха ${period.ref} не найдена в каноне ${channel}`)
+  if (!canon.style.resolved) problem(`стиль ${canon.style.ref} не найден в каноне ${channel}`, 'style', canon.style)
+  if (period && !period.resolved) problem(`эпоха ${period.ref} не найдена в каноне ${channel}`, 'period', period)
   const drawable = looks.filter((look) => {
     if (!look.resolved) {
-      problems.push(`кадр ${shot.id}: облик ${look.id} не найден в ${look.ref.split('#')[0]}`)
+      problem(`облик ${look.id} не найден в ${look.ref.split('#')[0]}`, 'appearance', look)
       return false
     }
-    if (look.sheet.status === 'missing') problems.push(`кадр ${shot.id}: у облика ${look.id} нет листа опорных портретов — соберите его${ON_CANON_SCREEN}`)
-    else if (look.sheet.status === 'partial') problems.push(`кадр ${shot.id}: лист облика ${look.id} ${look.sheet.chosen}/${look.sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`)
-    else if (look.sheet.status === 'outdated') problems.push(`кадр ${shot.id}: лист облика ${look.id} устарел — пересоберите его${ON_CANON_SCREEN}`)
+    if (look.sheet.status === 'missing') problem(`у облика ${look.id} нет листа опорных портретов — соберите его${ON_CANON_SCREEN}`, 'appearance', look, 'no_sheet')
+    else if (look.sheet.status === 'partial')
+      problem(`лист облика ${look.id} ${look.sheet.chosen}/${look.sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`, 'appearance', look, 'sheet_incomplete')
+    else if (look.sheet.status === 'outdated') problem(`лист облика ${look.id} устарел — пересоберите его${ON_CANON_SCREEN}`, 'appearance', look, 'sheet_outdated')
     return true
   })
 
@@ -2272,6 +2278,7 @@ export function createMockApi() {
       facts: (director.facts ?? []).map((fact) => ({ ...fact, source_url: fact.source_url ?? null })),
     })
     pinEpisode(episode)
+    partSets.delete(episode.id) // любой импорт сбрасывает недособранный набор частей моста, как `_clear_parts`
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     const ids = new Set(shots.map((shot) => shot.id))
@@ -2392,6 +2399,7 @@ export function createMockApi() {
       return { ...shot, status: 'stale', stale_reasons: reasons }
     })
     plans.set(episode.id, { ...plan, version, source: 'manual', shots })
+    partSets.delete(episode.id) // перевод — тоже импорт: набор частей моста сбрасывается, как у бэкенда
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     return ok({ version, created: true, added: 0, changed: changes.length, removed: 0, changes } satisfies ImportResult)
@@ -2953,6 +2961,7 @@ export function createMockApi() {
           draft: state.draft !== null,
           appearances_count: head.appearances.length,
           sheets_ready: head.appearances.filter((a) => appearanceAnchors(channel, a.id).status === 'ready').length,
+          sheets_outdated: head.appearances.filter((a) => appearanceAnchors(channel, a.id).status === 'outdated').length,
         }
       }),
     }
@@ -3123,7 +3132,7 @@ export function createMockApi() {
     const message =
       mode === 'forbidden'
         ? `Добавлено ${added.length}, повторов ${repeats.length}.`
-        : `Черновик эпохи: заполнено ${filled.length} ${ru(filled.length, ['поле', 'поля', 'полей'])}${conflicts.length ? `, чат предложил иначе для ${conflicts.length} — сравните на экране «Канон»` : ''}. Публикует человек.`
+        : `Черновик эпохи: заполнено ${filled.length} ${ru(filled.length, ['поле', 'поля', 'полей'])}${conflicts.length ? `, чат предложил иначе для ${conflicts.length} — сравните в списке «Чат предложил иначе»` : ''}. Публикует человек.`
     return ok({ run_id: `run-period-${periodRuns}`, period_id: id, mode, doc, filled, conflicts, added, repeats, message } satisfies PeriodAnswerResult)
   }
 
@@ -3405,6 +3414,8 @@ export function createMockApi() {
       monthlyLimit,
       episodes: episodeCanons,
     },
+    /** Наборы частей моста по выпуску: принятые части и последний обмен */
+    parts: partSets,
   }
 }
 
