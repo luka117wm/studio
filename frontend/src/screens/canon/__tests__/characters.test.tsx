@@ -48,7 +48,8 @@ describe('слой «Персонажи»', () => {
       expect.stringContaining('Капитан (второй план)'),
       expect.stringContaining('You — рассказчик-участник'),
     ])
-    expect(rows[0]!.textContent).toContain('Cursus · 1 облик · лист не собран')
+    // У Капитана лист устарел (6/6 на прежнем лице) — «не готов», а не «не собран»: сводка их не различает
+    expect(rows[0]!.textContent).toContain('Cursus · 1 облик · лист не готов')
     expect(within(rows[0]!).getByRole('img').getAttribute('data-status')).toBe('failed')
     expect(rows[1]!.textContent).toContain('Cursus · 5 обликов · 3 листа готовы')
     expect(within(rows[1]!).getByRole('img').getAttribute('data-status')).toBe('warning')

@@ -118,7 +118,8 @@ export function sheetStale(state: AnchorSetState): { whole: boolean; title: stri
   }
 }
 
-/** Строка списка персонажей: «Cursus · 5 обликов · 3 листа готовы» */
+/** Строка списка персонажей: «Cursus · 5 обликов · 3 листа готовы». В сводке только `sheets_ready` (готов 6/6 и не
+ *  устарел): несобранный, неполный и устаревший лист в ней неразличимы — поэтому «не готов», а не «не собран». */
 export function characterMeta(item: CanonCharacterItem, channelName: string): string {
   const n = item.appearances_count
   const ready = item.sheets_ready
@@ -130,8 +131,8 @@ export function characterMeta(item: CanonCharacterItem, channelName: string): st
         : 'все листы готовы'
       : !ready
         ? n === 1
-          ? 'лист не собран'
-          : 'листы не собраны'
+          ? 'лист не готов'
+          : 'листы не готовы'
         : `${ready} ${plural(ready, ['лист готов', 'листа готовы', 'листов готовы'])}`
   return [channelName, n ? appearancesText(n) : '', sheets].filter(Boolean).join(' · ')
 }
