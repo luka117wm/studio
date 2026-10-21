@@ -17,6 +17,7 @@ const job = (fields: Partial<JobEventData> = {}): JobEventData => ({
   cancel_requested: false,
   episode_id: 'monastery',
   batch_id: 'batch-monastery',
+  channel: null,
   error: null,
   ...fields,
 })
@@ -42,6 +43,7 @@ async function started() {
 const EPISODE = JSON.stringify(qk.episode('monastery'))
 const LISTS = JSON.stringify(qk.episodeLists)
 const SLOTS = JSON.stringify(qk.slots)
+const COST = JSON.stringify(qk.cost)
 
 describe('строка джоба', () => {
   test('событие заменяет строку целиком, новый джоб — в конец, курсор растёт', () => {
@@ -88,16 +90,35 @@ describe('startLive', () => {
     vi.useFakeTimers()
     source.emit('job.progress', job(), 1201)
     source.emit('job.done', job({ status: 'done', progress: 1 }), 1202)
-    expect(keys()).toEqual([EPISODE, LISTS, EPISODE, LISTS, SLOTS])
+    expect(keys()).toEqual([EPISODE, LISTS, COST, EPISODE, LISTS, SLOTS])
     vi.advanceTimersByTime(SUMMARY_THROTTLE_MS)
-    expect(keys()).toHaveLength(5) // окно закрыто конечным событием
+    expect(keys()).toHaveLength(6) // окно закрыто конечным событием
+    stop()
+  })
+
+  test('джоб канала: прогресс — наборы опорных канала с порогом, конец — канон канала сразу', async () => {
+    const { source, keys, stop } = await started()
+    vi.useFakeTimers()
+    const anchors = (fields: Partial<JobEventData>) => job({ job_id: 'job-sheet', kind: 'anchor_sheet', episode_id: null, batch_id: null, channel: 'cursus', ...fields })
+    const ANCHORS = JSON.stringify(qk.canonAnchors('cursus'))
+    source.emit('job.started', anchors({ progress: 0 }), 1201)
+    expect(keys()).toEqual([]) // старт — не прогресс: рисовать ещё нечего
+    source.emit('job.progress', anchors({ progress: 0.25 }), 1202)
+    source.emit('job.progress', anchors({ progress: 0.5 }), 1203)
+    expect(keys()).toEqual([ANCHORS]) // второй — внутри окна
+    vi.advanceTimersByTime(SUMMARY_THROTTLE_MS)
+    expect(keys()).toEqual([ANCHORS, ANCHORS])
+    source.emit('job.done', anchors({ status: 'done', progress: 1 }), 1204)
+    expect(keys()).toEqual([ANCHORS, ANCHORS, COST, JSON.stringify(qk.canon('cursus'))]) // списано — расход месяца заново
+    vi.advanceTimersByTime(SUMMARY_THROTTLE_MS * 3)
+    expect(keys()).toHaveLength(4) // окно закрыто конечным событием
     stop()
   })
 
   test('джоб без выпуска кэш выпусков не трогает', async () => {
     const { source, keys, stop } = await started()
     source.emit('job.done', job({ episode_id: null, status: 'done' }), 1201)
-    expect(keys()).toEqual([])
+    expect(keys()).toEqual([COST])
     stop()
   })
 

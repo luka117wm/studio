@@ -161,6 +161,7 @@ describe('живые обновления', () => {
     cancel_requested: false,
     episode_id: 'monastery',
     batch_id: 'batch-monastery',
+    channel: null,
     error: null,
   })
 

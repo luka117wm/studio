@@ -3,16 +3,39 @@
    а не молча моки. Числа — как в артборде, иначе сверка скриншотов даст шум (приём M1.3).
    В production-код не импортируется (решение 7 устава M3). */
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
-import type { CostSummary, Money } from '@/types/cost'
+import type { BudgetRefusal, CostSummary, Money } from '@/types/cost'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch, EpisodeSummary } from '@/types/episode'
 import type { BridgeError, BridgeRun, BridgeSettings } from '@/types/bridge'
+import type {
+  AnchorSetState,
+  AnchorSlot,
+  AnchorsEstimate,
+  Appearance,
+  CanonNeeded,
+  CanonSummary,
+  CanonVersionInfo,
+  Character,
+  NeededItem,
+  Period,
+  PeriodAnswerResult,
+  PeriodConflict,
+  PeriodPrompt,
+  Style,
+  Swatch,
+} from '@/types/canon'
 import type { Director } from '@/types/director'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
-import type { JobList } from '@/types/job'
+import type { Job, JobList } from '@/types/job'
 import type {
+  AnchorSheet,
   ApprovalProblem,
   ApprovalRefusal,
+  CanonProblem,
+  CanonTarget,
   EffectivePlan,
+  EpisodeAppearanceItem,
+  EpisodeCanon,
+  EpisodeCanonItem,
   EstimateLine,
   PlanAnswerResult,
   PlanCheck,
@@ -20,6 +43,11 @@ import type {
   PlanParts,
   PlanPrompt,
   PlanShot,
+  PromptProblem,
+  PromptRef,
+  PromptSection,
+  ShotChange,
+  ShotPrompt,
   SimilarityReport,
   ValidationItem,
 } from '@/types/plan'
@@ -379,6 +407,7 @@ export const jobs = {
       finished_at: null,
       cost_usd_micro: 2_010_000,
       cost_stage: 'images',
+      channel: null,
     },
   ],
   summary: { total: 1, queued: 0, running: 1, done: 0, failed: 0, cancelled: 0 },
@@ -608,7 +637,7 @@ function estimateLine(title: string, label: string, stage: string, model: string
     title,
     label,
     usd: money(usd_micro),
-    cost: { stage, provider: stage === 'images' || stage === 'animate' ? 'gemini' : 'elevenlabs', model, lines, usd_micro, stale_pricing: false },
+    cost: { stage, provider: ['images', 'animate', 'anchors'].includes(stage) ? 'gemini' : 'elevenlabs', model, lines, usd_micro, stale_pricing: false },
   }
 }
 
@@ -807,9 +836,800 @@ interface PartsState {
   lastRun: BridgeRun | null
 }
 
+/* ---- Экран 12: канон канала (M5.7) ---- */
+// Стиль Cursus v001–v003 — значения артборда 12 по-английски: текст канона уходит в промпт картинки, и кириллицу
+// публикация отклоняет (docs/canon_schema.md, «Черновик и публикация»). Роли образцов — тоже текст промпта.
+// У Otto канона нет — экран показывает пустое состояние.
+
+const STYLE_NEGATIVE_V001 = ['plastic', 'modern clothing', 'text in frame', 'captions and watermarks']
+const STYLE_NEGATIVE_V002 = [
+  'plastic',
+  'neon light',
+  'modern clothing',
+  'zippers and snap buttons',
+  'metal-rimmed glasses',
+  'glass in cabin windows',
+  'text in frame',
+  'captions and watermarks',
+  'smooth CGI skin',
+  'fisheye',
+]
+
+function cursusStyle(fields: {
+  render: string
+  focal: string
+  depth: string
+  distortion: string
+  contrast: string
+  accent: Swatch
+  grain: string
+  composition: string
+  negative: string[]
+}): Style {
+  return {
+    render: fields.render,
+    material: 'Matte surfaces, dust in the air, damp wood, oxidised metal',
+    processing: 'Moderate lift in the shadows, soft roll-off in the highlights, no clipping',
+    optics: { focal: fields.focal, depth: fields.depth, distortion: fields.distortion },
+    light: {
+      character: 'One practical source: a lantern, a candle, a gun port',
+      contrast: fields.contrast,
+      direction: 'From the side and above, 30–45°; backlight only in the closing shots of a section',
+    },
+    palette: {
+      rule: 'Warm light against cold shadow; saturated colour on one object in the frame only',
+      swatches: [
+        { role: 'key light', hex: '#E8C88A' },
+        { role: 'shadow and depth', hex: '#1E2A2E' },
+        { role: 'wood and rigging', hex: '#6B4F34' },
+        { role: 'metal and water', hex: '#7E8B8F' },
+        fields.accent,
+      ],
+    },
+    grain: fields.grain,
+    composition: fields.composition,
+    negative_global: fields.negative,
+  }
+}
+
+interface CanonVersionFile<T = Style> {
+  info: CanonVersionInfo
+  data: T
+}
+
+/** Версии стиля Cursus: v003 — текущая, как в артборде */
+export const CURSUS_STYLE: CanonVersionFile[] = [
+  {
+    info: { version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Digital photograph, even light',
+      focal: '50 mm on every shot',
+      depth: 'f/5.6: everything in focus',
+      distortion: 'No distortion or vignette',
+      contrast: 'Low, fill in the shadows',
+      accent: { role: 'cloth accent', hex: '#B4664C' },
+      grain: 'No grain',
+      composition: 'No composition rules',
+      negative: STYLE_NEGATIVE_V001,
+    }),
+  },
+  {
+    info: { version: 'v002', based_on: 'v001', published_at: '2026-07-14T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Film photograph of the 1980s, clean print',
+      focal: '50 mm on every shot',
+      depth: 'f/4: the middle ground almost as sharp as the hero',
+      distortion: 'No distortion, 6% vignette',
+      contrast: 'Medium, even fill',
+      accent: { role: 'cloth accent', hex: '#A4553F' },
+      grain: '35 mm film grain, ISO 200, barely visible',
+      composition: 'Hero off centre; horizon level; foreground covers a third of the frame',
+      negative: STYLE_NEGATIVE_V002,
+    }),
+  },
+  {
+    info: { version: 'v003', based_on: 'v002', published_at: '2026-08-28T09:00:00+00:00' },
+    data: cursusStyle({
+      render: 'Film photograph of the 1970s, printed from the negative; no digital cleanness',
+      focal: '35 mm for wide and medium shots; 85 mm for the rank portrait',
+      depth: 'f/2.8: the hero sharp, the middle ground readable, the background falls apart',
+      distortion: 'Slight barrel on 35 mm, 12% vignette, no stretched faces at the edges',
+      contrast: 'High, but with readable shadow: details in the shadows do not sink',
+      accent: { role: 'cloth accent', hex: '#8E3B2E' },
+      grain: '35 mm film grain, ISO 400, visible in the shadows, steady between frames',
+      composition: 'Hero off centre; horizon level; foreground covers a third of the frame',
+      negative: [...STYLE_NEGATIVE_V002, 'HDR glow', 'symmetrical faces'],
+    }),
+  },
+]
+
+/* ---- Экран 12: эпохи и персонажи (M5.8) ---- */
+// Значения артборда 12 по-английски, как у стиля: всё, кроме подписей `label`, уходит в промпт картинки. У Cursus —
+// Карибы и Англия опубликованы, Венеция — черновик без запретов (её нельзя использовать); You с пятью обликами и
+// Капитан без листа. У Otto стиля нет (пустое состояние слоя «Стиль»), но есть Отто с тремя обликами.
+
+export interface CanonDraftFile<T> {
+  based_on: string | null
+  saved_at: string
+  data: T
+}
+
+/** Слой канона в моке: версии по возрастанию и черновик — как каталог сущности на диске */
+export interface LayerState<T> {
+  versions: CanonVersionFile<T>[]
+  draft: CanonDraftFile<T> | null
+}
+
+const period = (fields: Partial<Period> & Pick<Period, 'id' | 'label'>): Period => ({
+  region: '',
+  years: null,
+  palette_shift: [],
+  materials: [],
+  light_sources: [],
+  architecture: [],
+  clothing: [],
+  props: [],
+  forbidden: [],
+  ...fields,
+})
+
+const CARIBBEAN_FORBIDDEN = [
+  'zippers',
+  'factory-made buttons',
+  'plastic',
+  'rubber',
+  'stainless steel',
+  'stamped sheet metal',
+  'gold-laced tricorne on a common sailor',
+  '20th-century flash tattoos',
+  'binoculars',
+  'safety matches',
+  'rum in a glass bottle',
+  'printed labels',
+  'wristwatch',
+  'trimmed nails and clean hands',
+]
+
+/** Эпохи Cursus: две опубликованы, Венеция — только черновик без запретов */
+export const CURSUS_PERIODS: Record<string, LayerState<Period>> = {
+  'caribbean-1716': {
+    versions: [
+      {
+        info: { version: 'v001', based_on: null, published_at: '2026-06-02T09:00:00+00:00' },
+        data: period({
+          id: 'caribbean-1716',
+          label: 'Карибы, 1716',
+          region: 'Caribbean Sea, Nassau',
+          years: { from: 1716, to: 1726 },
+          palette_shift: ['sun-bleached sailcloth', 'pitch and tar', 'turquoise shallows', 'rusted iron'],
+          materials: ['oak', 'hemp', 'sailcloth', 'brass', 'lead', 'leather'],
+          light_sources: ['lantern', 'candle in a horn lantern', 'gun port', 'noon sun'],
+          architecture: ['gun deck', 'berth deck', 'stern cabin', 'harbour warehouses'],
+          clothing: ['slops', 'sleeveless waistcoat', 'kerchief on the head', 'bare feet', 'wide belt'],
+          props: ['powder cartridge', 'belaying pin', "ship's log", 'cutlass', 'quadrant'],
+          forbidden: CARIBBEAN_FORBIDDEN,
+        }),
+      },
+    ],
+    draft: null,
+  },
+  'england-1347': {
+    versions: [
+      {
+        info: { version: 'v001', based_on: null, published_at: '2026-06-20T09:00:00+00:00' },
+        data: period({
+          id: 'england-1347',
+          label: 'Англия, 1347',
+          region: 'East Anglia',
+          years: { from: 1347, to: 1350 },
+          palette_shift: ['wet clay', 'undyed wool', 'peat smoke', 'floodplain green'],
+          materials: ['oak', 'thatch', 'clay', 'wool', 'linen', 'wrought iron'],
+          light_sources: ['open hearth', 'tallow candle', 'doorway', 'overcast sky'],
+          architecture: ['longhouse', 'barn', 'parish church', 'mill'],
+          clothing: ['cotte', 'chaperon hood', 'leg wraps', 'wooden clogs'],
+          props: ['sickle', 'wooden bowl', 'leather bucket', 'millstone'],
+          forbidden: ['potato', 'maize', 'tobacco', 'sunflower', 'coat buttons', 'spinning wheel', 'glazed windows', 'brick walls', 'printed book', 'bleached white cloth', 'machine-made chain'],
+        }),
+      },
+    ],
+    draft: null,
+  },
+  'venice-1560': {
+    versions: [],
+    draft: {
+      based_on: null,
+      saved_at: '2026-09-10T09:00:00+00:00',
+      data: period({
+        id: 'venice-1560',
+        label: 'Венеция, 1560',
+        region: 'Venetian Arsenal',
+        years: { from: 1560, to: 1580 },
+        palette_shift: ['wet stone', 'leaden water'],
+        materials: ['oak', 'hemp', 'pitch'],
+        light_sources: ['workshop skylight'],
+        architecture: ['shipyard hall', 'dock canal'],
+        props: ['adze'],
+      }),
+    },
+  },
+}
+
+/** Сколько выпусков канала ссылаются на эпоху текущими планами — счётчик сводки (`episodes`) */
+const PERIOD_EPISODES: Record<string, number> = { 'caribbean-1716': 3, 'england-1347': 2, 'venice-1560': 1 }
+
+/** Ссылки планов выпусков на канон — из них «нужно каналу» (без опубликованной версии) */
+const PLAN_REFS: Record<ChannelId, { periods: NeededItem[]; appearances: NeededItem[] }> = {
+  cursus: {
+    periods: [
+      { id: 'edo-1650', draft: false, shots: 64, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 64 }] },
+      { id: 'venice-1560', draft: false, shots: 38, episodes: [{ id: 'arsenal', title: 'Venetian Arsenal: every rank', shots: 38 }] },
+    ],
+    appearances: [
+      { id: 'daimyo@edo-1650', draft: false, shots: 9, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 9 }] },
+      { id: 'you@ashigaru-17', draft: false, shots: 22, episodes: [{ id: 'samurai', title: 'Samurai Household: every rank', shots: 22 }] },
+    ],
+  },
+  otto: { periods: [], appearances: [] },
+}
+
+const look = (fields: Partial<Appearance> & Pick<Appearance, 'id' | 'label' | 'period'>): Appearance => ({
+  age: null,
+  build: '',
+  face: '',
+  hair: '',
+  clothing: '',
+  wear: '',
+  props: [],
+  negative_local: [],
+  ...fields,
+})
+
+const YOU_LOOKS: Appearance[] = [
+  look({
+    id: 'you@powder-monkey-11',
+    label: 'пороховая обезьяна',
+    period: 'caribbean-1716',
+    age: 11,
+    build: 'Thin, narrow shoulders, below average height',
+    face: 'Boyish, sunburnt cheeks, chapped lips',
+    hair: 'Short, sun-bleached, cut unevenly',
+    clothing: 'Oversized slops, sleeveless waistcoat, kerchief on the head, barefoot',
+    wear: 'Salt stains, tar on the hands, a torn hem',
+    props: ['leather cartridge case'],
+    negative_local: ['shoes'],
+  }),
+  look({ id: 'you@landsman-19', label: 'матрос-новичок', period: 'caribbean-1716', age: 19, build: 'Lean, wiry arms', face: 'Thin stubble, peeling nose', clothing: 'Canvas slops, check shirt' }),
+  look({ id: 'you@able-seaman-23', label: 'опытный матрос', period: 'caribbean-1716', age: 23, build: 'Lean and strong, rope-burnt palms', face: 'Weathered, short beard', clothing: 'Faded waistcoat, wide belt with a knife' }),
+  look({ id: 'you@boatswain-34', label: 'боцман', period: 'caribbean-1716', age: 34, build: 'Broad shoulders, thick forearms', face: 'Full beard, broken nose', clothing: 'Long waistcoat, bosun call on a cord' }),
+  look({ id: 'you@quartermaster-41', label: 'квартирмейстер', period: 'caribbean-1716', age: 41, build: 'Heavy-set', face: 'Grey in the beard, deep lines', clothing: 'Dark coat, ledger under the arm' }),
+]
+
+const YOU_NATURE = {
+  personality: 'Watches before speaking. Does what he is told, but notices who obeys whom.',
+  posture: 'Shoulders forward, head slightly down, weight on the front foot: ready to run.',
+  manner: 'Never looks at the camera. His hands are almost always busy with an object.',
+  face: 'Narrow face, wide-set eyes, a gap between the front teeth, a scar above the left eyebrow.',
+}
+
+/** Персонажи каналов: Cursus — You (v001 — три облика, v002 — пять) и Капитан; Otto — Отто */
+export const CANON_CHARACTERS: Record<ChannelId, Record<string, LayerState<Character>>> = {
+  cursus: {
+    captain: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-07-01T09:00:00+00:00' },
+          data: {
+            id: 'captain',
+            label: 'Капитан (второй план)',
+            nature: {
+              personality: 'Says little, waits for the crew to decide on its own.',
+              posture: 'Stands half-turned, hands behind his back.',
+              manner: 'Never raises his voice, keeps his distance from the crew.',
+              face: 'Lean face, deep nasolabial folds, grey at the temples.',
+            },
+            appearances: [look({ id: 'captain@caribbean-1716', label: 'капитан', period: 'caribbean-1716', age: 48, build: 'Tall, upright', clothing: 'Worn blue coat, sash' })],
+          },
+        },
+        {
+          // Другое лицо: лист Капитана выбран в v001 и устарел целиком (M5.9)
+          info: { version: 'v002', based_on: 'v001', published_at: '2026-09-20T09:00:00+00:00' },
+          data: {
+            id: 'captain',
+            label: 'Капитан (второй план)',
+            nature: {
+              personality: 'Says little, waits for the crew to decide on its own.',
+              posture: 'Stands half-turned, hands behind his back.',
+              manner: 'Never raises his voice, keeps his distance from the crew.',
+              face: 'Lean face, deep nasolabial folds, a white scar across the chin.',
+            },
+            appearances: [look({ id: 'captain@caribbean-1716', label: 'капитан', period: 'caribbean-1716', age: 48, build: 'Tall, upright', clothing: 'Worn blue coat, sash' })],
+          },
+        },
+      ],
+      draft: null,
+    },
+    you: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-06-05T09:00:00+00:00' },
+          data: { id: 'you', label: 'You — рассказчик-участник', nature: YOU_NATURE, appearances: YOU_LOOKS.slice(0, 3) },
+        },
+        {
+          info: { version: 'v002', based_on: 'v001', published_at: '2026-08-30T09:00:00+00:00' },
+          data: { id: 'you', label: 'You — рассказчик-участник', nature: YOU_NATURE, appearances: YOU_LOOKS },
+        },
+      ],
+      draft: null,
+    },
+  },
+  otto: {
+    otto: {
+      versions: [
+        {
+          info: { version: 'v001', based_on: null, published_at: '2026-05-20T09:00:00+00:00' },
+          data: {
+            id: 'otto',
+            label: 'Отто',
+            nature: {
+              personality: 'Curious and unceremonious: pokes into other people’s work to see how it is done.',
+              posture: 'Straight back, open palms, turned towards whoever he talks to.',
+              manner: 'Looks into the camera: he is the host. Gestures with one hand.',
+              face: 'Round face, thick eyebrows, stubble, a crease on the bridge of the nose.',
+            },
+            appearances: [
+              look({ id: 'otto@england-1347', label: 'крестьянин', period: 'england-1347', age: 34 }),
+              look({ id: 'otto@london-1850', label: 'трубочист', period: 'london-1850', age: 34 }),
+              look({ id: 'otto@tenochtitlan-1500', label: 'торговец', period: 'tenochtitlan-1500', age: 34 }),
+            ],
+          },
+        },
+      ],
+      draft: null,
+    },
+  },
+}
+
+/** Ракурсы листа опорных портретов — `config/canon.yaml → anchors.angles` */
+export const SHEET_ANGLES: [string, string, string][] = [
+  ['front', 'Фас', 'лицо прямо, нейтральный свет'],
+  ['three_quarter', 'Три четверти', 'поворот 45°, ключевой свет сбоку'],
+  ['profile', 'Профиль', 'силуэт линии носа и лба'],
+  ['full_body', 'В полный рост', 'одежда целиком, обувь, пропорции'],
+  ['in_action', 'В действии', 'рабочая поза ранга'],
+  ['detail', 'Деталь', 'руки и предметы'],
+]
+
+/** Листы артборда — выбрано ракурсов по порядку (6 — готов, 3 — наполовину, нет записи — не собран), по 2 кандидата на
+ *  ракурс. Выбор сделан в первой версии персонажа с обликом: у Капитана в v002 другое лицо — лист устарел целиком */
+const SHEETS_CHOSEN: Record<string, number> = {
+  'you@powder-monkey-11': 6,
+  'you@landsman-19': 6,
+  'you@able-seaman-23': 6,
+  'you@boatswain-34': 3,
+  'captain@caribbean-1716': 6,
+  'otto@england-1347': 6,
+  'otto@london-1850': 6,
+  'otto@tenochtitlan-1500': 6,
+}
+
+/** Кандидат листа в моке — строка `sheet.json` бэкенда */
+export interface MockCandidate {
+  id: string
+  slot: string
+  n: number
+  status: 'ready' | 'rejected' | 'failed'
+  version: string
+  error: string | null
+  seed: number
+  usd_micro: number
+  created_at: string
+}
+
+/** Лист облика в моке: кандидаты всех сборок и выбор ракурс → id кандидата (`chosen.json`) */
+export interface MockSheet {
+  candidates: MockCandidate[]
+  chosen: Record<string, string>
+}
+
+interface MockStale {
+  whole: string[]
+  body: string[]
+  missing: boolean
+}
+
+/** Удавшийся кандидат: id — ракурс, номер и хэш входов (облик, версия, ракурс, номер) */
+export function mockCandidate(appearanceId: string, version: string, slot: string, n: number): MockCandidate {
+  const hash = hex16(`${appearanceId}:${version}:${slot}:${n}`)
+  return { id: `${slot}-${n}-${hash}`, slot, n, status: 'ready', version, error: null, seed: parseInt(hash.slice(0, 7), 16), usd_micro: ANCHOR_PRICE, created_at: NOW }
+}
+
+/** Шаблоны кадров стиля — `config/canon.yaml → style_frames` */
+export const STYLE_FRAMES: [string, string][] = [
+  ['establishing', 'Общий план'],
+  ['portrait', 'Портрет'],
+  ['detail', 'Деталь'],
+  ['crowd', 'Толпа'],
+  ['night', 'Ночь'],
+  ['silhouette', 'Силуэт'],
+]
+
+/** Цена Pro 1K из `config/pricing.yaml`, микродоллары: лист 12 картинок, ракурс 2, кадры стиля 6 */
+const ANCHOR_PRICE = 134_000
+/** Кандидатов на ракурс за одну сборку — `config/canon.yaml → anchors.candidates` */
+const ANCHOR_CANDIDATES = 2
+/** Устаревание листа (docs/canon_schema.md, «Устаревание»): эти поля — весь лист, одежда — три ракурса */
+const SHEET_FIELDS = ['nature.face', 'face', 'build', 'hair', 'age'] as const
+const BODY_FIELDS = ['clothing', 'props', 'wear'] as const
+const BODY_ANGLES: ReadonlySet<string> = new Set(['full_body', 'in_action', 'detail'])
+
+/** 16 hex-знаков от строки — как хэш входов в id кандидата бэкенда (`front-1-3f9ab2c4d5e6f7a8`), детерминированно */
+function hex16(text: string): string {
+  let a = 0x811c9dc5
+  let b = 0x9747b28c
+  for (let i = 0; i < text.length; i += 1) {
+    a = Math.imul(a ^ text.charCodeAt(i), 0x01000193) >>> 0
+    b = Math.imul(b ^ text.charCodeAt(i), 0x5bd1e995) >>> 0
+  }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')
+}
+
+/** Миниатюра кандидата в моке: силуэт и подпись поверх прозрачного фона. Это картинка-заглушка (данные), не цвет
+ *  интерфейса: только белый с прозрачностью */
+export function thumbSvg(caption: string, width: number, ratio = 4 / 3): string {
+  const height = Math.round(width * ratio)
+  const head = Math.round(width * 0.16)
+  // Атрибуты без имён вида `fill-*`/`text-*`: сканер утилит Tailwind в тесте токенов принял бы их за классы
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><g fill="white">`,
+    `<rect width="${width}" height="${height}" opacity="0.04"/>`,
+    `<circle cx="${width / 2}" cy="${Math.round(height * 0.36)}" r="${head}" opacity="0.16"/>`,
+    `<rect x="${Math.round(width * 0.24)}" y="${Math.round(height * 0.36 + head * 1.3)}" width="${Math.round(width * 0.52)}" height="${height}" rx="${head}" opacity="0.12"/>`,
+    `<text x="8" y="${height - 12}" font-family="sans-serif" font-size="13" opacity="0.5">${caption}</text>`,
+    '</g></svg>',
+  ].join('')
+}
+const STYLE_ANCHOR_FIELDS = ['render', 'material', 'processing', 'optics', 'light'] as const
+
+function anchorLine(title: string, label: string, images: number) {
+  return estimateLine(title, label, 'anchors', 'gemini-3-pro-image', [{ unit: 'image', quantity: images, variant: '1K', usd_micro: images * ANCHOR_PRICE }])
+}
+
+export const anchorsEstimate = {
+  sheet: anchorLine('Собрать лист', '6 ракурсов × 2 кандидата', 12),
+  angle: anchorLine('Перегенерировать ракурс', '2 кандидата', 2),
+  style: anchorLine('Пересобрать кадры стиля', '6 кадров', STYLE_FRAMES.length),
+  stale: null,
+} satisfies AnchorsEstimate
+
+/** Изменённые поля стиля, от которых устаревают кадры стиля: рендер, оптика, свет (docs/canon_schema.md) */
+function staleStyleFields(before: Style, after: Style): string[] {
+  const changed: string[] = []
+  for (const field of STYLE_ANCHOR_FIELDS) {
+    const a = before[field]
+    const b = after[field]
+    if (typeof a === 'string') {
+      if (a !== b) changed.push(field)
+    } else {
+      for (const key of Object.keys(a) as (keyof typeof a)[]) {
+        if (a[key] !== (b as typeof a)[key]) changed.push(`${field}.${key}`)
+      }
+    }
+  }
+  return changed
+}
+
+interface StyleState extends LayerState<Style> {
+  /** Версия стиля, на которой сделаны кадры стиля; `null` — кадров нет */
+  frames: string | null
+}
+
+/* ---- Канон выпуска на экране 3 (M5.10, docs/project_schema.md, «Канон выпуска»; docs/prompt_assembly.md) ---- */
+
+type CanonKind = CanonProblem['kind']
+
+/** Отличие сущности канона выпуска от «прибита последняя версия, лист 6/6». Ключ — `style`, `period:<id>`,
+ *  `appearance:<id>`; `latest: null` — опубликованной версии нет; `resolved: false` — прибитая версия не находится,
+ *  хотя опубликованная есть (облик прибит к версии персонажа, где его ещё не было) */
+export interface CanonTweak {
+  pinned?: string
+  latest?: string | null
+  draft?: boolean
+  resolved?: boolean
+  sheet?: AnchorSheet
+}
+
+/** Канон канала глазами канона выпуска: опубликованные версии сущности (у облика — версии персонажа, где он есть),
+ *  черновик и лист против версии */
+export interface CanonFacts {
+  versions: string[]
+  draft: boolean
+  sheet: (version: string) => AnchorSheet
+}
+/** `null` — сущности нет ни в каноне канала, ни в «нужно каналу»: план артборда 3 ссылается на облики, которых нет в
+ *  артборде 12, — такие считаются прибитыми к последней версии с готовым листом */
+export type CanonLookup = (kind: CanonKind, id: string) => CanonFacts | null
+/** Прибитые версии плана выпуска (`canon_ref`): `style`, `period:<id>`, `appearance:<id>` → vNNN */
+export type CanonPins = Record<string, string>
+
+/** Без канона канала (unit-тесты) стиль прибит к последнему стилю Cursus (v003), эпохи и облики — к v001 */
+const PLAN_STYLE = 'v003'
+const SHEET_READY: AnchorSheet = { status: 'ready', chosen: 6, total: 6 }
+const NO_SHEET: AnchorSheet = { status: 'missing', chosen: 0, total: 6 }
+const ON_CANON_SCREEN = ' на экране «Канон»'
+const CANON_SUBJECT: Record<CanonKind, string> = { style: 'стиль канала', period: 'эпоха', appearance: 'облик' }
+const NOT_PUBLISHED: Record<CanonKind, (id: string) => string> = {
+  style: () => 'стиль канала не опубликован — заполните и опубликуйте его',
+  period: (id) => `эпоха ${id} не опубликована — создайте и опубликуйте её`,
+  appearance: (id) => `облик ${id} не опубликован — создайте и опубликуйте его`,
+}
+
+function canonRefOf(kind: CanonKind, id: string, tag: string): string {
+  if (kind === 'style') return `style/${tag}`
+  if (kind === 'period') return `periods/${id}/${tag}`
+  const [character, look] = id.split('@')
+  return `characters/${character}/${tag}#${look}`
+}
+
+const canonKey = (kind: CanonKind, id: string) => (kind === 'style' ? 'style' : `${kind}:${id}`)
+
+/** Сущность канона выпуска — правила статуса как у `episode_canon._item` бэкенда: факты канона канала, поверх —
+ *  отличия теста. Лист смотрится только у ссылки, которая находит версию */
+function canonItem(kind: CanonKind, id: string, shots: number, pin: string | undefined, facts: CanonFacts | null, tweak: CanonTweak = {}) {
+  const fallback = kind === 'style' ? PLAN_STYLE : 'v001'
+  const known = facts
+    ? { pinned: pin ?? fallback, latest: facts.versions.at(-1) ?? null, draft: facts.draft }
+    : { pinned: pin ?? fallback, latest: pin ?? fallback, draft: false }
+  const pinned = tweak.pinned ?? known.pinned
+  const latest = tweak.latest === undefined ? known.latest : tweak.latest
+  const draft = tweak.draft ?? known.draft
+  const moved = tweak.pinned !== undefined || tweak.latest !== undefined
+  const resolved =
+    latest !== null && (tweak.resolved ?? (facts && !moved ? facts.versions.includes(pinned) : pinned <= latest))
+  const status = latest === null ? (draft ? 'draft_only' : 'missing') : resolved && pinned === latest ? 'ready' : 'outdated'
+  const item: EpisodeCanonItem = { id, ref: canonRefOf(kind, id, pinned), pinned, latest, status, resolved, draft, shots }
+  const sheet = !resolved ? NO_SHEET : (tweak.sheet ?? (facts ? facts.sheet(pinned) : SHEET_READY))
+  return { item, sheet }
+}
+
+function refProblem(kind: CanonKind, item: EpisodeCanonItem): CanonProblem | null {
+  if (item.resolved) return null
+  const subject = kind === 'style' ? CANON_SUBJECT.style : `${CANON_SUBJECT[kind]} ${item.id}`
+  if (item.latest === null) {
+    const message =
+      item.status === 'draft_only' ? `${subject}: есть только черновик — опубликуйте его${ON_CANON_SCREEN}` : `${NOT_PUBLISHED[kind](item.id)}${ON_CANON_SCREEN}`
+    return { kind, id: item.id, issue: 'unpublished', message }
+  }
+  return {
+    kind,
+    id: item.id,
+    issue: 'unresolved',
+    message: `${subject}: ссылка ${item.ref} не находит опубликованную версию — переведите выпуск на ${item.latest} кнопкой «Перевести на новые версии»`,
+  }
+}
+
+function sheetProblem(item: EpisodeAppearanceItem): CanonProblem | null {
+  const { sheet } = item
+  if (!item.resolved || sheet.status === 'ready') return null
+  const subject = `облик ${item.id}`
+  if (sheet.status === 'missing') {
+    return { kind: 'appearance', id: item.id, issue: 'no_sheet', message: `${subject}: нет листа опорных портретов — соберите его${ON_CANON_SCREEN}` }
+  }
+  if (sheet.status === 'partial') {
+    return {
+      kind: 'appearance',
+      id: item.id,
+      issue: 'sheet_incomplete',
+      message: `${subject}: лист ${sheet.chosen}/${sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`,
+    }
+  }
+  return { kind: 'appearance', id: item.id, issue: 'sheet_outdated', message: `${subject}: лист устарел — пересоберите его${ON_CANON_SCREEN}` }
+}
+
+/** Сущности канона, на которые ссылается план: эпохи и облики — в порядке первого появления в кадрах */
+function planEntities(plan: EffectivePlan): { kind: CanonKind; id: string; shots: number }[] {
+  const shots = plan.shots.filter((shot) => shot.status !== 'removed')
+  return [
+    { kind: 'style' as const, id: 'style', shots: shots.length },
+    ...[...new Set(shots.map((shot) => shot.image.period))].map((id) => ({
+      kind: 'period' as const,
+      id,
+      shots: shots.filter((shot) => shot.image.period === id).length,
+    })),
+    ...[...new Set(shots.flatMap((shot) => shot.image.appearances))].map((id) => ({
+      kind: 'appearance' as const,
+      id,
+      shots: shots.filter((shot) => shot.image.appearances.includes(id)).length,
+    })),
+  ]
+}
+
+/** Прибить новые ссылки плана, как импорт M5.2: прибитые прежде сохраняют версию, новые получают последнюю
+ *  опубликованную, а без неё — заготовку v001 */
+export function pinPlan(plan: EffectivePlan, pins: CanonPins, lookup: CanonLookup): CanonPins {
+  const next = { ...pins }
+  for (const { kind, id } of planEntities(plan)) {
+    const key = canonKey(kind, id)
+    if (next[key]) continue
+    const facts = lookup(kind, id)
+    next[key] = facts ? (facts.versions.at(-1) ?? 'v001') : kind === 'style' ? PLAN_STYLE : 'v001'
+  }
+  return next
+}
+
+/** Канон выпуска из кадров версии плана, прибитых версий и канона канала; у стиля — все кадры */
+export function mockEpisodeCanon(
+  plan: EffectivePlan,
+  tweaks: Record<string, CanonTweak> = {},
+  pins: CanonPins = {},
+  lookup: CanonLookup = () => null,
+): EpisodeCanon {
+  const items = planEntities(plan).map(({ kind, id, shots }) => {
+    const key = canonKey(kind, id)
+    return { kind, ...canonItem(kind, id, shots, pins[key], lookup(kind, id), tweaks[key]) }
+  })
+  const style = items[0]!.item
+  const periods = items.filter((entry) => entry.kind === 'period').map((entry) => entry.item)
+  const appearances = items
+    .filter((entry) => entry.kind === 'appearance')
+    .map((entry): EpisodeAppearanceItem => ({ ...entry.item, sheet: entry.sheet }))
+  const problems = [
+    refProblem('style', style),
+    ...periods.map((item) => refProblem('period', item)),
+    ...appearances.map((item) => refProblem('appearance', item)),
+    ...appearances.map(sheetProblem),
+  ].filter((problem): problem is CanonProblem => problem !== null)
+  return {
+    plan_version: plan.version,
+    ready: !problems.length,
+    updatable: [style, ...periods, ...appearances].some((item) => item.latest !== null && item.latest !== item.pinned),
+    style,
+    periods,
+    appearances,
+    problems,
+  }
+}
+
+/** Сводка отказа по канону — как `approve.canon_summary` бэкенда */
+function canonRefusal(problems: CanonProblem[]): string {
+  const counted = (kind: CanonKind | null, issue: CanonProblem['issue']) =>
+    problems.filter((p) => (kind === null || p.kind === kind) && p.issue === issue).length
+  const parts: string[] = []
+  if (counted('style', 'unpublished')) parts.push('стиль канала не опубликован')
+  const periods = counted('period', 'unpublished')
+  if (periods) parts.push(`${periods} ${ru(periods, ['эпоха', 'эпохи', 'эпох'])} не ${ru(periods, ['опубликована', 'опубликованы', 'опубликованы'])}`)
+  const looks = counted('appearance', 'unpublished')
+  if (looks) parts.push(`${looks} ${ru(looks, ['облик', 'облика', 'обликов'])} не ${ru(looks, ['опубликован', 'опубликованы', 'опубликованы'])}`)
+  const unresolved = counted(null, 'unresolved')
+  if (unresolved) parts.push(`${unresolved} ${ru(unresolved, ['ссылка', 'ссылки', 'ссылок'])} не ${ru(unresolved, ['находит', 'находят', 'находят'])} версию`)
+  for (const [issue, text] of [
+    ['no_sheet', 'нет листа'],
+    ['sheet_incomplete', 'лист не собран'],
+    ['sheet_outdated', 'лист устарел'],
+  ] as const) {
+    const n = counted('appearance', issue)
+    if (n) parts.push(`у ${n} ${ru(n, ['облика', 'обликов', 'обликов'])} ${text}`)
+  }
+  const where = [
+    ...(problems.some((p) => p.issue !== 'unresolved') ? ['экран «Канон»'] : []),
+    ...(problems.some((p) => p.issue === 'unresolved') ? ['«Перевести на новые версии»'] : []),
+  ]
+  return `Канон не готов: ${parts.join(', ')} — ${where.join(' и ')}.`
+}
+
+/** Крупность → строка промпта, ракурсы листа и кадры стиля (`config/canon.yaml → shots.sizes`) */
+const SHOT_SIZES: Record<PlanShot['image']['shot_size'], { line: string; angles: string[]; frames: string[] }> = {
+  establishing: { line: 'wide establishing shot, the place reads first, people small in the frame', angles: ['front', 'full_body'], frames: ['establishing', 'crowd'] },
+  action: { line: 'medium-wide shot of the action, whole figures readable', angles: ['front', 'three_quarter', 'full_body', 'in_action'], frames: ['establishing', 'portrait'] },
+  reaction: { line: 'close shot on the face and shoulders, the emotion readable', angles: ['front', 'three_quarter', 'profile'], frames: ['portrait', 'night'] },
+  detail: { line: 'close-up of the object or the hands in the action', angles: ['front', 'detail'], frames: ['detail', 'portrait'] },
+}
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
+
+/** «(reference images 1–4)», «(reference image 5)», без референсов — пусто */
+function refRange(first: number, count: number, style = false): string {
+  const word = style ? 'style reference image' : 'reference image'
+  if (count === 0) return ''
+  return count === 1 ? ` (${word} ${first})` : ` (${word}s ${first}–${first + count - 1})`
+}
+
+/** Запрос кадра, как `GET …/shots/{id}/prompt` бэкенда (M5.5): секции из прибитых версий, референсы по крупности,
+ *  проблемы канона вместо секций, которые не резолвятся. Тексты секций — короткие, по примерам prompt_assembly.md */
+export function mockShotPrompt(channel: ChannelId, shot: PlanShot, canon: EpisodeCanon): ShotPrompt {
+  const size = SHOT_SIZES[shot.image.shot_size]
+  const problems: PromptProblem[] = []
+  // Адресат — как у бэкенда: у сущности без версий «не опубликована», иначе ссылка не находит версию
+  const problem = (message: string, kind: CanonKind, item: EpisodeCanonItem, issue?: CanonTarget['issue']) =>
+    problems.push({ message: `кадр ${shot.id}: ${message}`, canon: { kind, id: item.id, issue: issue ?? (item.latest === null ? 'unpublished' : 'unresolved') } })
+  const period = canon.periods.find((item) => item.id === shot.image.period)
+  const looks = shot.image.appearances.map((id) => canon.appearances.find((item) => item.id === id)).filter((item) => item !== undefined)
+  if (!canon.style.resolved) problem(`стиль ${canon.style.ref} не найден в каноне ${channel}`, 'style', canon.style)
+  if (period && !period.resolved) problem(`эпоха ${period.ref} не найдена в каноне ${channel}`, 'period', period)
+  const drawable = looks.filter((look) => {
+    if (!look.resolved) {
+      problem(`облик ${look.id} не найден в ${look.ref.split('#')[0]}`, 'appearance', look)
+      return false
+    }
+    if (look.sheet.status === 'missing') problem(`у облика ${look.id} нет листа опорных портретов — соберите его${ON_CANON_SCREEN}`, 'appearance', look, 'no_sheet')
+    else if (look.sheet.status === 'partial')
+      problem(`лист облика ${look.id} ${look.sheet.chosen}/${look.sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`, 'appearance', look, 'sheet_incomplete')
+    else if (look.sheet.status === 'outdated') problem(`лист облика ${look.id} устарел — пересоберите его${ON_CANON_SCREEN}`, 'appearance', look, 'sheet_outdated')
+    return true
+  })
+
+  const refs: PromptRef[] = []
+  const anchorRef = (owner: string, slot: string, label: string): PromptRef => ({
+    kind: 'anchor',
+    owner,
+    slot,
+    label: `${owner} — ${lowerFirst(label)}`,
+    file: `channels/${channel}/canon/anchors/${owner}/candidates/${slot}-1.jpg`,
+    sha256: hex16(`${owner}:${slot}`).repeat(4),
+  })
+  const persons = drawable.map((look, i) => {
+    const first = refs.length + 1
+    const angles = look.sheet.status === 'ready' ? size.angles : []
+    for (const slot of angles) refs.push(anchorRef(look.id, slot, SHEET_ANGLES.find(([id]) => id === slot)?.[1] ?? slot))
+    return { look, header: `Person ${i + 1}${refRange(first, angles.length)}:` }
+  })
+  const firstFrame = refs.length + 1
+  for (const frame of size.frames) {
+    const label = STYLE_FRAMES.find(([id]) => id === frame)?.[1] ?? frame
+    refs.push({
+      kind: 'style_frame',
+      owner: 'style',
+      slot: frame,
+      label: `Кадр стиля — ${lowerFirst(label)}`,
+      file: `channels/${channel}/canon/anchors/style/${frame}.jpg`,
+      sha256: hex16(`style:${frame}`).repeat(4),
+    })
+  }
+
+  const sections: PromptSection[] = []
+  if (canon.style.resolved) {
+    sections.push({
+      kind: 'style',
+      source: canon.style.ref,
+      label: 'Стиль канала',
+      text: `Rendering${refRange(firstFrame, size.frames.length, true)}:\n- Technique: painterly digital illustration with the restraint of a museum diorama\n- Grain: fine even film grain across the frame`,
+    })
+  }
+  if (period?.resolved) {
+    const label = CURSUS_PERIODS[period.id]?.versions[0]?.data.label ?? period.id
+    sections.push({ kind: 'period', source: period.ref, label: `Эпоха: ${label}`, text: 'Era:\n- Place: Caribbean Sea, Nassau\n- Years: 1716 to 1726' })
+  }
+  for (const { look, header } of persons) {
+    sections.push({ kind: 'appearance', source: look.ref, label: `Облик: ${look.id}`, text: `${header}\n- Build: small and wiry\n- Clothing: oversized linen shirt, barefoot` })
+  }
+  const edited = shot.overridden.includes('image.prompt')
+  sections.push({ kind: 'action', source: 'shot', label: edited ? 'Действие — правка человека' : 'Действие', text: `Action: ${shot.image.prompt}` })
+  sections.push({ kind: 'shot_size', source: 'shot', label: `Крупность: ${shot.image.shot_size}`, text: `Shot size: ${size.line}` })
+
+  const text = sections.map((section) => section.text).join('\n\n')
+  const model = 'gemini-3.1-flash-image'
+  return {
+    shot_id: shot.id,
+    sections,
+    text,
+    negative: 'text, watermark, modern clothing, plastic sheen, zipper, wristwatch',
+    refs,
+    dropped: [],
+    seed: parseInt(hex16(`${shot.id}:${text}`).slice(0, 7), 16),
+    aspect_ratio: '16:9',
+    model,
+    cost: { stage: 'images', provider: 'gemini', model, lines: [{ unit: 'image', quantity: 1, variant: '1K', usd_micro: PRICE.image }], usd_micro: PRICE.image, stale_pricing: false },
+    usd: money(PRICE.image),
+    input_hash: problems.length ? null : hex16(text).repeat(4),
+    problems,
+    warnings: [],
+  }
+}
+
 export interface MockResponse {
   status: number
   body: unknown
+  /** Не JSON: тело — строка этого типа (миниатюра кандидата — SVG) */
+  contentType?: string
 }
 
 const ok = (body: unknown, status = 200): MockResponse => ({ status, body })
@@ -838,6 +1658,50 @@ export function createMockApi() {
   const profiles = structuredClone(channels) as ChannelProfile[]
   const ideas: Idea[] = structuredClone(IDEAS)
   const references: ReferenceVideo[] = structuredClone(REFERENCES)
+  /** Канон каналов (экран 12): у Cursus стиль v001–v003 и кадры стиля на v003, у Otto канона нет */
+  const canonStyles: Record<ChannelId, StyleState> = {
+    cursus: { versions: structuredClone(CURSUS_STYLE), draft: null, frames: 'v003' },
+    otto: { versions: [], draft: null, frames: null },
+  }
+  /** Эпохи и персонажи каналов (M5.8): каталоги сущностей с версиями и черновиком */
+  const canonPeriods: Record<ChannelId, Map<string, LayerState<Period>>> = {
+    cursus: new Map(Object.entries(structuredClone(CURSUS_PERIODS))),
+    otto: new Map(),
+  }
+  const canonCharacters: Record<ChannelId, Map<string, LayerState<Character>>> = {
+    cursus: new Map(Object.entries(structuredClone(CANON_CHARACTERS.cursus))),
+    otto: new Map(Object.entries(structuredClone(CANON_CHARACTERS.otto))),
+  }
+  let periodRuns = 0
+  /** Месячный лимит канала для джобов опорных; тест опускает его, чтобы увидеть отказ бюджета до очереди */
+  const monthlyLimit: Record<ChannelId, number> = {
+    cursus: costSummaries.cursus.budget.limit.usd_micro,
+    otto: costSummaries.otto.budget.limit.usd_micro,
+  }
+  let canonJobs = 0
+  /** Джобы опорных: ответ постановки — `queued`, а `GET /jobs/{id}` — уже итог. Мок рисует сразу, конец джоба экрану
+   *  сообщает поток SSE (в тестах — фейковый) */
+  const canonJobRecords = new Map<string, Job>()
+  /** Канон выпусков (M5.10): по умолчанию план прибит к последним версиям и листы 6/6; тест задаёт отличия
+   *  (`CanonTweak` по сущности), перевод на новые версии их обновляет */
+  const episodeCanons = new Map<string, Record<string, CanonTweak>>()
+  /** Прибитые версии планов выпусков (`canon_ref`): ставятся при создании версии плана, двигает их только перевод */
+  const episodePins = new Map<string, CanonPins>()
+  /** Листы обликов (M5.9) — как `sheet.json` и `chosen.json` бэкенда: кандидаты всех сборок и выбор по ракурсу */
+  const canonSheets: Record<ChannelId, Map<string, MockSheet>> = { cursus: new Map(), otto: new Map() }
+  for (const channel of ['cursus', 'otto'] as const) {
+    for (const [id, count] of Object.entries(SHEETS_CHOSEN)) {
+      const state = canonCharacters[channel].get(id.split('@')[0]!)
+      const first = state?.versions.find((v) => v.data.appearances.some((a) => a.id === id))
+      if (!first) continue
+      const sheet: MockSheet = { candidates: [], chosen: {} }
+      for (const [slot] of SHEET_ANGLES.slice(0, count)) {
+        for (let n = 1; n <= ANCHOR_CANDIDATES; n += 1) sheet.candidates.push(mockCandidate(id, first.info.version, slot, n))
+        sheet.chosen[slot] = sheet.candidates.at(-ANCHOR_CANDIDATES)!.id
+      }
+      canonSheets[channel].set(id, sheet)
+    }
+  }
 
   /** Создание референса: таймкоды есть — реплики и длительность по ним, нет — 422 как у бэкенда */
   function createReference(body: { channel: ChannelId; url?: string; subtitles: string }): MockResponse {
@@ -1127,6 +1991,7 @@ export function createMockApi() {
     if (!plans.has(episode.id) && episode.id === 'pirate') {
       plans.set(episode.id, artboardPlan(episode))
       overrides.set(episode.id, structuredClone(ART_OVERRIDES))
+      pinEpisode(episode)
     }
     return plans.get(episode.id) ?? null
   }
@@ -1274,6 +2139,7 @@ export function createMockApi() {
       const version = `v${String(number).padStart(3, '0')}`
       const shots = total * SHOTS_PER_PART
       plans.set(episode.id, mockPlan(episode, version, shots))
+      pinEpisode(episode)
       projectOf(episode).director_version = version
       Object.assign(episode, {
         stage: episode.stage === 'idea' ? 'script' : episode.stage,
@@ -1411,6 +2277,8 @@ export function createMockApi() {
       shots,
       facts: (director.facts ?? []).map((fact) => ({ ...fact, source_url: fact.source_url ?? null })),
     })
+    pinEpisode(episode)
+    partSets.delete(episode.id) // любой импорт сбрасывает недособранный набор частей моста, как `_clear_parts`
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     const ids = new Set(shots.map((shot) => shot.id))
@@ -1433,8 +2301,11 @@ export function createMockApi() {
       if (!shot.vo.trim()) problems.push({ check: 'vo', shot_id: shot.id, message: `кадр ${shot.id}: пустой VO — допишите текст закадрового голоса` })
       if (!shot.image.prompt.trim()) problems.push({ check: 'prompt', shot_id: shot.id, message: `кадр ${shot.id}: пустой промпт — опишите действие и композицию` })
     }
+    const canon = episodeCanonOf(episode)?.problems ?? []
+    for (const { message, ...target } of canon) problems.push({ check: 'canon', shot_id: null, message, canon: target })
     if (problems.length) {
-      const parts = problems.filter((p) => p.shot_id === null).map((p) => p.message)
+      const parts = problems.filter((p) => p.shot_id === null && p.check !== 'canon').map((p) => p.message)
+      if (canon.length) parts.push(canonRefusal(canon))
       const groups = new Map<string, string[]>()
       for (const p of problems) if (p.shot_id) groups.set(p.check, [...(groups.get(p.check) ?? []), p.shot_id])
       const summaries = [...groups].map(([check, ids]) => `${ids.length} ${ru(ids.length, ['кадр', 'кадра', 'кадров'])} ${check === 'vo' ? 'без VO' : 'без промпта'}: ${ids.join(', ')}`)
@@ -1449,6 +2320,899 @@ export function createMockApi() {
     return ok(episode)
   }
 
+  /** Канон текущей версии плана (`GET …/canon`); плана нет — `null` */
+  function episodeCanonOf(episode: EpisodeListItem): EpisodeCanon | null {
+    const plan = plansOf(episode)
+    return plan ? mockEpisodeCanon(plan, episodeCanons.get(episode.id), episodePins.get(episode.id), canonFacts(episode.channel)) : null
+  }
+
+  /** Канон канала для канона выпуска; `null` — сущности нет ни в каноне, ни в «нужно каналу» (облики плана
+   *  артборда 3, которых нет в артборде 12) — она считается готовой */
+  function canonFacts(channel: ChannelId): CanonLookup {
+    return (kind, id) => {
+      if (kind === 'style') {
+        const style = canonStyles[channel]
+        return { versions: style.versions.map((v) => v.info.version), draft: style.draft !== null, sheet: () => SHEET_READY }
+      }
+      const needed = PLAN_REFS[channel]
+      if (kind === 'period') {
+        const state = canonPeriods[channel].get(id)
+        if (!state && !needed.periods.some((item) => item.id === id)) return null
+        return { versions: state?.versions.map((v) => v.info.version) ?? [], draft: Boolean(state?.draft), sheet: () => SHEET_READY }
+      }
+      const character = canonCharacters[channel].get(id.split('@')[0]!)
+      const versions = (character?.versions ?? []).filter((v) => v.data.appearances.some((a) => a.id === id)).map((v) => v.info.version)
+      const draft = Boolean(character?.draft?.data.appearances.some((a) => a.id === id))
+      if (!versions.length && !draft && !needed.appearances.some((item) => item.id === id)) return null
+      return {
+        versions,
+        draft,
+        sheet: (version) => {
+          const { status, chosen, total } = appearanceAnchors(channel, id, version)
+          return { status, chosen, total }
+        },
+      }
+    }
+  }
+
+  /** Новая версия плана прибивает новые ссылки (прежние сохраняют версию) — как импорт M5.2 */
+  function pinEpisode(episode: EpisodeListItem) {
+    const plan = plans.get(episode.id)
+    if (plan) episodePins.set(episode.id, pinPlan(plan, episodePins.get(episode.id) ?? {}, canonFacts(episode.channel)))
+  }
+
+  /** «Перевести на новые версии», как бэкенд M5.2: новая версия `manual` со ссылками на последние версии; затронутые
+   *  кадры — `stale` с причиной «Эпоха …: periods/…/v001 → periods/…/v002»; переводить нечего — `created: false` */
+  function updateCanon(episode: EpisodeListItem): MockResponse {
+    const plan = plansOf(episode)
+    if (!plan) return fail(409, 'Плана ещё нет — переводить на новые версии нечего.')
+    const tweaks = { ...episodeCanons.get(episode.id) }
+    const pins = { ...episodePins.get(episode.id) }
+    const canon = mockEpisodeCanon(plan, tweaks, pins, canonFacts(episode.channel))
+    if (!canon.updatable) return ok({ version: plan.version, created: false, added: 0, changed: 0, removed: 0, changes: [] } satisfies ImportResult)
+    const moved: { kind: CanonKind; id: string; reason: string }[] = []
+    const move = (kind: CanonKind, key: string, item: EpisodeCanonItem, title: string) => {
+      if (item.latest === null || item.latest === item.pinned) return
+      moved.push({ kind, id: item.id, reason: `${title}: ${item.ref} → ${canonRefOf(kind, item.id, item.latest)}` })
+      pins[key] = item.latest
+      // Отличия теста в прибитой версии и её находимости уступают переводу
+      const next: CanonTweak = { ...tweaks[key] }
+      delete next.pinned
+      delete next.resolved
+      tweaks[key] = next
+    }
+    move('style', 'style', canon.style, 'Стиль канала')
+    for (const item of canon.periods) move('period', `period:${item.id}`, item, `Эпоха ${item.id}`)
+    for (const item of canon.appearances) move('appearance', `appearance:${item.id}`, item, `Облик ${item.id}`)
+    episodeCanons.set(episode.id, tweaks)
+    episodePins.set(episode.id, pins)
+
+    const version = `v${String(Number(plan.version.slice(1)) + 1).padStart(3, '0')}`
+    const changes: ShotChange[] = []
+    const shots = plan.shots.map((shot): PlanShot => {
+      if (shot.status === 'removed') return shot
+      const reasons = moved
+        .filter(({ kind, id }) => kind === 'style' || (kind === 'period' ? shot.image.period === id : shot.image.appearances.includes(id)))
+        .map(({ reason }) => reason)
+      if (!reasons.length) return shot
+      changes.push({ shot_id: shot.id, section: shot.section, kind: 'changed', change: reasons.join('; '), fields: [], stale: true, drawn_at: null, price: null })
+      return { ...shot, status: 'stale', stale_reasons: reasons }
+    })
+    plans.set(episode.id, { ...plan, version, source: 'manual', shots })
+    partSets.delete(episode.id) // перевод — тоже импорт: набор частей моста сбрасывается, как у бэкенда
+    projectOf(episode).director_version = version
+    if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
+    return ok({ version, created: true, added: 0, changed: changes.length, removed: 0, changes } satisfies ImportResult)
+  }
+
+  /** Предпросмотр запроса кадра действующего плана (`GET …/shots/{id}/prompt`): ничего не пишет и не оплачивает */
+  function shotPromptOf(episode: EpisodeListItem, shotId: string): MockResponse {
+    const plan = effectivePlan(episode)
+    const canon = episodeCanonOf(episode)
+    if (!plan || !canon) return fail(409, 'Плана ещё нет — предпросмотр промпта появится, когда план будет собран.')
+    const shot = plan.shots.find((item) => item.id === shotId && item.status !== 'removed')
+    if (!shot) return fail(404, `Кадра ${shotId} в действующем плане выпуска нет.`)
+    return ok(mockShotPrompt(episode.channel, shot, canon))
+  }
+
+  /* ---- Канон канала: стиль, версии, кадры стиля (docs/canon_schema.md, «API» и «API опорных») ---- */
+
+  /** Чей слой — для текстов ошибок, как `Layer.genitive` бэкенда: «стиля канала», «эпохи caribbean-1716» */
+  interface Noun {
+    genitive: string
+    /** 404 без черновика и версий */
+    missing: string
+  }
+
+  const versionDoc = <T,>(file: CanonVersionFile<T>) => ({
+    draft: false,
+    version: file.info.version,
+    based_on: file.info.based_on,
+    updated_at: file.info.published_at,
+    data: structuredClone(file.data),
+  })
+
+  /** Шапка (`version: null`) — черновик, а без него последняя версия; `vNNN` — версия как есть */
+  function layerDoc<T>(state: LayerState<T> | undefined, noun: Noun, version: string | null): MockResponse {
+    if (version === null) {
+      if (state?.draft) {
+        const { based_on, saved_at, data } = state.draft
+        return ok({ draft: true, version: null, based_on, updated_at: saved_at, data: structuredClone(data) })
+      }
+      const last = state?.versions.at(-1)
+      return last ? ok(versionDoc(last)) : fail(404, noun.missing)
+    }
+    if (!/^v\d{3}$/.test(version)) {
+      return { status: 422, body: { detail: [{ type: 'canon_version', loc: ['query', 'version'], msg: `Версия «${version}» не годится — нужна вида v001.` }] } }
+    }
+    const file = state?.versions.find((v) => v.info.version === version)
+    const have = state?.versions.map((v) => v.info.version).join(', ')
+    return file ? ok(versionDoc(file)) : fail(404, `У ${noun.genitive} нет версии ${version} — есть: ${have || 'ни одной'}.`)
+  }
+
+  /** Черновик целиком: `based_on` — у прежнего черновика, без него последняя версия (правят то, что видят) */
+  function layerPut<T>(state: LayerState<T>, noun: Noun, data: T): MockResponse {
+    const based_on = state.draft ? state.draft.based_on : (state.versions.at(-1)?.info.version ?? null)
+    state.draft = { based_on, saved_at: NOW, data: structuredClone(data) }
+    return layerDoc(state, noun, null)
+  }
+
+  function layerFrom<T>(state: LayerState<T> | undefined, noun: Noun, from: string): MockResponse {
+    if (state?.draft) return fail(409, `У ${noun.genitive} уже есть черновик — опубликуйте или сбросьте его, потом создавайте черновик из ${from}.`)
+    const file = state?.versions.find((v) => v.info.version === from)
+    if (!state || !file) return layerDoc(state, noun, from)
+    state.draft = { based_on: from, saved_at: NOW, data: structuredClone(file.data) }
+    return { ...layerDoc(state, noun, null), status: 201 }
+  }
+
+  function layerDiscard<T>(state: LayerState<T> | undefined, noun: Noun): MockResponse {
+    if (!state?.draft) return fail(404, `У ${noun.genitive} нет черновика — сбрасывать нечего.`)
+    state.draft = null
+    return ok(null, 204)
+  }
+
+  /** Правила публикации — все нарушения сразу, по фразе на строку; при отказе черновик остаётся */
+  function layerPublish<T>(state: LayerState<T> | undefined, noun: Noun, problems: (data: T) => string[]): MockResponse {
+    if (!state?.draft) return fail(409, `У ${noun.genitive} нет черновика — публиковать нечего.`)
+    const found = problems(state.draft.data)
+    if (found.length) return fail(409, found.join('\n'))
+    const last = state.versions.at(-1)
+    if (last && canonical(last.data) === canonical(state.draft.data)) {
+      return fail(409, `Черновик ${noun.genitive} не отличается от ${last.info.version} — публиковать нечего, сбросьте черновик.`)
+    }
+    const file: CanonVersionFile<T> = {
+      info: { version: `v${String(state.versions.length + 1).padStart(3, '0')}`, based_on: state.draft.based_on, published_at: NOW },
+      data: state.draft.data,
+    }
+    state.versions.push(file)
+    state.draft = null
+    return ok(versionDoc(file), 201)
+  }
+
+  const styleNoun = (channel: ChannelId): Noun => ({ genitive: 'стиля канала', missing: `Стиля канала в каноне ${channel} нет — создайте черновик.` })
+  const periodNoun = (channel: ChannelId, id: string): Noun => ({ genitive: `эпохи ${id}`, missing: `Эпохи ${id} в каноне ${channel} нет — создайте черновик.` })
+  const characterNoun = (channel: ChannelId, id: string): Noun => ({ genitive: `персонажа ${id}`, missing: `Персонажа ${id} в каноне ${channel} нет — создайте черновик.` })
+
+
+  /** Форма черновика (422): цвет #RRGGBB, не больше 5 образцов — как `Style` бэкенда */
+  function styleShape(data: Style): MockResponse | null {
+    const bad = data.palette.swatches.findIndex((swatch) => !/^#[0-9a-fA-F]{6}$/.test(swatch.hex))
+    if (bad !== -1) {
+      const hex = data.palette.swatches[bad]!.hex
+      return { status: 422, body: { detail: [{ type: 'canon_hex', loc: ['body', 'palette', 'swatches', bad, 'hex'], msg: `Цвет «${hex}» не годится — нужен код #RRGGBB.` }] } }
+    }
+    const count = data.palette.swatches.length
+    if (count > 5) {
+      return { status: 422, body: { detail: [{ type: 'canon_swatches', loc: ['body', 'palette', 'swatches'], msg: `Образцов палитры ${count}, а можно не больше 5 — уберите лишние.` }] } }
+    }
+    return null
+  }
+
+  /** Правила публикации стиля (`Style.publish_problems`): все нарушения сразу, по фразе на строку */
+  function stylePublishProblems(data: Style): string[] {
+    const problems: string[] = []
+    if (!data.render.trim()) problems.push('Стиль без рендера не публикуется — опишите технику изображения в поле render.')
+    const count = data.palette.swatches.length
+    if (count < 3) problems.push(`Образцов палитры ${count}, а нужно от 3 до 5 — добавьте цвета.`)
+    for (const swatch of data.palette.swatches) {
+      if (!swatch.role.trim()) problems.push(`У цвета ${swatch.hex} нет роли — напишите в role, для чего он, например shadows.`)
+    }
+    const cyrillic = /[Ѐ-ӿ]/
+    const texts: [string, string][] = [
+      ['render', data.render],
+      ['material', data.material],
+      ['processing', data.processing],
+      ...Object.entries(data.optics).map(([key, value]): [string, string] => [`optics.${key}`, value]),
+      ...Object.entries(data.light).map(([key, value]): [string, string] => [`light.${key}`, value]),
+      ['palette.rule', data.palette.rule],
+      ...data.palette.swatches.map((swatch, i): [string, string] => [`palette.swatches[${i}].role`, swatch.role]),
+      ['grain', data.grain],
+      ['composition', data.composition],
+    ]
+    for (const [path, text] of texts) {
+      if (cyrillic.test(text)) problems.push(`Поле ${path} написано по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+    }
+    if (data.negative_global.some((item) => !item.trim())) problems.push('Пустая позиция в списке negative_global — заполните или удалите её.')
+    if (data.negative_global.some((item) => cyrillic.test(item))) {
+      problems.push('Список negative_global написан по-русски — текст канона уходит в промпт картинки, пишите по-английски.')
+    }
+    return problems
+  }
+
+  /** Кадры стиля против последней версии: устаревают при смене рендера, оптики или света */
+  function styleAnchors(style: StyleState, channel: ChannelId): AnchorSetState {
+    const last = style.versions.at(-1)
+    const version = last?.info.version ?? null
+    const drawn = style.versions.find((v) => v.info.version === style.frames)
+    const fields = drawn && last && drawn !== last ? staleStyleFields(drawn.data, last.data) : []
+    const stale = fields.length ? `в ${version} изменились ${fields.join(', ')}` : null
+    const slots = STYLE_FRAMES.map(([slot, label], i): AnchorSlot => {
+      if (!drawn) return { slot, label, hint: '', candidates: [], chosen: null, stale: null }
+      const id = `${slot}-1-${(0x3a7f + i * 977).toString(16)}`
+      const file = `channels/${channel}/canon/anchors/style/${id}.jpg`
+      const seed = 41_000 + i * 131
+      return {
+        slot,
+        label,
+        hint: '',
+        candidates: [{ id, n: 1, status: 'ready', file, error: null, seed, version: drawn.info.version, ref: null, usd: money(ANCHOR_PRICE), cached: false, created_at: drawn.info.published_at }],
+        chosen: { candidate: id, file, seed, version: drawn.info.version, chosen_at: drawn.info.published_at, usd: money(ANCHOR_PRICE) },
+        stale,
+      }
+    })
+    const chosen = drawn ? slots.length : 0
+    return {
+      channel,
+      target: 'style',
+      version,
+      status: chosen === 0 ? 'missing' : stale ? 'outdated' : 'ready',
+      chosen,
+      total: slots.length,
+      stale: stale ? `Кадры стиля устарели: ${stale} — пересоберите их.` : null,
+      slots,
+      spent: money(chosen * ANCHOR_PRICE),
+    }
+  }
+
+  /** «Пересобрать кадры стиля»: стиль и эпоха опубликованы, месячный бюджет канала — до очереди (409 `BudgetRefusal`) */
+  function collectStyleAnchors(style: StyleState, channel: ChannelId, period: string): MockResponse {
+    const last = style.versions.at(-1)
+    if (!last) return fail(409, 'Стиль канала не опубликован — опубликуйте его на экране «Канон», потом собирайте опорные.')
+    if (!canonPeriods[channel].get(period)?.versions.length) {
+      return fail(409, `Эпоха ${period} не опубликована — опубликуйте её на экране «Канон».`)
+    }
+    const cost = STYLE_FRAMES.length * ANCHOR_PRICE
+    const refusal = budgetRefusalOf(channel, cost)
+    if (refusal) return refusal
+    style.frames = last.info.version // мок «дорисует» кадры: экран увидит их после конечного события джоба
+    return canonJob('style_anchors', channel, { channel, target: 'style', period }, cost, {
+      target: 'style',
+      done: STYLE_FRAMES.length,
+      charged: STYLE_FRAMES.length,
+      cached: 0,
+      failed: 0,
+      spent_usd_micro: cost,
+    })
+  }
+
+  /** Месячный бюджет канала — до очереди: превышение — 409 `BudgetRefusal`, джоб не создаётся (docs/providers.md) */
+  function budgetRefusalOf(channel: ChannelId, cost: number): MockResponse | null {
+    const { budget } = costSummaries[channel]
+    const spent = budget.charged.usd_micro + budget.reserved.usd_micro
+    const limit = monthlyLimit[channel]
+    if (spent + cost <= limit) return null
+    const head =
+      spent >= limit
+        ? `Месячный лимит ${formatUsd(limit)} исчерпан, потрачено ${formatUsd(spent)}`
+        : `Месячный лимит ${formatUsd(limit)}: потрачено ${formatUsd(spent)}, операция — ${formatUsd(cost)}, не хватает ${formatUsd(spent + cost - limit)}`
+    return fail(409, {
+      code: 'budget_exceeded',
+      level: 'month',
+      limit_usd_micro: limit,
+      spent_usd_micro: spent,
+      queued_usd_micro: 0,
+      cost_usd_micro: cost,
+      message: `${head}; поднять лимит можно в настройках канала.`,
+    } satisfies BudgetRefusal as unknown as Record<string, unknown>)
+  }
+
+  /** Джоб опорных уровня канала: ответ — `queued`, итог `result` — в `GET /jobs/{id}` */
+  function canonJob(kind: string, channel: ChannelId, payload: Job['payload'], cost: number, result: NonNullable<Job['result']>): MockResponse {
+    canonJobs += 1
+    const job: Job = {
+      id: `job-${kind.replaceAll('_', '-')}-${canonJobs}`,
+      kind,
+      status: 'queued',
+      progress: 0,
+      message: null,
+      payload,
+      result: null,
+      error: null,
+      attempts: 0,
+      cancel_requested: false,
+      episode_id: null,
+      batch_id: null,
+      idempotency_key: null,
+      created_at: NOW,
+      started_at: null,
+      finished_at: null,
+      cost_usd_micro: cost,
+      cost_stage: 'anchors',
+      channel,
+    }
+    const total = Number(result.done)
+    canonJobRecords.set(job.id, { ...job, status: 'done', progress: 1, message: `Готово ${total} из ${total}: сбоев 0`, result, attempts: 1, started_at: NOW, finished_at: NOW })
+    return ok(job, 201)
+  }
+
+  /* ---- Эпохи и персонажи (M5.8): правила публикации, «нужно каналу», мост эпохи, листы обликов, копия облика ---- */
+
+  const CYRILLIC = /[Ѐ-ӿ]/
+
+  /** Кириллица в тексте промпта и пустые позиции списков — как `_text_problems` бэкенда; подписи `label` — для экрана */
+  function textProblems(node: Record<string, unknown>, owner = '', prefix = ''): string[] {
+    const problems: string[] = []
+    for (const [name, value] of Object.entries(node)) {
+      if (name === 'label' || name === 'id' || name === 'appearances') continue
+      const where = `${prefix}${name}${owner ? ` ${owner}` : ''}`
+      if (typeof value === 'string' && CYRILLIC.test(value)) {
+        problems.push(`Поле ${where} написано по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+      } else if (Array.isArray(value)) {
+        const texts = value.filter((item): item is string => typeof item === 'string')
+        if (texts.some((item) => !item.trim())) problems.push(`Пустая позиция в списке ${where} — заполните или удалите её.`)
+        if (texts.some((item) => CYRILLIC.test(item))) {
+          problems.push(`Список ${where} написан по-русски — текст канона уходит в промпт картинки, пишите по-английски.`)
+        }
+      } else if (value && typeof value === 'object' && name !== 'years') {
+        problems.push(...textProblems(value as Record<string, unknown>, owner, `${prefix}${name}.`))
+      }
+    }
+    return problems
+  }
+
+  /** `Period.publish_problems`: название, регион, годы и хотя бы один запрет (L-007) */
+  function periodProblems(data: Period): string[] {
+    const problems: string[] = []
+    if (!data.label.trim()) problems.push('Эпоха без названия не публикуется — заполните label, например «Карибы, 1716».')
+    if (!data.region.trim()) problems.push('Эпоха без региона не публикуется — заполните region, например Caribbean Sea.')
+    if (!data.years) problems.push('Эпоха без годов не публикуется — заполните years.from и years.to.')
+    if (!data.forbidden.length) problems.push('Эпоха без запретов не публикуется — добавьте хотя бы один анахронизм.')
+    return [...problems, ...textProblems(data as unknown as Record<string, unknown>)]
+  }
+
+  /** `Character.publish_problems`: имя, черты лица, хотя бы один облик; у облика — название и эпоха */
+  function characterProblems(data: Character): string[] {
+    const problems: string[] = []
+    if (!data.label.trim()) problems.push('Персонаж без имени не публикуется — заполните label.')
+    if (!data.nature.face.trim()) problems.push('Персонаж без черт лица не публикуется — заполните nature.face: по ним собирается лист портретов.')
+    if (!data.appearances.length) problems.push('Персонаж без обликов не публикуется — добавьте хотя бы один облик.')
+    problems.push(...textProblems(data as unknown as Record<string, unknown>))
+    for (const appearance of data.appearances) {
+      if (!appearance.label.trim()) problems.push(`Облик ${appearance.id} без названия не публикуется — заполните label.`)
+      if (!appearance.period.trim()) problems.push(`Облик ${appearance.id} без эпохи не публикуется — укажите period.`)
+      problems.push(...textProblems(appearance as unknown as Record<string, unknown>, `облика ${appearance.id}`))
+    }
+    return problems
+  }
+
+  const shapeError = (loc: (string | number)[], msg: string, type = 'canon_shape'): MockResponse => ({ status: 422, body: { detail: [{ type, loc, msg }] } })
+
+  /** Форма тела эпохи и персонажа (422): id совпадает с адресом, годы по порядку, возраст 0–120, облики своего персонажа */
+  function entityShape(kind: 'periods' | 'characters', id: string, data: Period | Character): MockResponse | null {
+    if (data.id !== id) return shapeError(['body', 'id'], `id «${data.id}» в теле не совпадает с адресом «${id}» — исправьте одно из двух.`)
+    if (kind === 'periods') {
+      const { years } = data as Period
+      if (years && years.from > years.to) {
+        return shapeError(['body', 'years'], `Годы эпохи наоборот: from ${years.from} позже to ${years.to} — поменяйте их местами.`, 'canon_years')
+      }
+      return null
+    }
+    const seen = new Set<string>()
+    for (const [i, appearance] of (data as Character).appearances.entries()) {
+      if (!appearance.id.startsWith(`${id}@`)) {
+        return shapeError(['body', 'appearances', i, 'id'], `Облик ${appearance.id} не принадлежит персонажу ${id} — id облика начинается с «${id}@».`)
+      }
+      if (seen.has(appearance.id)) return shapeError(['body', 'appearances', i, 'id'], `Облик ${appearance.id} повторяется — у каждого облика свой id.`)
+      seen.add(appearance.id)
+      if (appearance.age !== null && (appearance.age < 0 || appearance.age > 120)) {
+        return shapeError(['body', 'appearances', i, 'age'], `Возраст ${appearance.age} вне 0–120 — укажите полных лет.`)
+      }
+    }
+    return null
+  }
+
+  const headOf = <T,>(state: LayerState<T>): T => (state.draft ? state.draft.data : state.versions.at(-1)!.data)
+
+  /** Последняя опубликованная версия персонажа, где облик есть */
+  function latestWith(channel: ChannelId, appearanceId: string): string | null {
+    const state = canonCharacters[channel].get(appearanceId.split('@')[0]!)
+    const found = [...(state?.versions ?? [])].reverse().find((v) => v.data.appearances.some((a) => a.id === appearanceId))
+    return found?.info.version ?? null
+  }
+
+  /** Облик в версии персонажа: неизменяемое и сам облик — для устаревания листа */
+  function appearanceAt(channel: ChannelId, appearanceId: string, version: string): { nature: Character['nature']; look: Appearance } | null {
+    const data = canonCharacters[channel].get(appearanceId.split('@')[0]!)?.versions.find((v) => v.info.version === version)?.data
+    const found = data?.appearances.find((a) => a.id === appearanceId)
+    return data && found ? { nature: data.nature, look: found } : null
+  }
+
+  /** Что изменилось у облика между версией выбора и текущей — как `_sheet_picks` бэкенда; null — ракурс годен */
+  function slotStale(channel: ChannelId, appearanceId: string, from: string, to: string, slot: string): MockStale | null {
+    if (from === to) return null
+    const before = appearanceAt(channel, appearanceId, from)
+    const after = appearanceAt(channel, appearanceId, to)
+    if (!before || !after) return { whole: [], body: [], missing: true }
+    const value = (side: NonNullable<typeof before>, name: string) => JSON.stringify(name === 'nature.face' ? side.nature.face : side.look[name as keyof Appearance])
+    const changed = (names: readonly string[]) => names.filter((name) => value(before, name) !== value(after, name))
+    const whole = changed(SHEET_FIELDS)
+    const body = BODY_ANGLES.has(slot) ? changed(BODY_FIELDS) : []
+    return whole.length || body.length ? { whole, body, missing: false } : null
+  }
+
+  function sheetOf(channel: ChannelId, appearanceId: string): MockSheet {
+    const sheets = canonSheets[channel]
+    if (!sheets.has(appearanceId)) sheets.set(appearanceId, { candidates: [], chosen: {} })
+    return sheets.get(appearanceId)!
+  }
+
+  /** Лист облика против последней опубликованной версии с ним (у канона выпуска — против прибитой): ракурсы по порядку,
+   *  устаревание по правилу бэкенда */
+  function appearanceAnchors(channel: ChannelId, appearanceId: string, against?: string): AnchorSetState {
+    const version = against ?? latestWith(channel, appearanceId)
+    const sheet = sheetOf(channel, appearanceId)
+    const dir = `channels/${channel}/canon/anchors/${appearanceId}`
+    const stale = new Map<string, MockStale>()
+    const slots = SHEET_ANGLES.map(([slot, label, hint]): AnchorSlot => {
+      const pick = sheet.candidates.find((c) => c.id === sheet.chosen[slot] && c.status === 'ready')
+      const reason = pick && version ? slotStale(channel, appearanceId, pick.version, version, slot) : null
+      if (reason) stale.set(slot, reason)
+      return {
+        slot,
+        label,
+        hint,
+        candidates: sheet.candidates
+          .filter((c) => c.slot === slot)
+          .map((c) => ({
+            id: c.id,
+            n: c.n,
+            status: c.status,
+            file: c.status === 'failed' ? null : `${dir}/${c.status === 'rejected' ? 'rejected' : 'candidates'}/${c.id}.jpg`,
+            error: c.error,
+            seed: c.seed,
+            version: c.version,
+            ref: null,
+            usd: money(c.usd_micro),
+            cached: false,
+            created_at: c.created_at,
+          })),
+        chosen: pick ? { candidate: pick.id, file: `${dir}/candidates/${pick.id}.jpg`, seed: pick.seed, version: pick.version, chosen_at: NOW, usd: money(pick.usd_micro) } : null,
+        stale: reason ? (reason.missing ? 'версии выбора нет в каноне — пересоберите' : `в ${version} изменились ${[...reason.whole, ...reason.body].join(', ')}`) : null,
+      }
+    })
+    const chosen = slots.filter((slot) => slot.chosen).length
+    const reasons = [...stale.values()]
+    const whole = [...new Set(reasons.flatMap((r) => r.whole))]
+    const summary = !reasons.length
+      ? null
+      : whole.length
+        ? `Лист устарел: в ${version} изменились ${whole.join(', ')} — пересоберите лист.`
+        : reasons.some((r) => r.missing)
+          ? 'Лист устарел: версии, с которой сделан выбор, нет в каноне — пересоберите лист.'
+          : `Устарели ракурсы ${slots
+              .filter((slot) => stale.has(slot.slot))
+              .map((slot) => `«${slot.label}»`)
+              .join(', ')}: в ${version} изменились ${[...new Set(reasons.flatMap((r) => r.body))].join(', ')} — перегенерируйте их.`
+    return {
+      channel,
+      target: appearanceId,
+      version,
+      status: chosen === 0 ? 'missing' : stale.size ? 'outdated' : chosen < SHEET_ANGLES.length ? 'partial' : 'ready',
+      chosen,
+      total: SHEET_ANGLES.length,
+      stale: summary,
+      slots,
+      spent: money(sheet.candidates.reduce((sum, c) => sum + c.usd_micro, 0)),
+    }
+  }
+
+  /** Смета листа по адресу облика: строка `stale` — устаревшие ракурсы */
+  function appearanceEstimate(channel: ChannelId, appearanceId: string): AnchorsEstimate {
+    const n = appearanceAnchors(channel, appearanceId).slots.filter((slot) => slot.stale).length
+    const label = `${n} ${ru(n, ['ракурс', 'ракурса', 'ракурсов'])} × ${ANCHOR_CANDIDATES} кандидата`
+    return { ...anchorsEstimate, stale: n ? anchorLine('Пересобрать устаревшие ракурсы', label, n * ANCHOR_CANDIDATES) : null }
+  }
+
+  /** Канон листа опубликован — версия персонажа с обликом; нет — 409 с тем, что опубликовать */
+  function sheetVersion(channel: ChannelId, appearanceId: string): string | MockResponse {
+    if (!canonStyles[channel].versions.length) return fail(409, 'Стиль канала не опубликован — опубликуйте его на экране «Канон», потом собирайте опорные.')
+    const version = latestWith(channel, appearanceId)
+    if (!version) return fail(409, `Облик ${appearanceId} не опубликован — опубликуйте персонажа с этим обликом на экране «Канон», потом собирайте лист.`)
+    const period = appearanceAt(channel, appearanceId, version)!.look.period
+    if (!canonPeriods[channel].get(period)?.versions.length) return fail(409, `Эпоха ${period} облика ${appearanceId} не опубликована — опубликуйте её на экране «Канон».`)
+    return version
+  }
+
+  /** Фас-референс годен: выбранный фас, если лицо с его версии не менялось, или удавшийся фас версии заказа */
+  function hasFront(channel: ChannelId, appearanceId: string, version: string): boolean {
+    const sheet = sheetOf(channel, appearanceId)
+    const pick = sheet.candidates.find((c) => c.id === sheet.chosen.front && c.status === 'ready')
+    if (pick && !slotStale(channel, appearanceId, pick.version, version, 'front')) return true
+    return sheet.candidates.some((c) => c.slot === 'front' && c.status === 'ready' && c.version === version)
+  }
+
+  /** Заказ листа: кандидаты рисуются сразу (тот же кандидат — из «кэша», $0), джоб — с итогом */
+  function drawSheet(channel: ChannelId, appearanceId: string, version: string, kind: string, order: [string, number][]): MockResponse {
+    const cost = order.length * ANCHOR_PRICE
+    const refusal = budgetRefusalOf(channel, cost)
+    if (refusal) return refusal
+    const sheet = sheetOf(channel, appearanceId)
+    let charged = 0
+    for (const [slot, n] of order) {
+      const candidate = mockCandidate(appearanceId, version, slot, n)
+      if (sheet.candidates.some((c) => c.id === candidate.id && c.status !== 'failed')) continue
+      sheet.candidates = sheet.candidates.filter((c) => !(c.status === 'failed' && c.slot === slot && c.n === n && c.version === version))
+      sheet.candidates.push(candidate)
+      charged += 1
+    }
+    const items = order.map(([slot, n]) => ({ key: `${slot}-${n}`, slot, label: SHEET_ANGLES.find(([id]) => id === slot)![1], n }))
+    return canonJob(kind, channel, { channel, target: appearanceId, version, items }, cost, {
+      target: appearanceId,
+      done: order.length,
+      charged,
+      cached: order.length - charged,
+      failed: 0,
+      spent_usd_micro: charged * ANCHOR_PRICE,
+    })
+  }
+
+  const nextNumber = (sheet: MockSheet, slot: string) => Math.max(0, ...sheet.candidates.filter((c) => c.slot === slot).map((c) => c.n)) + 1
+  const numbers = (from: number) => Array.from({ length: ANCHOR_CANDIDATES }, (_, i) => from + i)
+  const angleOf = (slot: string) => SHEET_ANGLES.find(([id]) => id === slot)
+  const noAngle = (slot: string) => fail(404, `Ракурса «${slot}» в листе нет — есть: ${SHEET_ANGLES.map(([id]) => id).join(', ')}.`)
+  const needFront = (appearanceId: string, label: string, version: string) =>
+    fail(409, `Для ракурса «${label}» нужен фас облика ${appearanceId} (${version}) — соберите лист или перегенерируйте фас.`)
+
+  function collectSheet(channel: ChannelId, appearanceId: string): MockResponse {
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    return drawSheet(channel, appearanceId, version, 'anchor_sheet', SHEET_ANGLES.flatMap(([slot]) => numbers(1).map((n): [string, number] => [slot, n])))
+  }
+
+  function regenerateAngle(channel: ChannelId, appearanceId: string, slot: string): MockResponse {
+    const angle = angleOf(slot)
+    if (!angle) return noAngle(slot)
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    if (slot !== 'front' && !hasFront(channel, appearanceId, version)) return needFront(appearanceId, angle[1], version)
+    const start = nextNumber(sheetOf(channel, appearanceId), slot)
+    return drawSheet(channel, appearanceId, version, 'anchor_angle', numbers(start).map((n): [string, number] => [slot, n]))
+  }
+
+  function regenerateStale(channel: ChannelId, appearanceId: string): MockResponse {
+    const version = sheetVersion(channel, appearanceId)
+    if (typeof version !== 'string') return version
+    const stale = appearanceAnchors(channel, appearanceId).slots.filter((slot) => slot.stale)
+    if (!stale.length) return fail(409, `Устаревших ракурсов в листе ${appearanceId} нет — пересобирать нечего.`)
+    if (stale[0]!.slot !== 'front' && !hasFront(channel, appearanceId, version)) return needFront(appearanceId, stale[0]!.label, version)
+    const sheet = sheetOf(channel, appearanceId)
+    return drawSheet(channel, appearanceId, version, 'anchor_angle', stale.flatMap(({ slot }) => numbers(nextNumber(sheet, slot)).map((n): [string, number] => [slot, n])))
+  }
+
+  /** Выбор и отбраковка — одна запись; отказы — тексты бэкенда (docs/canon_schema.md, «API опорных») */
+  function pickCandidate(channel: ChannelId, appearanceId: string, slot: string, action: string, candidateId: string): MockResponse | null {
+    const angle = angleOf(slot)
+    if (!angle) return noAngle(slot)
+    const sheet = sheetOf(channel, appearanceId)
+    const candidate = sheet.candidates.find((c) => c.id === candidateId && c.slot === slot)
+    if (!candidate) return fail(404, `У ракурса «${angle[1]}» облика ${appearanceId} нет кандидата ${candidateId} — обновите лист.`)
+    if (action === 'choose') {
+      if (candidate.status === 'rejected') return fail(409, `Кандидат ${candidateId} отбракован — выберите другого.`)
+      if (candidate.status === 'failed') return fail(409, `Кандидат ${candidateId} не получился — перегенерируйте ракурс «${angle[1]}».`)
+      sheet.chosen[slot] = candidateId
+      return ok(appearanceAnchors(channel, appearanceId))
+    }
+    if (action !== 'reject') return null
+    if (candidate.status === 'rejected') return fail(409, `Кандидат ${candidateId} уже отбракован.`)
+    if (candidate.status === 'failed') return fail(409, `Кандидат ${candidateId} не получился — отбраковывать нечего.`)
+    if (sheet.chosen[slot] === candidateId) {
+      return fail(409, `Кандидат ${candidateId} выбран для ракурса «${angle[1]}» — выберите другого, потом отбракуйте этого.`)
+    }
+    candidate.status = 'rejected'
+    return ok(appearanceAnchors(channel, appearanceId))
+  }
+
+  /** Миниатюра кандидата — SVG-заглушка с ракурсом и номером; ширина 160 или 320, как у бэкенда */
+  function candidateThumb(channel: ChannelId, target: string, candidateId: string, width: string | null): MockResponse {
+    const w = Number(width ?? 320)
+    if (w !== 160 && w !== 320) return shapeError(['query', 'w'], `Ширины миниатюры ${width} нет — есть 160 и 320.`, 'thumb_width')
+    const slots = target === 'style' ? styleAnchors(canonStyles[channel], channel).slots : appearanceAnchors(channel, target).slots
+    const slot = slots.find((s) => s.candidates.some((c) => c.id === candidateId))
+    const candidate = slot?.candidates.find((c) => c.id === candidateId)
+    if (!slot || !candidate) return fail(404, `У ${target === 'style' ? 'кадров стиля' : `листа ${target}`} нет кандидата ${candidateId} — обновите страницу.`)
+    if (!candidate.file) return fail(404, `Кандидат ${candidateId} не получился, картинки нет — перегенерируйте ракурс.`)
+    return { status: 200, body: thumbSvg(`${slot.label} · ${candidate.n}`, w, target === 'style' ? 9 / 16 : 4 / 3), contentType: 'image/svg+xml' }
+  }
+
+  function canonSummary(channel: ChannelId, style: StyleState): CanonSummary {
+    const sorted = <T,>(store: Map<string, LayerState<T>>) => [...store.entries()].sort(([a], [b]) => a.localeCompare(b))
+    return {
+      channel,
+      style: { versions: style.versions.map((v) => v.info), draft: style.draft !== null },
+      periods: sorted(canonPeriods[channel]).map(([id, state]) => {
+        const head = headOf(state)
+        return {
+          id,
+          label: head.label,
+          region: head.region,
+          years: head.years,
+          versions: state.versions.map((v) => v.info),
+          draft: state.draft !== null,
+          forbidden_count: head.forbidden.length,
+          episodes: PERIOD_EPISODES[id] ?? 0,
+        }
+      }),
+      characters: sorted(canonCharacters[channel]).map(([id, state]) => {
+        const head = headOf(state)
+        return {
+          id,
+          label: head.label,
+          versions: state.versions.map((v) => v.info),
+          draft: state.draft !== null,
+          appearances_count: head.appearances.length,
+          sheets_ready: head.appearances.filter((a) => appearanceAnchors(channel, a.id).status === 'ready').length,
+          sheets_outdated: head.appearances.filter((a) => appearanceAnchors(channel, a.id).status === 'outdated').length,
+        }
+      }),
+    }
+  }
+
+  /** «Нужно каналу»: ссылки планов без опубликованной версии; черновик — `draft: true` */
+  function canonNeeded(channel: ChannelId): CanonNeeded {
+    const refs = PLAN_REFS[channel]
+    const characters = canonCharacters[channel]
+    return {
+      channel,
+      periods: refs.periods
+        .filter((item) => !canonPeriods[channel].get(item.id)?.versions.length)
+        .map((item) => ({ ...structuredClone(item), draft: Boolean(canonPeriods[channel].get(item.id)?.draft) })),
+      appearances: refs.appearances
+        .filter((item) => latestWith(channel, item.id) === null)
+        .map((item) => {
+          const character = characters.get(item.id.split('@')[0]!)
+          return {
+            ...structuredClone(item),
+            draft: Boolean(character?.draft?.data.appearances.some((a) => a.id === item.id)),
+            character_exists: character !== undefined,
+          }
+        }),
+    }
+  }
+
+  function createNeededPeriod(channel: ChannelId, id: string): MockResponse {
+    const state = canonPeriods[channel].get(id)
+    const last = state?.versions.at(-1)
+    if (last) return fail(409, `Эпоха ${id} уже опубликована (${last.info.version}) — создавать её не нужно.`)
+    if (state) return fail(409, `У эпохи ${id} уже есть черновик — откройте его на экране «Канон» и опубликуйте.`)
+    const created: LayerState<Period> = { versions: [], draft: null }
+    canonPeriods[channel].set(id, created)
+    return { ...layerPut(created, periodNoun(channel, id), period({ id, label: '' })), status: 201 }
+  }
+
+  function createNeededAppearance(channel: ChannelId, appearanceId: string): MockResponse {
+    const characterId = appearanceId.split('@')[0]!
+    const published = latestWith(channel, appearanceId)
+    if (published) return fail(409, `Облик ${appearanceId} уже опубликован в characters/${characterId}/${published} — создавать его не нужно.`)
+    const skeleton = look({ id: appearanceId, label: '', period: '' })
+    const state = canonCharacters[channel].get(characterId)
+    const noun = characterNoun(channel, characterId)
+    if (!state) {
+      const created: LayerState<Character> = { versions: [], draft: null }
+      canonCharacters[channel].set(characterId, created)
+      return { ...layerPut(created, noun, { id: characterId, label: '', nature: { personality: '', posture: '', manner: '', face: '' }, appearances: [skeleton] }), status: 201 }
+    }
+    const head = headOf(state)
+    if (head.appearances.some((a) => a.id === appearanceId)) {
+      return fail(409, `Облик ${appearanceId} уже есть в черновике персонажа ${characterId} — откройте его на экране «Канон» и опубликуйте.`)
+    }
+    return { ...layerPut(state, noun, { ...head, appearances: [...head.appearances, skeleton] }), status: 201 }
+  }
+
+  /** «Скопировать облик в другой период»: черты лица, телосложение, волосы, возраст и negative — побайтово */
+  function copyAppearance(channel: ChannelId, sourceId: string, body: { period: string; appearance_id: string }): MockResponse {
+    const characterId = sourceId.split('@')[0]!
+    if (!body.appearance_id.startsWith(`${characterId}@`)) {
+      return shapeError(['body', 'appearance_id'], `Облик ${body.appearance_id} не принадлежит персонажу ${characterId} — id облика начинается с «${characterId}@».`)
+    }
+    const state = canonCharacters[channel].get(characterId)
+    const head = state && headOf(state)
+    const source = head?.appearances.find((a) => a.id === sourceId)
+    if (!state || !head || !source) return fail(404, `Облика ${sourceId} нет в персонаже ${characterId} — копировать нечего.`)
+    if (head.appearances.some((a) => a.id === body.appearance_id)) {
+      return fail(409, `Облик ${body.appearance_id} уже есть в персонаже ${characterId} — выберите другой id копии.`)
+    }
+    const copy = look({
+      id: body.appearance_id,
+      label: '',
+      period: body.period,
+      age: source.age,
+      build: source.build,
+      face: source.face,
+      hair: source.hair,
+      negative_local: [...source.negative_local],
+    })
+    return { ...layerPut(state, characterNoun(channel, characterId), { ...head, appearances: [...head.appearances, copy] }), status: 201 }
+  }
+
+  const PERIOD_FIELDS = ['label', 'region', 'years', 'palette_shift', 'materials', 'light_sources', 'architecture', 'clothing', 'props', 'forbidden'] as const
+  const isBlank = (value: unknown) => value === '' || value === null || (Array.isArray(value) && value.length === 0)
+  /** Ключ повтора запрета: без регистра, ведущего артикля, лишних пробелов и знака в конце (как `period_bridge`) */
+  const forbiddenKey = (text: string) =>
+    text
+      .toLowerCase()
+      .trim()
+      .replace(/^(a|an|the)\s+/, '')
+      .replace(/[.,;:!?]+$/, '')
+      .split(/\s+/)
+      .join(' ')
+
+  function periodPrompt(channel: ChannelId, id: string, mode: string | null): MockResponse {
+    if (mode !== 'draft' && mode !== 'forbidden') {
+      return shapeError(['query', 'mode'], `Режима «${mode}» нет: ожидалось draft (черновик) или forbidden (дополнить запреты).`)
+    }
+    const state = canonPeriods[channel].get(id)
+    if (mode === 'forbidden' && !state) {
+      return fail(409, `У эпохи ${id} нет ни черновика, ни версий — дополнять нечего: сначала соберите черновик через мост или заполните его вручную.`)
+    }
+    periodRuns += 1
+    const current = state ? JSON.stringify(headOf(state)) : 'null'
+    const text = `You are drafting the historical period "${id}" for the ${channel} channel (mode: ${mode}).\nCurrent draft: ${current}\nReturn exactly one JSON object.`
+    return ok({ text, prompt_id: 'canon_period', version: 1, run_id: `run-period-${periodRuns}`, period_id: id, mode } satisfies PeriodPrompt)
+  }
+
+  /** Ответ чата → черновик эпохи (docs/bridge.md, «Эпоха»): `draft` заполняет пустые поля, `forbidden` дописывает запреты */
+  function periodAnswer(channel: ChannelId, id: string, mode: string | null, text: string): MockResponse {
+    if (mode !== 'draft' && mode !== 'forbidden') {
+      return shapeError(['query', 'mode'], `Режима «${mode}» нет: ожидалось draft (черновик) или forbidden (дополнить запреты).`)
+    }
+    const refuse = (message: string, errors: { path: string; message: string }[] = []) => ({
+      status: 422,
+      body: { message, hint: 'Попросите чат прислать ровно один JSON эпохи по правилам промпта.', errors },
+    })
+    if (text.includes(STYLE_TOKEN)) {
+      return refuse('Ответ эпохи не прошёл проверку: 1 ошибка.', [
+        { path: 'materials', message: `materials: стилевой токен «${STYLE_TOKEN}» (lighting) — эпоха описывает факты времени и места, а как выглядит картинка, задаёт стиль канала` },
+      ])
+    }
+    let answer: Record<string, unknown>
+    try {
+      answer = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)) as Record<string, unknown>
+    } catch {
+      return refuse('В ответе не нашлось JSON эпохи: вставьте ответ чата целиком.')
+    }
+    let state = canonPeriods[channel].get(id)
+    if (mode === 'forbidden' && !state) {
+      return fail(409, `У эпохи ${id} нет ни черновика, ни версий — дополнять нечего: сначала соберите черновик через мост или заполните его вручную.`)
+    }
+    if (!state) {
+      state = { versions: [], draft: null }
+      canonPeriods[channel].set(id, state)
+    }
+    const base = state.draft ? state.draft.data : (state.versions.at(-1)?.data ?? period({ id, label: '' }))
+    const next: Period = structuredClone(base)
+    const filled: string[] = []
+    const conflicts: PeriodConflict[] = []
+    const added: string[] = []
+    const repeats: string[] = []
+    if (mode === 'draft') {
+      for (const field of PERIOD_FIELDS) {
+        if (!(field in answer)) continue
+        const proposed = answer[field]
+        if (isBlank(base[field])) {
+          ;(next as unknown as Record<string, unknown>)[field] = proposed
+          filled.push(field)
+        } else if (canonical(base[field]) !== canonical(proposed)) {
+          conflicts.push({ field, current: base[field], proposed })
+        }
+      }
+    } else {
+      const keys = new Set(base.forbidden.map(forbiddenKey))
+      for (const item of (answer.forbidden as string[] | undefined) ?? []) {
+        const key = forbiddenKey(item)
+        if (keys.has(key)) repeats.push(item)
+        else {
+          keys.add(key)
+          added.push(item)
+        }
+      }
+      next.forbidden = [...base.forbidden, ...added]
+    }
+    const doc = layerPut(state, periodNoun(channel, id), next).body as PeriodAnswerResult['doc']
+    periodRuns += 1
+    const message =
+      mode === 'forbidden'
+        ? `Добавлено ${added.length}, повторов ${repeats.length}.`
+        : `Черновик эпохи: заполнено ${filled.length} ${ru(filled.length, ['поле', 'поля', 'полей'])}${conflicts.length ? `, чат предложил иначе для ${conflicts.length} — сравните в списке «Чат предложил иначе»` : ''}. Публикует человек.`
+    return ok({ run_id: `run-period-${periodRuns}`, period_id: id, mode, doc, filled, conflicts, added, repeats, message } satisfies PeriodAnswerResult)
+  }
+
+  /** Эпоха или персонаж по адресу: документ, черновик, публикация — общие для слоёв */
+  function entityRoute(method: string, channel: ChannelId, kind: 'periods' | 'characters', id: string, sub: string, query: URLSearchParams, body: unknown): MockResponse | null {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+      return shapeError(['path', `${kind === 'periods' ? 'period' : 'character'}_id`], `id «${id}» не годится — только строчные латинские буквы, цифры и дефис, например caribbean-1716.`)
+    }
+    const store = (kind === 'periods' ? canonPeriods[channel] : canonCharacters[channel]) as Map<string, LayerState<Period | Character>>
+    const noun = kind === 'periods' ? periodNoun(channel, id) : characterNoun(channel, id)
+    const state = store.get(id)
+    if (method === 'GET' && sub === '') return layerDoc(state, noun, query.get('version'))
+    if (method === 'PUT' && sub === 'draft') {
+      const data = body as Period | Character
+      const refusal = entityShape(kind, id, data)
+      if (refusal) return refusal
+      const target = state ?? { versions: [], draft: null }
+      store.set(id, target)
+      return layerPut(target, noun, data)
+    }
+    if (method === 'POST' && sub === 'draft') return layerFrom(state, noun, query.get('from') ?? '')
+    if (method === 'DELETE' && sub === 'draft') {
+      const response = layerDiscard(state, noun)
+      if (state && !state.draft && !state.versions.length) store.delete(id) // скелет без версий — каталог пуст
+      return response
+    }
+    if (method === 'POST' && sub === 'publish') {
+      return layerPublish(state, noun, (data) => (kind === 'periods' ? periodProblems(data as Period) : characterProblems(data as Character)))
+    }
+    if (kind === 'periods' && method === 'POST' && sub === 'prompt') return periodPrompt(channel, id, query.get('mode'))
+    if (kind === 'periods' && method === 'POST' && sub === 'answer') return periodAnswer(channel, id, query.get('mode'), (body as { text: string }).text)
+    return null
+  }
+
+  function canonRoute(method: string, channel: ChannelId, rest: string[], query: URLSearchParams, body: unknown): MockResponse | null {
+    const style = canonStyles[channel]
+    if (!style) return fail(404, `Канал «${channel}» не найден.`)
+    const path = rest.join('/')
+    if (method === 'GET' && path === '') return ok(canonSummary(channel, style))
+    if (method === 'GET' && path === 'style') return layerDoc(style, styleNoun(channel), query.get('version'))
+    if (method === 'PUT' && path === 'style/draft') {
+      const data = body as Style
+      return styleShape(data) ?? layerPut(style, styleNoun(channel), data)
+    }
+    if (method === 'POST' && path === 'style/draft') return layerFrom(style, styleNoun(channel), query.get('from') ?? '')
+    if (method === 'DELETE' && path === 'style/draft') return layerDiscard(style, styleNoun(channel))
+    if (method === 'POST' && path === 'style/publish') return layerPublish(style, styleNoun(channel), stylePublishProblems)
+    if (method === 'GET' && path === 'style/anchors') return ok(styleAnchors(style, channel))
+    if (method === 'GET' && path === 'style/anchors/estimate') return ok(anchorsEstimate)
+    if (method === 'POST' && path === 'style/anchors') return collectStyleAnchors(style, channel, (body as { period: string }).period)
+    if (method === 'GET' && rest[0] === 'anchors' && rest[1] && rest[2] && rest[3] === 'thumb' && rest.length === 4) {
+      return candidateThumb(channel, rest[1], rest[2], query.get('w'))
+    }
+    if (method === 'GET' && path === 'needed') return ok(canonNeeded(channel))
+    if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'periods' && rest[2]) return createNeededPeriod(channel, rest[2])
+    if (method === 'POST' && rest[0] === 'needed' && rest[1] === 'appearances' && rest[2]) return createNeededAppearance(channel, rest[2])
+    if (rest[0] === 'appearances' && rest[1]) {
+      const id = rest[1]
+      if (!/^[a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*$/.test(id)) {
+        return shapeError(['path', 'appearance_id'], `id облика «${id}» не годится — нужен вид <персонаж>@<облик>, например you@powder-monkey-11.`)
+      }
+      const sub = rest.slice(2).join('/')
+      if (method === 'GET' && sub === 'anchors') return ok(appearanceAnchors(channel, id))
+      if (method === 'GET' && sub === 'anchors/estimate') return ok(appearanceEstimate(channel, id))
+      if (method === 'POST' && sub === 'anchors') return collectSheet(channel, id)
+      if (method === 'POST' && sub === 'anchors/stale') return regenerateStale(channel, id)
+      const [, angle, action] = rest.slice(2)
+      if (method === 'POST' && rest[2] === 'anchors' && angle && action === 'regenerate' && rest.length === 5) return regenerateAngle(channel, id, angle)
+      if (method === 'POST' && rest[2] === 'anchors' && angle && action && rest.length === 5) {
+        return pickCandidate(channel, id, angle, action, (body as { candidate: string }).candidate)
+      }
+      if (method === 'POST' && sub === 'copy') return copyAppearance(channel, id, body as { period: string; appearance_id: string })
+      return null
+    }
+    if ((rest[0] === 'periods' || rest[0] === 'characters') && rest[1]) {
+      return entityRoute(method, channel, rest[0], rest[1], rest.slice(2).join('/'), query, body)
+    }
+    return null
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -1456,6 +3220,10 @@ export function createMockApi() {
     const parts = path.split('/').filter(Boolean)
 
     if (method === 'GET' && path === '/channels') return ok(profiles)
+    if (parts[0] === 'canon' && parts[1]) {
+      const response = canonRoute(method, decodeURIComponent(parts[1]) as ChannelId, parts.slice(2).map(decodeURIComponent), searchParams, body)
+      if (response) return response
+    }
     if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchSeeds(decodeURIComponent(parts[1]), body)
     if (method === 'GET' && path === '/ideas') {
       const status = searchParams.get('status')
@@ -1521,6 +3289,17 @@ export function createMockApi() {
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
     if (method === 'GET' && path === '/slots') return ok(currentSlots())
     if (method === 'GET' && path === '/jobs') return ok(jobs)
+    if (parts[0] === 'jobs' && parts[1]) {
+      const id = decodeURIComponent(parts[1])
+      const job = canonJobRecords.get(id) ?? jobs.items.find((j) => j.id === id)
+      if (!job) return fail(404, `Джоба ${id} нет.`)
+      if (method === 'GET' && parts.length === 2) return ok(job)
+      if (method === 'POST' && parts[2] === 'cancel') {
+        const cancelled: Job = { ...job, status: 'cancelled', finished_at: NOW }
+        canonJobRecords.set(id, cancelled)
+        return ok(cancelled)
+      }
+    }
     if (method === 'GET' && path === '/bridge/settings') return ok(bridgeSettings)
     if (method === 'GET' && path === '/cost/summary') {
       return channel && costSummaries[channel] ? ok(costSummaries[channel]) : fail(422, 'Неизвестный канал.')
@@ -1609,6 +3388,9 @@ export function createMockApi() {
         const plan = plansOf(episode)
         return plan && plan.version === parts[3] ? ok(directorFile(plan)) : fail(404, `Версия ${parts[3]} плана выпуска «${episode.id}» не найдена.`)
       }
+      if (method === 'GET' && rest === 'canon') return ok(episodeCanonOf(episode))
+      if (method === 'POST' && rest === 'canon/update') return updateCanon(episode)
+      if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'prompt') return shotPromptOf(episode, decodeURIComponent(parts[3]))
       if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
       if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
       if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
@@ -1616,7 +3398,25 @@ export function createMockApi() {
     return fail(404, `Мок API не знает ${method} ${path}.`)
   }
 
-  return { handle, episodes: state, projects }
+  // План «Пиратов» прибит к канону, каким мок начинается: публикация в тесте не двигает его ссылки (принцип 14)
+  plansOf(state.find((episode) => episode.id === 'pirate')!)
+
+  return {
+    handle,
+    episodes: state,
+    projects,
+    canon: {
+      styles: canonStyles,
+      periods: canonPeriods,
+      characters: canonCharacters,
+      sheets: canonSheets,
+      jobs: canonJobRecords,
+      monthlyLimit,
+      episodes: episodeCanons,
+    },
+    /** Наборы частей моста по выпуску: принятые части и последний обмен */
+    parts: partSets,
+  }
 }
 
 export type MockApi = ReturnType<typeof createMockApi>

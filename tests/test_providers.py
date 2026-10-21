@@ -1,6 +1,7 @@
 """Провайдеры без сети (M2.6): проверка ключа на подменённом транспорте, разбор ошибок, единицы."""
 
 import asyncio
+import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -20,10 +21,14 @@ from app.providers.base import (
     KeyStatus,
     ProviderError,
     RateLimited,
+    RefImage,
+    Result,
     Route,
     RouteError,
     SpeechRequest,
     TextRequest,
+    Usage,
+    VideoRequest,
     status_error,
 )
 from app.providers.elevenlabs import ElevenLabsProvider
@@ -215,6 +220,211 @@ def test_gemini_invalid_key_400_reads_as_rejected_key() -> None:
     # Частая ошибка — вставить ID проекта AI Studio вместо ключа: подсказка, куда смотреть.
     assert status_for("gen-lang-client-0123456789").startswith(base)
     assert "возможно, там ID проекта" in status_for("gen-lang-client-0123456789")
+
+
+# --- картинка Gemini (M5.3) -----------------------------------------------------------------------
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"final image"
+ANCHORS = Route(
+    stage="anchors",
+    key="nb-pro-1k",
+    kind="image",
+    provider="gemini",
+    model="gemini-3-pro-image",
+    params={"size": "1K"},
+    max_refs=14,
+)
+CUP = ImageRequest(prompt="a clay cup on grey", negative="text, watermark", seed=7)
+
+
+def b64(data: bytes) -> str:
+    return base64.b64encode(data).decode()
+
+
+def image_part(data: bytes, mime: str = "image/png", thought: bool = False) -> dict[str, Any]:
+    part: dict[str, Any] = {"inlineData": {"mimeType": mime, "data": b64(data)}}
+    if thought:
+        part["thought"] = True
+    return part
+
+
+def candidate(*parts: dict[str, Any], finish: str = "STOP", **extra: Any) -> dict[str, Any]:
+    return {
+        "candidates": [
+            {"content": {"role": "model", "parts": list(parts)}, "finishReason": finish, **extra}
+        ]
+    }
+
+
+def draw(
+    handler: Any,
+    request: ImageRequest = CUP,
+    refs: list[RefImage] | None = None,
+    key: SecretStr = KEY,
+) -> Result:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = GeminiProvider(key, http_client=client)
+    return asyncio.run(provider.call(ANCHORS, request, refs or []))
+
+
+def test_gemini_image_request_and_final_image() -> None:
+    """Текст с negative, референсы байтами, размер маршрута, seed и стороны; «thought images»
+    режима размышления не берутся и не оплачиваются."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        body = candidate(
+            image_part(b"thought", thought=True), {"text": "Here it is."}, image_part(PNG)
+        )
+        return httpx.Response(**_json(200, body))
+
+    ref = RefImage(data=b"\x89PNG\r\n\x1a\nref", mime_type="image/png")
+    request = CUP.model_copy(update={"aspect_ratio": "3:4"})
+    result = draw(handler, request, [ref])
+
+    assert (result.data, result.ext, result.meta) == (PNG, "png", {"mime_type": "image/png"})
+    assert result.usage == [Usage(unit="image", quantity=1)]
+    [sent] = seen
+    assert sent.url.path.endswith("/models/gemini-3-pro-image:generateContent")
+    body = json.loads(sent.content)
+    [content] = body["contents"]
+    assert content["parts"][0] == {"text": "a clay cup on grey\n\nAvoid: text, watermark"}
+    assert content["parts"][1]["inlineData"]["data"] == b64(ref.data)
+    assert body["generationConfig"] == {
+        "seed": 7,
+        "responseModalities": ["IMAGE"],
+        "imageConfig": {"aspectRatio": "3:4", "imageSize": "1K"},
+    }
+
+
+def test_gemini_image_without_negative_sends_prompt_as_is() -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(**_json(200, candidate(image_part(PNG, "image/jpeg"))))
+
+    result = draw(handler, ImageRequest(prompt="a cup"))
+    assert sent[0]["contents"][0]["parts"] == [{"text": "a cup"}]
+    assert "seed" not in sent[0]["generationConfig"]
+    assert result.ext == "jpg"
+
+
+def test_gemini_image_error_meaning_is_in_body() -> None:
+    """L-018: смысл — в теле ответа; 400 не повторяется."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        error = {
+            "code": 400,
+            "message": "Too many images in the request: 15, the maximum is 14.",
+            "status": "INVALID_ARGUMENT",
+        }
+        return httpx.Response(**_json(400, {"error": error}))
+
+    with pytest.raises(ProviderError) as caught:
+        draw(handler)
+    assert str(caught.value) == (
+        "Gemini: запрос отклонён (400): Too many images in the request: 15, the maximum is 14"
+    )
+    assert caught.value.status_code == 400
+    assert not is_retryable(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("status", "kind"), [(429, RateLimited), (503, TransientError), (500, TransientError)]
+)
+def test_gemini_image_retryable_statuses(status: int, kind: type[Exception]) -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        error = {"code": status, "message": "busy", "status": "UNAVAILABLE"}
+        return httpx.Response(**_json(status, {"error": error}, **{"Retry-After": "5"}))
+
+    with pytest.raises(kind) as caught:
+        draw(handler)
+    assert is_retryable(caught.value)
+    assert calls == [1]  # SDK сам не повторяет
+    if status == 429:
+        assert retry_after_s(caught.value) == 5
+
+
+def test_gemini_image_network_is_transient() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    with pytest.raises(TransientError, match="нет соединения"):
+        draw(handler)
+
+
+def test_network_error_names_the_exception_when_its_text_is_empty() -> None:
+    """Вживую (M5.4) обрыв через VPN пришёл с пустым текстом: «нет соединения:» без причины."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadError("")
+
+    with pytest.raises(TransientError) as caught:
+        draw(handler)
+    assert str(caught.value) == "Gemini: нет соединения (ReadError)"
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            # `finishMessage` SDK (google-genai 2.25, Gemini Developer API) при разборе отбрасывает:
+            # причина — только код `finishReason`.
+            candidate(finish="IMAGE_SAFETY", finishMessage="Unable to show the generated image."),
+            "Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности — уберите"
+            " из промпта насилие, кровь и другие острые детали.",
+        ),
+        (
+            {
+                "promptFeedback": {
+                    "blockReason": "IMAGE_SAFETY",
+                    "blockReasonMessage": "The prompt could not be submitted.",
+                }
+            },
+            "Gemini не нарисовал картинку (IMAGE_SAFETY): The prompt could not be submitted —"
+            " сработал фильтр безопасности — уберите из промпта насилие, кровь и другие острые"
+            " детали.",
+        ),
+        (
+            {"promptFeedback": {"blockReason": "PROHIBITED_CONTENT"}},
+            "Gemini не нарисовал картинку (PROHIBITED_CONTENT) — запрещённое содержание —"
+            " перепишите промпт кадра.",
+        ),
+        (
+            candidate({"text": "I can only describe it."}, finish="NO_IMAGE"),
+            "Gemini не нарисовал картинку (NO_IMAGE) — модель не вернула картинку — повторите"
+            " или упростите промпт.",
+        ),
+        (
+            candidate(image_part(b"thought", thought=True)),
+            "Gemini не нарисовал картинку (STOP) — модель не вернула картинку — повторите или"
+            " упростите промпт.",
+        ),
+    ],
+)
+def test_gemini_content_refusal_is_clear_and_not_retried(
+    body: dict[str, Any], message: str
+) -> None:
+    with pytest.raises(ProviderError) as caught:
+        draw(lambda request: httpx.Response(**_json(200, body)))
+    assert str(caught.value) == message
+    assert not is_retryable(caught.value)
+
+
+def test_gemini_image_without_key_and_video_without_network() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("без ключа и для видео сеть не нужна")
+
+    with pytest.raises(ProviderError, match="GEMINI_API_KEY не задан"):
+        draw(handler, key=NO_KEY)
+    video = VideoRequest(prompt="sway", start_frame="abc", seconds=4)
+    with pytest.raises(NotImplementedError, match="M8"):
+        asyncio.run(GeminiProvider(KEY).call(ANCHORS, video))
 
 
 def test_elevenlabs_missing_permission_reads_as_no_access() -> None:

@@ -1,9 +1,10 @@
 /* Таблица плана (режим «План кадров», components.md: PlanTable): 11 колонок артборда 3, строки 28, шапка 24 над
    прокруткой. Правка — в ячейке: VO и промпт — поле поверх ячейки (Enter — принять, Esc — отмена), план, движение,
-   переход и анимация — Select, сила движения — NumberInput 3–25 %. Клавиатура — сетка правимых ячеек:
-   ↑↓ строки, ←→ ячейки, Enter — правка, Esc — выход. От 30 строк — виртуализация (react-virtuoso).
+   переход и анимация — Select, сила движения — NumberInput 3–25 %. Справа от промпта — предпросмотр итогового
+   промпта кадра (M5.10). Клавиатура — сетка правимых ячеек и предпросмотра: ↑↓ строки, ←→ ячейки, Enter — правка
+   (у предпросмотра — открыть его), Esc — выход. От 30 строк — виртуализация (react-virtuoso).
    Мультивыделения и групповой правки здесь нет — придут с инспектором кадра. */
-import { RotateCcw } from 'lucide-react'
+import { FileText, RotateCcw } from 'lucide-react'
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import type { Shot } from '@/types/director'
@@ -38,8 +39,9 @@ const GRID = 'grid grid-cols-[54px_104px_minmax(0,1.4fr)_minmax(0,2.1fr)_120px_9
 
 const HEADERS = ['№', 'Раздел', 'VO', 'Промпт картинки', 'Герои', 'План', 'Движение', 'Переход', 'Анимация', 'SFX', 'Статус']
 
-/** Правимые колонки по порядку обхода ←→ */
-const EDITABLE = ['vo', 'prompt', 'size', 'motion', 'transition', 'animate'] as const
+/** Ячейки по порядку обхода ←→: правимые и предпросмотр промпта (Enter открывает его, а не правку) */
+const EDITABLE = ['vo', 'prompt', 'preview', 'size', 'motion', 'transition', 'animate'] as const
+const PREVIEW_COL = EDITABLE.indexOf('preview')
 type EditableColumn = (typeof EDITABLE)[number]
 
 const STATUS_TEXT = {
@@ -55,7 +57,7 @@ interface Cursor {
   col: number
 }
 
-export function PlanTable({ episodeId, plan }: { episodeId: string; plan: EffectivePlan }) {
+export function PlanTable({ episodeId, plan, onPrompt }: { episodeId: string; plan: EffectivePlan; onPrompt: (shotId: string) => void }) {
   const version = useDirectorVersion(episodeId, plan.version)
   const planShots = useMemo(() => new Map((version.data?.shots ?? []).map((shot) => [shot.id, shot])), [version.data])
   const sections = useMemo(() => new Map(plan.sections.map((s) => [s.id, s.title])), [plan.sections])
@@ -116,7 +118,10 @@ export function PlanTable({ episodeId, plan }: { episodeId: string; plan: Effect
       move(next)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      setEditing(cursor)
+      const shot = rows[cursor.row]
+      if (cursor.col === PREVIEW_COL) {
+        if (shot) onPrompt(shot.id)
+      } else setEditing(cursor)
     }
   }
 
@@ -136,6 +141,10 @@ export function PlanTable({ episodeId, plan }: { episodeId: string; plan: Effect
         setEditing({ row: index, col })
       }}
       onClose={closeEditor}
+      onPrompt={() => {
+        setCursor({ row: index, col: PREVIEW_COL })
+        onPrompt(shot.id)
+      }}
     />
   )
 
@@ -175,9 +184,10 @@ interface RowProps {
   onFocusCell: (col: number) => void
   onEdit: (col: number) => void
   onClose: () => void
+  onPrompt: () => void
 }
 
-function PlanRow({ episodeId, index, shot, planShot, section, cursor, editing, onFocusCell, onEdit, onClose }: RowProps) {
+function PlanRow({ episodeId, index, shot, planShot, section, cursor, editing, onFocusCell, onEdit, onClose, onPrompt }: RowProps) {
   const vo = useShotEdit(episodeId, shot, planShot, 'vo')
   const prompt = useShotEdit(episodeId, shot, planShot, 'image.prompt')
   const size = useShotEdit(episodeId, shot, planShot, 'image.shot_size')
@@ -257,13 +267,30 @@ function PlanRow({ episodeId, index, shot, planShot, section, cursor, editing, o
         vo.planValue,
         <TextEditor label={`VO кадра ${shot.id}`} value={vo.value} onCommit={(v) => vo.set(v)} onClose={onClose} />,
       )}
-      {cell(
-        'prompt',
-        <span className="truncate font-script">{prompt.value}</span>,
-        [prompt],
-        prompt.planValue,
-        <TextEditor label={`Промпт кадра ${shot.id}`} value={prompt.value} onCommit={(v) => prompt.set(v)} onClose={onClose} script />,
-      )}
+      <div className="flex min-w-0 items-start pr-2">
+        <div className="min-w-0 flex-1">
+          {cell(
+            'prompt',
+            <span className="truncate font-script">{prompt.value}</span>,
+            [prompt],
+            prompt.planValue,
+            <TextEditor label={`Промпт кадра ${shot.id}`} value={prompt.value} onCommit={(v) => prompt.set(v)} onClose={onClose} script />,
+          )}
+        </div>
+        <button
+          type="button"
+          role="gridcell"
+          data-cell={`${index}:${PREVIEW_COL}`}
+          tabIndex={cursor.row === index && cursor.col === PREVIEW_COL ? 0 : -1}
+          title={`Итоговый промпт кадра ${shot.id}`}
+          aria-label={`Итоговый промпт кадра ${shot.id}`}
+          onFocus={() => onFocusCell(PREVIEW_COL)}
+          onClick={onPrompt}
+          className="flex size-6 shrink-0 items-center justify-center rounded-control text-muted hover:bg-raised hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+        >
+          <FileText className="size-icon" strokeWidth={1.5} aria-hidden />
+        </button>
+      </div>
       <div className="flex h-6 min-w-0 items-center pr-2 text-muted">
         <span className="truncate">{heroesLabel(shot.image.appearances)}</span>
       </div>

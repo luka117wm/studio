@@ -108,14 +108,14 @@ describe('таблица плана', () => {
 
   test('Select плана — PATCH image.shot_size; поправленная ячейка отмечена', async () => {
     const { grid, stub } = await table()
-    await userEvent.click(cell(grid, 0, 2))
+    await userEvent.click(cell(grid, 0, 3))
     await userEvent.click(within(grid).getByRole('combobox', { name: 'План кадра s001' }))
     await userEvent.click(screen.getByRole('option', { name: 'деталь' }))
 
     await waitFor(() => expect(patches(stub.fetch)).toHaveLength(1), { timeout: 3000 })
     expect(patches(stub.fetch)[0]).toEqual({ shots: { s001: { user_override: { image: { shot_size: 'detail' } } } } })
-    await waitFor(() => expect(cell(grid, 0, 2).getAttribute('data-overridden')).toBe('true'), { timeout: 3000 })
-    expect(cell(grid, 0, 2).textContent).toBe('деталь')
+    await waitFor(() => expect(cell(grid, 0, 3).getAttribute('data-overridden')).toBe('true'), { timeout: 3000 })
+    expect(cell(grid, 0, 3).textContent).toBe('деталь')
   })
 
   test('правка из плана отмечена, в Tooltip — значение версии', async () => {

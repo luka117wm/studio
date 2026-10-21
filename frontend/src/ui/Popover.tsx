@@ -49,7 +49,7 @@ export function Popover({ open, onClose, anchorRef, ariaLabel, children, placeme
         tabIndex={-1}
         onKeyDown={onKeyDown}
         style={layerStyle(position)}
-        className={cn('z-40 min-w-48 rounded-panel border border-line bg-raised p-3 text-13 text-ink shadow-overlay outline-none', className)}
+        className={cn('z-60 min-w-48 rounded-panel border border-line bg-raised p-3 text-13 text-ink shadow-overlay outline-none', className)}
       >
         {children}
       </div>

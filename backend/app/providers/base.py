@@ -8,7 +8,7 @@
 """
 
 import math
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal, Protocol
 
@@ -30,6 +30,10 @@ UNITS_BY_KIND: dict[RequestKind, tuple[Unit, ...]] = {
 }
 # Параметр маршрута, который выбирает вариант цены, если цена единицы задана вариантами.
 VARIANT_PARAM: dict[Unit, str] = {"image": "size", "second": "resolution"}
+
+# Соотношения сторон картинки, общие для моделей Gemini 3 (ai.google.dev, «Image generation»).
+AspectRatio = Literal["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
+SHA256_PATTERN = r"^[0-9a-f]{64}$"
 
 # Оценка токенов без сети: ≈ 4 символа английского текста на токен, новый токенизатор Claude
 # даёт на ~30 % больше токенов — отсюда 3. Выход — по `max_output_tokens`, верхняя граница.
@@ -55,14 +59,24 @@ class TextRequest(StrictModel):
     max_searches: int = Field(default=0, ge=0)
 
 
+class ImageRef(StrictModel):
+    """Референс картинки — опорный портрет или кадр стиля (принцип 13): файл относительно `data/`
+    и sha256 его содержимого. В хэш входов идёт только `sha256`: тот же файл по другому пути — тот
+    же ключ кэша. Создаёт `Gateway.image_ref`, файл перед вызовом сверяет шлюз."""
+
+    path: str = Field(min_length=1)
+    sha256: str = Field(pattern=SHA256_PATTERN)
+
+
 class ImageRequest(StrictModel):
     kind: Literal["image"] = "image"
     prompt: str = Field(min_length=1)  # итоговый промпт от prompt_builder (принцип 13)
     negative: str = ""
     # Версии канона (стиль, эпоха, облики): смена версии — другой хэш, кадр не из кэша.
     canon: dict[str, str] = Field(default_factory=dict)
-    refs: list[str] = Field(default_factory=list)  # опорные портреты и кадры стиля: хэши файлов
+    refs: list[ImageRef] = Field(default_factory=list)  # не больше `Route.max_refs`
     seed: int | None = None
+    aspect_ratio: AspectRatio | None = None  # None — как у модели по умолчанию
 
 
 class SpeechRequest(StrictModel):
@@ -92,6 +106,27 @@ class Route(BaseModel):
     provider: str
     model: str
     params: dict[str, Any] = Field(default_factory=dict)
+    # Сколько референсов принимает модель за вызов; None — референсы не принимает.
+    max_refs: int | None = None
+
+
+@dataclass(frozen=True)
+class RefImage:
+    """Байты референса для провайдера: шлюз прочитал файл и сверил хэш."""
+
+    data: bytes
+    mime_type: str
+
+
+def image_mime(data: bytes) -> str | None:
+    """MIME картинки по сигнатуре: PNG, JPEG, WEBP; иное — None."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 # --- единицы, цена, результат ------------------------------------------------------------------
@@ -234,13 +269,26 @@ def status_error(
     return ProviderError(f"{title}: {message} — см. docs/api_keys.md.", status)
 
 
+def network_error(title: str, exc: BaseException) -> TransientError:
+    """Сбой сети SDK → `TransientError` (очередь повторит). Тип исключения — в тексте всегда: у
+    транспортных ошибок httpx (`ReadError`, `RemoteProtocolError`) текст бывает пустым, и «нет
+    соединения:» без причины ничего не скажет (найдено вживую в M5.4)."""
+    detail = str(exc).strip()
+    return TransientError(
+        f"{title}: нет соединения ({type(exc).__name__}{': ' + detail if detail else ''})"
+    )
+
+
 class Provider(Protocol):
-    """Провайдер модели. `usage` — без сети; `call` и `check` — один запрос, без повторов."""
+    """Провайдер модели. `usage` — без сети; `call` и `check` — один запрос, без повторов.
+    `refs` — байты референсов картинки в порядке `ImageRequest.refs`."""
 
     name: str
 
     def usage(self, route: Route, request: ProviderRequest) -> list[Usage]: ...
 
-    async def call(self, route: Route, request: ProviderRequest) -> Result: ...
+    async def call(
+        self, route: Route, request: ProviderRequest, refs: Sequence[RefImage] = ()
+    ) -> Result: ...
 
     async def check(self, expected_models: Collection[str] = ()) -> KeyStatus: ...

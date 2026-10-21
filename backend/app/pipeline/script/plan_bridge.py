@@ -4,8 +4,9 @@
 импорт и сборка частей — механизм M2.4 (`api/director.import_plan`). Правила — `docs/bridge.md`,
 раздел «План».
 
-Чат пишет в кадрах только id эпох и обликов; `canon_ref` и `voice` строит код (принцип 13): стиль
-и версии канона — заготовки `v001`, пока нет модуля канона (устав M4, решение 4).
+Чат пишет в кадрах только id эпох и обликов; `canon_ref` и `voice` строит код (принцип 13). Версии
+в `canon_ref` — по правилу канона выпуска (`pipeline/canon/episode_canon.py`, устав M5, решение 3):
+прибитое в прошлой версии плана остаётся, новое — последняя опубликованная, нет версии — `v001`.
 """
 
 import re
@@ -19,13 +20,12 @@ from app.models.formats import FormatPreset
 from app.models.project import EpisodeBrief
 from app.models.validators import DirectorValidationError, validate_director
 from app.pipeline.bridge import BridgeAnswerError, BridgeIssue, json_block
+from app.pipeline.canon.episode_canon import CanonPins, pin_appearance, pin_period, pin_style
 from app.providers.base import Route
 
 PROMPT_FIRST = "plan_first"
 PROMPT_NEXT = "plan_next"
 
-# Версия канона, на которую ссылается план до модуля канона: файлы появятся по этим id.
-CANON_PLACEHOLDER_VERSION = "v001"
 PERIOD_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 APPEARANCE_ID = re.compile(r"^([a-z0-9]+(?:-[a-z0-9]+)*)@([a-z0-9]+(?:-[a-z0-9]+)*)$")
 # Блоки частей 2…N, которые сборка M2.4 всё равно берёт из части 1.
@@ -179,7 +179,7 @@ def next_context(
     shots = [s for d in accepted for s in d.shots]
     last = shots[-1] if shots else None
     # Id эпох и обликов — чтобы новый чат не придумал другие для тех же (канон один на план).
-    canon = build_canon_ref(s.model_dump(mode="json") for s in shots)
+    periods, appearances = canon_ids(s.model_dump(mode="json") for s in shots)
     summary = {
         "parts_received": [d.meta.part for d in accepted],
         "shots_so_far": len(shots),
@@ -187,8 +187,8 @@ def next_context(
         if last is None
         else {"id": last.id, "section": last.section, "vo": last.vo},
         "sections": [s.model_dump(mode="json") for s in _sections(accepted)],
-        "periods": list(canon.periods),
-        "appearances": list(canon.appearances),
+        "periods": periods,
+        "appearances": appearances,
     }
     return {
         "channel_name": profile.name,
@@ -215,8 +215,8 @@ def _sections(parts: list[Director]) -> list[Section]:
 # --- canon_ref и voice ---------------------------------------------------------------------------
 
 
-def build_canon_ref(shots: Iterable[Mapping[str, Any]]) -> CanonRef:
-    """Ссылки на канон из кадров: стиль, эпохи и облики — заготовки `v001` (принцип 13)."""
+def canon_ids(shots: Iterable[Mapping[str, Any]]) -> tuple[list[str], list[str]]:
+    """Id эпох и обликов из кадров (по формату), по алфавиту."""
     periods: set[str] = set()
     appearances: set[str] = set()
     for image in _images(shots):
@@ -226,17 +226,45 @@ def build_canon_ref(shots: Iterable[Mapping[str, Any]]) -> CanonRef:
         for appearance in _appearances(image):
             if APPEARANCE_ID.fullmatch(appearance):
                 appearances.add(appearance)
-    version = CANON_PLACEHOLDER_VERSION
+    return sorted(periods), sorted(appearances)
+
+
+def build_canon_ref(shots: Iterable[Mapping[str, Any]], pins: CanonPins | None = None) -> CanonRef:
+    """Ссылки на канон из кадров (принцип 13): версии — по правилу `pins` (прибитые в прошлой
+    версии плана, иначе последние опубликованные, иначе `v001`); без `pins` — везде `v001`."""
+    pins = pins or CanonPins()
+    periods, appearances = canon_ids(shots)
     return CanonRef(
-        style=f"style/{version}",
-        periods={p: f"periods/{p}/{version}" for p in sorted(periods)},
-        appearances={a: _appearance_ref(a, version) for a in sorted(appearances)},
+        style=pin_style(pins),
+        periods={p: pin_period(p, pins) for p in periods},
+        appearances={a: pin_appearance(a, pins) for a in appearances},
     )
 
 
-def _appearance_ref(appearance: str, version: str) -> str:
-    character, look = appearance.split("@", 1)
-    return f"characters/{character}/{version}#{look}"
+def fill_canon_ref(data: Mapping[str, Any], pins: CanonPins) -> dict[str, Any]:
+    """Ручной импорт и «Сохранить как версию»: присланный `canon_ref` — как есть (редактор шлёт его
+    из текущей версии), недостающие ключи для кадров и стиль — по правилу `pins`. Блока нет или он
+    не объект — без изменений: об этом скажет `validate_director`."""
+    block = data.get("canon_ref")
+    if not isinstance(block, Mapping):
+        return dict(data)
+    shots = data.get("shots")
+    shot_list = [s for s in shots if isinstance(s, Mapping)] if isinstance(shots, list) else []
+    periods, appearances = canon_ids(shot_list)
+    filled = dict(block)
+    if "style" not in filled:
+        filled["style"] = pin_style(pins)
+    for name, ids, pin in (
+        ("periods", periods, pin_period),
+        ("appearances", appearances, pin_appearance),
+    ):
+        current = filled.get(name, {})
+        if not isinstance(current, Mapping):
+            continue
+        missing = {key: pin(key, pins) for key in ids if key not in current}
+        if missing:
+            filled[name] = {**current, **missing}
+    return {**data, "canon_ref": filled}
 
 
 def ref_errors(shots: Iterable[Mapping[str, Any]]) -> list[str]:
@@ -303,9 +331,11 @@ def prepare_part(
     expected: Expected,
     voice: VoiceCfg,
     first_part: Director | None,
+    pins: CanonPins | None = None,
 ) -> PreparedPart:
     """Ответ чата (уже JSON) → проверенная часть: сверка, подстановка, `validate_director`.
 
+    `pins` — правило версий `canon_ref` (прошлая версия плана и снимок канона); без них — `v001`.
     Ошибки — `BridgeAnswerError` с текстом для пользователя; ничего не пишет.
     """
     meta = data.get("meta")
@@ -329,7 +359,7 @@ def prepare_part(
                 f"Чат прислал {block} — заменён: {what} подставляет приложение, не чат."
             )
     if part == 1:
-        data["canon_ref"] = build_canon_ref(shot_list).model_dump(mode="json")
+        data["canon_ref"] = build_canon_ref(shot_list, pins).model_dump(mode="json")
         data["voice"] = voice.model_dump(mode="json")
     else:
         data.pop("canon_ref", None)

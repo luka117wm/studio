@@ -203,6 +203,12 @@ def mark_plan_approved(db: sqlite3.Connection, episode_id: str) -> None:
     db.commit()
 
 
+def channel_episodes(db: sqlite3.Connection, channel: str) -> list[Episode]:
+    """Выпуски канала по дате слота, без слота — в конце по созданию."""
+    rows = db.execute("SELECT * FROM episodes WHERE channel = ?" + _ORDER, (channel,)).fetchall()
+    return [Episode.model_validate(dict(row)) for row in rows]
+
+
 def require_episode(db: sqlite3.Connection, episode_id: str) -> Episode:
     episode = find_episode(db, episode_id)
     if episode is None:
@@ -410,7 +416,7 @@ def insert_episode(
 # --- сводка ------------------------------------------------------------------------------------
 
 
-def _load_sources(paths: StudioPaths, episode: Episode) -> tuple[Project | None, Director | None]:
+def load_sources(paths: StudioPaths, episode: Episode) -> tuple[Project | None, Director | None]:
     """project.json и текущая версия плана. Битый или пропавший файл одного выпуска не роняет
     доску: предупреждение в лог, сводка — без него."""
     try:
@@ -440,7 +446,7 @@ def with_summaries(
     jobs = current_jobs(active_jobs(db, episode_id))
     items: list[EpisodeListItem] = []
     for episode in episodes:
-        project, director = _load_sources(paths, episode)
+        project, director = load_sources(paths, episode)
         summary = summarize(project, director, spent.get(episode.id, 0), jobs.get(episode.id))
         items.append(EpisodeListItem.model_validate({**episode.model_dump(), "summary": summary}))
     return items
@@ -459,12 +465,9 @@ async def list_episodes(
     db: DbDep, paths: PathsDep, channel: Channel | None = None
 ) -> list[EpisodeListItem]:
     """Без `channel` — оба канала. Порядок: по дате слота, без слота — в конце по созданию."""
-    if channel is None:
-        rows = db.execute("SELECT * FROM episodes" + _ORDER).fetchall()
-    else:
-        rows = db.execute(
-            "SELECT * FROM episodes WHERE channel = ?" + _ORDER, (channel,)
-        ).fetchall()
+    if channel is not None:
+        return with_summaries(db, paths, channel_episodes(db, channel))
+    rows = db.execute("SELECT * FROM episodes" + _ORDER).fetchall()
     return with_summaries(db, paths, [Episode.model_validate(dict(row)) for row in rows])
 
 

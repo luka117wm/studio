@@ -86,7 +86,8 @@
           "enum": [
             "plan",
             "ideas",
-            "reference"
+            "reference",
+            "canon_period"
           ],
           "title": "Task",
           "type": "string"

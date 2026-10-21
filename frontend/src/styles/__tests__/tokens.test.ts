@@ -1,7 +1,8 @@
 /// <reference types="node" />
 // Контракт слоя токенов:
 //  1. копия tokens.css не разошлась с design/handoff;
-//  2. hex-литералов нет нигде в src, кроме tokens.css;
+//  2. hex-литералов нет нигде в src, кроме tokens.css; исключение — значение поля `hex` образца палитры канона
+//     (`{ role, hex: '#8E3B2E' }`): это данные канала, а не цвет интерфейса (M5.7);
 //  3. theme.css ссылается только на существующие токены и не содержит hex;
 //  4. Tailwind собирает утилиты из моста и не знает дефолтной палитры/шкалы;
 //  5. каждая утилита цвета и рамки из исходников собирается — опечатка в имени токена не проходит молча.
@@ -23,6 +24,8 @@ const squash = (css: string) => css.replace(/\s+/g, '').replace(/;}/g, '}')
 
 // Цвет из 3, 4, 6 или 8 hex-символов; после — граница слова, иначе это id-селектор вроде #add-row
 const HEX = /#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})(?![0-9a-z_-])/gi
+// Значение поля `hex` образца палитры — данные канона (docs/canon_schema.md, «Стиль»), рисуются `style` из данных
+const SWATCH_HEX = /\bhex:\s*['"`]$/
 const TOKEN_DEF = /--([a-z0-9-]+)\s*:/g
 const VAR_REF = /var\(--([a-z0-9-]+)\)/g
 
@@ -43,6 +46,7 @@ describe('tokens.css', () => {
       if (file === TARGET) continue
       const text = read(file)
       for (const match of text.matchAll(HEX)) {
+        if (SWATCH_HEX.test(text.slice(text.lastIndexOf('\n', match.index) + 1, match.index))) continue
         const line = text.slice(0, match.index).split('\n').length
         offenders.push(`${relative(FRONTEND, file)}:${line} ${match[0]}`)
       }

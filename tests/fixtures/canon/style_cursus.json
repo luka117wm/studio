@@ -1,0 +1,27 @@
+{
+  "render": "painterly digital illustration with the restraint of a museum diorama",
+  "material": "matte surfaces, visible texture on wood, rope and cloth, no plastic sheen",
+  "processing": "gentle contrast curve, slightly lifted blacks, no halos or oversharpening",
+  "optics": {
+    "focal": "35mm equivalent at eye level unless the shot asks otherwise",
+    "depth": "moderate depth of field, background readable but soft",
+    "distortion": "none, verticals stay straight"
+  },
+  "light": {
+    "character": "motivated light from the period's own sources",
+    "contrast": "medium-low, shadows keep their detail",
+    "direction": "one dominant side light, soft fill from the environment"
+  },
+  "palette": {
+    "rule": "earthy base with one restrained accent per frame",
+    "swatches": [
+      { "role": "shadows", "hex": "#2b2118" },
+      { "role": "base", "hex": "#8a6a45" },
+      { "role": "highlights", "hex": "#e8d8b5" },
+      { "role": "accent", "hex": "#9e2b25" }
+    ]
+  },
+  "grain": "fine even film grain across the frame",
+  "composition": "one clear subject on the thirds, horizon never through the middle",
+  "negative_global": ["text", "watermark", "logo", "frame border", "extra fingers", "deformed hands"]
+}

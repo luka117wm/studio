@@ -11,15 +11,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api import api_router
 from app.api.bridge import bridge_answer_error, bridge_settings
+from app.api.canon import canon_error
 from app.jobs.events import EventBus
 from app.jobs.handlers import builtin_handlers
 from app.jobs.worker import HandlerSpec, JobPool
 from app.log import configure_logging
+from app.models.canon_config import load_canon_config
 from app.models.formats import load_formats
 from app.models.reference import load_reference_config
 from app.pipeline.bridge import PROMPTS_DIR, BridgeAnswerError, load_templates
 from app.providers.gateway import build_gateway
 from app.settings import Settings
+from app.storage.canon_store import CanonError
 from app.storage.db import migrate
 from app.storage.paths import StudioPaths
 
@@ -60,6 +63,8 @@ def create_app(
     app.state.formats = load_formats(settings.config_dir / "formats.yaml")
     # Сходство с референсом (`config/reference.yaml`): n-грамма и порог — тоже проверка при старте.
     app.state.reference = load_reference_config(settings.config_dir / "reference.yaml")
+    # Ракурсы листа портретов и шаблоны кадров стиля (`config/canon.yaml`, M5.4) — тоже при старте.
+    app.state.canon = load_canon_config(settings.config_dir / "canon.yaml")
     # Шаблоны промптов моста (`docs/bridge.md`): битый front-matter — тоже ConfigError.
     app.state.prompts = load_templates(PROMPTS_DIR)
     configured = app.state.gateway.registry.config.plan_source
@@ -84,6 +89,7 @@ def create_app(
     )
     app.include_router(api_router)
     app.add_exception_handler(BridgeAnswerError, bridge_answer_error)
+    app.add_exception_handler(CanonError, canon_error)
     return app
 
 

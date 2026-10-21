@@ -142,13 +142,14 @@ export function Select({
       {error && <FieldError id={errorId} message={error} />}
       {open && (
         <Portal>
+          {/* Выше подложки Dialog (z-50): Select живёт и в диалогах, а портал у них общий — body */}
           <ul
             ref={listRef}
             id={listId}
             role="listbox"
             aria-label={ariaLabel}
             style={layerStyle(position, true)}
-            className="z-40 max-h-80 overflow-y-auto rounded-panel border border-line bg-raised py-1 shadow-overlay"
+            className="z-60 max-h-80 overflow-y-auto rounded-panel border border-line bg-raised py-1 shadow-overlay"
           >
             {options.map((option, index) => (
               <li

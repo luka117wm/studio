@@ -1,0 +1,30 @@
+Here is the draft for the period. I kept the anachronism list concrete so the image model can avoid it.
+
+```json
+{
+  "label": "Эдо, 1650",
+  "region": "Edo and the castle towns of Tokugawa Japan",
+  "years": { "from": 1650, "to": 1670 },
+  "palette_shift": ["indigo-dyed cotton", "lacquer black", "unbleached hemp", "weathered cypress grey"],
+  "materials": ["hinoki cypress", "washi paper", "rice straw", "lacquered wood", "iron", "silk"],
+  "light_sources": ["paper lantern", "charcoal brazier", "oil lamp in a paper shade", "low winter sun"],
+  "architecture": ["samurai residence with an earthen wall", "castle town street", "tatami room with sliding doors", "stone castle base"],
+  "clothing": ["kosode", "hakama", "haori", "straw sandals", "lacquered jingasa hat"],
+  "props": ["katana and wakizashi", "tobacco pipe", "folding fan", "rice bale", "spear with a straight blade"],
+  "forbidden": [
+    "western-style uniforms",
+    "glass windows",
+    "chairs and tables at standing height",
+    "leather shoes",
+    "printed newspapers",
+    "potatoes",
+    "rickshaws",
+    "kerosene lamps",
+    "photographs",
+    "umbrellas with steel ribs",
+    "brass buttons"
+  ]
+}
+```
+
+If you want, I can extend the forbidden list in the same chat.

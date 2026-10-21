@@ -9,15 +9,24 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.models.canon import APPEARANCE_ID_PATTERN
 from app.models.director import EPISODE_ID_PATTERN
 
 _ID_RE = re.compile(EPISODE_ID_PATTERN)
+_APPEARANCE_ID_RE = re.compile(APPEARANCE_ID_PATTERN)
 
 
 def check_id(value: str, what: str = "id") -> str:
     """Возвращает `value`, если он годится в имя каталога; иначе ValueError."""
     if not _ID_RE.fullmatch(value):
         raise ValueError(f"{what} {value!r} must match {EPISODE_ID_PATTERN}")
+    return value
+
+
+def check_appearance_id(value: str) -> str:
+    """id облика (`you@powder-monkey-11`) — имя каталога листа портретов; иначе ValueError."""
+    if not _APPEARANCE_ID_RE.fullmatch(value):
+        raise ValueError(f"appearance {value!r} must match {APPEARANCE_ID_PATTERN}")
     return value
 
 
@@ -57,6 +66,72 @@ class StudioPaths:
 
     def canon_dir(self, channel: str) -> Path:
         return self.channel_dir(channel) / "canon"
+
+    # --- канон: canon/{style, periods/<id>, characters/<id>}/{vNNN.json, draft.json} ------------
+
+    def canon_style_dir(self, channel: str) -> Path:
+        return self.canon_dir(channel) / "style"
+
+    def canon_periods_root(self, channel: str) -> Path:
+        return self.canon_dir(channel) / "periods"
+
+    def canon_period_dir(self, channel: str, period: str) -> Path:
+        return self.canon_periods_root(channel) / check_id(period, "period")
+
+    def canon_characters_root(self, channel: str) -> Path:
+        return self.canon_dir(channel) / "characters"
+
+    def canon_character_dir(self, channel: str, character: str) -> Path:
+        return self.canon_characters_root(channel) / check_id(character, "character")
+
+    @staticmethod
+    def canon_version_path(entity_dir: Path, version: int) -> Path:
+        """`vNNN.json` в каталоге слоя или сущности: версия неизменяема, пишется один раз."""
+        if not 1 <= version <= 999:
+            raise ValueError(f"canon version must be in 1..999, got {version}")
+        return entity_dir / f"v{version:03d}.json"
+
+    @staticmethod
+    def canon_draft_path(entity_dir: Path) -> Path:
+        """Черновик — один на слой или сущность, рядом с версиями."""
+        return entity_dir / "draft.json"
+
+    # --- опорные: canon/anchors/<appearance_id>/{candidates/, rejected/, chosen.json}, style/ --
+
+    def anchors_root(self, channel: str) -> Path:
+        return self.canon_dir(channel) / "anchors"
+
+    def anchor_dir(self, channel: str, appearance: str) -> Path:
+        """Лист опорных портретов облика. В id облика есть `@`, с `style` он не совпадёт."""
+        return self.anchors_root(channel) / check_appearance_id(appearance)
+
+    def anchor_candidates_dir(self, channel: str, appearance: str) -> Path:
+        return self.anchor_dir(channel, appearance) / "candidates"
+
+    def anchor_rejected_dir(self, channel: str, appearance: str) -> Path:
+        """Отбракованные кандидаты не удаляются — переезжают сюда."""
+        return self.anchor_dir(channel, appearance) / "rejected"
+
+    def anchor_chosen_path(self, channel: str, appearance: str) -> Path:
+        return self.anchor_dir(channel, appearance) / "chosen.json"
+
+    def style_anchors_dir(self, channel: str) -> Path:
+        """Опорные кадры стиля канала."""
+        return self.anchors_root(channel) / "style"
+
+    @staticmethod
+    def anchor_manifest_path(set_dir: Path) -> Path:
+        """`sheet.json` листа облика или кадров стиля: все кандидаты с seed, версией, ценой и
+        статусом (M5.4). Выбор — рядом, в `chosen.json`."""
+        return set_dir / "sheet.json"
+
+    @staticmethod
+    def anchor_set_chosen_path(set_dir: Path) -> Path:
+        return set_dir / "chosen.json"
+
+    def canon_cache_dir(self, channel: str, stage: str) -> Path:
+        """Файлы платных вызовов уровня канала, если вызывающий не назвал каталог (M5.3)."""
+        return self.canon_dir(channel) / "cache" / check_id(stage, "stage")
 
     # --- выпуск: data/projects/<channel>/<episode>/{director/, project.json, media/, ...} -------
 

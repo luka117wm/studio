@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 import { Button } from '../Button'
+import { Dialog } from '../Dialog'
 import { DropdownMenu } from '../DropdownMenu'
 import { Popover } from '../Popover'
 import { Tooltip } from '../Tooltip'
@@ -131,5 +132,31 @@ describe('DropdownMenu', () => {
     expect(screen.getByRole('menu')).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Снаружи' }))
     expect(screen.queryByRole('menu')).toBeNull()
+  })
+})
+
+// jsdom не видит перекрытия слоёв: проверяется z из классов — всплывающие кита выше подложки диалога, как `Select`
+// (L-044): порталы у них общие — body
+describe('всплывающие внутри диалога', () => {
+  const z = (el: Element | null | undefined) => Number(/(?:^|\s)z-(\d+)/.exec(el?.getAttribute('class') ?? '')?.[1] ?? 0)
+
+  test('подсказка, меню и поповер — выше подложки', async () => {
+    render(
+      <Dialog open onClose={() => {}} title="Перевести">
+        <Tooltip content="Подсказка">
+          <button type="button">С подсказкой</button>
+        </Tooltip>
+        <DropdownMenu label="Действия" items={[{ id: 'redo', label: 'Перерисовать', onSelect: () => {} }]} />
+        <PopoverHarness />
+      </Dialog>,
+    )
+    const scrim = screen.getByRole('dialog', { name: 'Перевести' }).parentElement
+    expect(z(scrim)).toBeGreaterThan(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Действия' }))
+    expect(z(screen.getByRole('menu', { name: 'Действия' }))).toBeGreaterThan(z(scrim))
+    await userEvent.click(screen.getByRole('button', { name: 'Фильтры' }))
+    expect(z(screen.getByRole('dialog', { name: 'Фильтры' }))).toBeGreaterThan(z(scrim))
+    await userEvent.hover(screen.getByRole('button', { name: 'С подсказкой' }))
+    expect(z(await screen.findByRole('tooltip'))).toBeGreaterThan(z(scrim))
   })
 })

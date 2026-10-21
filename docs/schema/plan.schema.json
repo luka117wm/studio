@@ -4,6 +4,37 @@
   "title": "plan",
   "description": "Модели API Studio, группа «plan». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnchorSheet": {
+      "description": "Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).",
+      "properties": {
+        "status": {
+          "enum": [
+            "missing",
+            "partial",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "integer"
+        },
+        "total": {
+          "default": 6,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "chosen",
+        "total"
+      ],
+      "title": "AnchorSheet",
+      "type": "object"
+    },
     "AnimateSpec": {
       "additionalProperties": false,
       "properties": {
@@ -61,7 +92,8 @@
             "plan",
             "vo",
             "prompt",
-            "similarity"
+            "similarity",
+            "canon"
           ],
           "title": "Check",
           "type": "string"
@@ -80,6 +112,17 @@
         "message": {
           "title": "Message",
           "type": "string"
+        },
+        "canon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -148,7 +191,8 @@
           "enum": [
             "plan",
             "ideas",
-            "reference"
+            "reference",
+            "canon_period"
           ],
           "title": "Task",
           "type": "string"
@@ -301,6 +345,125 @@
       "title": "BudgetOutlook",
       "type": "object"
     },
+    "CanonProblem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "issue": {
+          "enum": [
+            "unpublished",
+            "unresolved",
+            "no_sheet",
+            "sheet_incomplete",
+            "sheet_outdated"
+          ],
+          "title": "Issue",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "issue",
+        "message"
+      ],
+      "title": "CanonProblem",
+      "type": "object"
+    },
+    "CanonTarget": {
+      "description": "Что не готово в каноне выпуска: сущность и вид проблемы.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "issue": {
+          "enum": [
+            "unpublished",
+            "unresolved",
+            "no_sheet",
+            "sheet_incomplete",
+            "sheet_outdated"
+          ],
+          "title": "Issue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "issue"
+      ],
+      "title": "CanonTarget",
+      "type": "object"
+    },
+    "Cost": {
+      "description": "Цена вызова: оценка до постановки или факт после. Строку для кнопки собирает фронт.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "Cost",
+      "type": "object"
+    },
     "CostLine": {
       "properties": {
         "unit": {
@@ -343,6 +506,54 @@
         "usd_micro"
       ],
       "title": "CostLine",
+      "type": "object"
+    },
+    "DroppedRef": {
+      "description": "Референс, который не поместился в лимит модели.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "anchor",
+            "style_frame"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "slot",
+        "label",
+        "file",
+        "sha256",
+        "reason"
+      ],
+      "title": "DroppedRef",
       "type": "object"
     },
     "EffectivePlan": {
@@ -409,6 +620,199 @@
         "facts"
       ],
       "title": "EffectivePlan",
+      "type": "object"
+    },
+    "EpisodeAppearanceItem": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "draft_only",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "sheet": {
+          "$ref": "#/$defs/AnchorSheet"
+        }
+      },
+      "required": [
+        "id",
+        "ref",
+        "pinned",
+        "latest",
+        "status",
+        "resolved",
+        "draft",
+        "shots",
+        "sheet"
+      ],
+      "title": "EpisodeAppearanceItem",
+      "type": "object"
+    },
+    "EpisodeCanon": {
+      "description": "Канон выпуска для экрана 3 (`GET /api/projects/{id}/canon`).",
+      "properties": {
+        "plan_version": {
+          "title": "Plan Version",
+          "type": "string"
+        },
+        "ready": {
+          "title": "Ready",
+          "type": "boolean"
+        },
+        "updatable": {
+          "title": "Updatable",
+          "type": "boolean"
+        },
+        "style": {
+          "$ref": "#/$defs/EpisodeCanonItem"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/EpisodeCanonItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "appearances": {
+          "items": {
+            "$ref": "#/$defs/EpisodeAppearanceItem"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/CanonProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "plan_version",
+        "ready",
+        "updatable",
+        "style",
+        "periods",
+        "appearances",
+        "problems"
+      ],
+      "title": "EpisodeCanon",
+      "type": "object"
+    },
+    "EpisodeCanonItem": {
+      "description": "Стиль, эпоха или облик из `canon_ref` плана.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pinned"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latest"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "draft_only",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "ref",
+        "pinned",
+        "latest",
+        "status",
+        "resolved",
+        "draft",
+        "shots"
+      ],
+      "title": "EpisodeCanonItem",
       "type": "object"
     },
     "EstimateLine": {
@@ -1080,6 +1484,110 @@
       "title": "PlanShot",
       "type": "object"
     },
+    "PromptProblem": {
+      "description": "Что мешает рисовать кадр: текст с id кадра и, у проблемы канона, — её адресат.",
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "canon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "PromptProblem",
+      "type": "object"
+    },
+    "PromptRef": {
+      "description": "Референс кадра: выбранный ракурс листа облика или опорный кадр стиля.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "anchor",
+            "style_frame"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "slot",
+        "label",
+        "file",
+        "sha256"
+      ],
+      "title": "PromptRef",
+      "type": "object"
+    },
+    "PromptSection": {
+      "description": "Секция промпта и откуда она: версия канона (`style/v003`, `periods/…/v002`,\n`characters/…/v004#…`) или сам кадр (`shot`).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance",
+            "action",
+            "shot_size"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "source",
+        "label",
+        "text"
+      ],
+      "title": "PromptSection",
+      "type": "object"
+    },
     "Section": {
       "additionalProperties": false,
       "properties": {
@@ -1234,6 +1742,117 @@
         "price"
       ],
       "title": "ShotChange",
+      "type": "object"
+    },
+    "ShotPrompt": {
+      "description": "Запрос картинки кадра до траты денег: `GET /api/projects/{id}/shots/{shot_id}/prompt`.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "sections": {
+          "items": {
+            "$ref": "#/$defs/PromptSection"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "negative": {
+          "title": "Negative",
+          "type": "string"
+        },
+        "refs": {
+          "items": {
+            "$ref": "#/$defs/PromptRef"
+          },
+          "title": "Refs",
+          "type": "array"
+        },
+        "dropped": {
+          "items": {
+            "$ref": "#/$defs/DroppedRef"
+          },
+          "title": "Dropped",
+          "type": "array"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "aspect_ratio": {
+          "enum": [
+            "1:1",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "21:9"
+          ],
+          "title": "Aspect Ratio",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "cost": {
+          "$ref": "#/$defs/Cost"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "input_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Hash"
+        },
+        "problems": {
+          "items": {
+            "$ref": "#/$defs/PromptProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_id",
+        "sections",
+        "text",
+        "negative",
+        "refs",
+        "dropped",
+        "seed",
+        "aspect_ratio",
+        "model",
+        "cost",
+        "usd",
+        "input_hash",
+        "problems",
+        "warnings"
+      ],
+      "title": "ShotPrompt",
       "type": "object"
     },
     "Similarity": {

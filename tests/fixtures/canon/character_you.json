@@ -1,0 +1,51 @@
+{
+  "id": "you",
+  "label": "Ты",
+  "nature": {
+    "personality": "quiet, observant, quick to learn, dry sense of humor",
+    "posture": "alert, weight on the balls of the feet",
+    "manner": "watches before acting, economical movements",
+    "face": "narrow face, grey-green eyes, straight nose with a small bump, thin scar through the left eyebrow"
+  },
+  "appearances": [
+    {
+      "id": "you@powder-monkey-11",
+      "label": "Пороховая обезьяна, 11",
+      "period": "caribbean-1716",
+      "age": 11,
+      "build": "small and wiry",
+      "face": "boyish, sunburnt cheeks, the eyebrow scar still fresh",
+      "hair": "dark brown, cropped short and uneven",
+      "clothing": "oversized linen shirt, rolled canvas breeches, barefoot",
+      "wear": "salt stains, torn shirt hem, black powder smudges on the hands",
+      "props": ["leather cartridge case"],
+      "negative_local": ["adult beard", "hat"]
+    },
+    {
+      "id": "you@quartermaster-28",
+      "label": "Квартирмейстер, 28",
+      "period": "caribbean-1716",
+      "age": 28,
+      "build": "lean and broad-shouldered",
+      "face": "weathered skin, short beard",
+      "hair": "dark brown, tied back in a queue",
+      "clothing": "linen shirt, brown wool waistcoat, canvas breeches, buckled shoes",
+      "wear": "faded colors, patched elbows",
+      "props": ["ledger", "brass keys on a cord"],
+      "negative_local": ["officer's coat", "wig"]
+    },
+    {
+      "id": "you@captain-35",
+      "label": "Капитан, 35",
+      "period": "caribbean-1716",
+      "age": 35,
+      "build": "lean, upright, broad-shouldered",
+      "face": "deep sun lines around the eyes, trimmed beard with first grey",
+      "hair": "dark brown with grey at the temples, tied back",
+      "clothing": "dark blue coat with brass buttons over a linen shirt, black tricorn",
+      "wear": "salt-bleached coat cuffs, scuffed boots",
+      "props": ["brass spyglass", "flintlock pistol on a sash"],
+      "negative_local": ["powdered wig", "epaulettes"]
+    }
+  ]
+}

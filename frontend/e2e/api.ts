@@ -34,7 +34,12 @@ export async function mockApi(page: Page): Promise<ApiMock> {
       await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: `e2e: нет мока для ${name}` }) })
       return
     }
-    await route.fulfill({ status: response.status, contentType: 'application/json', body: JSON.stringify(response.body) })
+    if (response.contentType) {
+      // Не JSON: миниатюра кандидата — SVG-заглушка мока
+      await route.fulfill({ status: response.status, contentType: response.contentType, body: String(response.body) })
+      return
+    }
+    await route.fulfill({ status: response.status, contentType: 'application/json', body: response.status === 204 ? '' : JSON.stringify(response.body) })
   })
   return { api, unmocked }
 }

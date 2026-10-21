@@ -5,6 +5,5 @@ export const estimates = {
   scriptUsd: 0.38,
   shotsUsd: 6.97,
   voiceUsd: 1.27,
-  styleUsd: 0.4,
   thumbnailUsd: 0.24,
 }

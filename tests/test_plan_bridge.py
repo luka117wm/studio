@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.models.canon import CanonEntity, Character, Period, Style
 from app.models.channel import ChannelProfile
 from app.models.formats import FormatPreset
 from app.models.project import DirectorVersionInfo
@@ -26,6 +27,8 @@ from app.pipeline.bridge import RenderedPrompt
 from app.pipeline.script.plan_bridge import issue_path, voice_for
 from app.providers.base import Route
 from app.settings import REPO_ROOT, Settings
+from app.storage import canon_store
+from app.storage.canon_store import CHARACTERS, PERIODS, STYLE, Layer
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
@@ -246,6 +249,82 @@ def test_full_cycle_imports_v001_from_bridge(
         assert conn.execute("SELECT COUNT(*) FROM cost_ledger").fetchone()[0] == 0
     finally:
         conn.close()
+
+
+# --- canon_ref новой версии плана (M5.2) ---------------------------------------------------------
+
+
+def send_all(client: TestClient, parts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Ответы чата на все части по порядку; итог импорта после последней."""
+    for part in parts:
+        response = client.post(ANSWER, json={"text": wrap(part)})
+        assert response.status_code == 200, response.text
+    result: dict[str, Any] = response.json()["import_result"]
+    return result
+
+
+def publish[E: CanonEntity](
+    paths: StudioPaths, layer: Layer[E], entity_id: str | None, data: E
+) -> None:
+    canon_store.save_draft(paths, "cursus", layer, entity_id, data)
+    canon_store.publish(paths, "cursus", layer, entity_id)
+
+
+def canon_fixture[E: CanonEntity](model: type[E], name: str) -> E:
+    return model.model_validate_json((FIXTURES / "canon" / name).read_text(encoding="utf-8"))
+
+
+def test_new_version_keeps_pinned_canon_and_new_ids_get_latest(
+    client: TestClient, paths: StudioPaths, parts: list[dict[str, Any]]
+) -> None:
+    """Устав M5, решение 3: прибитое в прошлой версии плана остаётся, хотя опубликовано новее;
+    новый облик получает последнюю опубликованную версию; без версии — заготовку v001."""
+    assert send_all(client, parts)["version"] == "v001"
+
+    style = canon_fixture(Style, "style_cursus.json")
+    period = canon_fixture(Period, "period_caribbean_1716.json")
+    character = canon_fixture(Character, "character_you.json")
+    publish(paths, STYLE, None, style)
+    publish(paths, STYLE, None, style.model_copy(update={"grain": "heavy film grain"}))
+    publish(paths, PERIODS, "caribbean-1716", period)
+    later = [*period.forbidden, "aluminium buckets"]
+    publish(paths, PERIODS, "caribbean-1716", period.model_copy(update={"forbidden": later}))
+    publish(paths, CHARACTERS, "you", character)
+    publish(paths, CHARACTERS, "you", character.model_copy(update={"label": "Ты, моряк"}))
+
+    second = copy.deepcopy(parts)
+    second[0]["shots"][0]["vo"] += " Again."
+    second[1]["shots"][0]["image"]["appearances"] = ["you@quartermaster-28"]
+    second[2]["shots"][0]["image"]["appearances"] = ["you@cook-40"]
+    result = send_all(client, second)
+    assert (result["version"], result["created"]) == ("v002", True)
+
+    v002 = json.loads(paths.director_version_path("cursus", EPISODE, 2).read_text("utf-8"))
+    assert v002["canon_ref"] == {
+        "style": "style/v001",
+        "periods": {"caribbean-1716": "periods/caribbean-1716/v001"},
+        "appearances": {
+            "you@cook-40": "characters/you/v001#cook-40",
+            "you@powder-monkey-11": "characters/you/v001#powder-monkey-11",
+            "you@quartermaster-28": "characters/you/v002#quartermaster-28",
+        },
+    }
+    # Версии канона не менялись — кадры с прежними эпохой и обликом не устарели.
+    shots = client.get(f"/api/projects/{EPISODE}").json()["shots"]
+    assert shots["s002"]["status"] == "queued"
+
+
+def test_first_plan_gets_latest_published_canon(
+    client: TestClient, paths: StudioPaths, parts: list[dict[str, Any]]
+) -> None:
+    """Канон опубликован до первого плана: ссылки — на последние версии, прибивать нечего."""
+    period = canon_fixture(Period, "period_caribbean_1716.json")
+    publish(paths, PERIODS, "caribbean-1716", period)
+    publish(paths, PERIODS, "caribbean-1716", period.model_copy(update={"region": "Caribbean"}))
+    assert send_all(client, parts)["version"] == "v001"
+    v001 = json.loads(paths.director_version_path("cursus", EPISODE, 1).read_text("utf-8"))
+    assert v001["canon_ref"]["style"] == "style/v001"
+    assert v001["canon_ref"]["periods"] == {"caribbean-1716": "periods/caribbean-1716/v002"}
 
 
 def test_answer_without_prompt_is_journaled(

@@ -19,6 +19,14 @@ from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
 from app.api.bridge import BridgeSettings
+from app.api.canon import (
+    AppearanceCopy,
+    CandidatePick,
+    PeriodAnswerBody,
+    PeriodAnswerResult,
+    PeriodPrompt,
+    StyleAnchorsCreate,
+)
 from app.api.cost import CostSummary, LedgerPage
 from app.api.episodes import Episode, EpisodeCreate, EpisodeListItem, EpisodePatch
 from app.api.formats import FormatPreview
@@ -33,15 +41,28 @@ from app.api.references import (
 )
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
+from app.jobs.handlers.anchors import AnchorsEstimate
 from app.jobs.queue import Job, JobEventData, JobSummary
 from app.log import configure_logging
+from app.models.canon import (
+    CanonSummary,
+    Character,
+    CharacterDoc,
+    Period,
+    PeriodDoc,
+    Style,
+    StyleDoc,
+)
 from app.models.channel import ChannelPatch, ChannelProfile
 from app.models.director import SCHEMA_VERSION, Director
 from app.models.idea import Idea, IdeaCreate, IdeaPatch
 from app.models.project import DirectorVersionInfo, EpisodeBrief, Project, ProjectPatch
 from app.models.reference import ReferenceVideo, SimilarityReport
 from app.pipeline.bridge import BridgeError, BridgeRun
+from app.pipeline.canon.anchors import AnchorSetState
+from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.images.prompt_builder import ShotPrompt
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
@@ -115,6 +136,8 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (PlanEstimate, "serialization"),
         (ApprovalRefusal, "serialization"),
         (SimilarityReport, "serialization"),
+        (EpisodeCanon, "serialization"),
+        (ShotPrompt, "serialization"),
     ],
     "reference": [
         (ReferenceVideo, "serialization"),
@@ -123,6 +146,23 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (ReferenceAnswer, "validation"),
         (ReferenceEpisodeCreate, "validation"),
     ],
+    "canon": [
+        (CanonSummary, "serialization"),
+        (StyleDoc, "serialization"),
+        (PeriodDoc, "serialization"),
+        (CharacterDoc, "serialization"),
+        (CanonNeeded, "serialization"),
+        (AnchorSetState, "serialization"),
+        (AnchorsEstimate, "serialization"),
+        (CandidatePick, "validation"),
+        (AppearanceCopy, "validation"),
+        (StyleAnchorsCreate, "validation"),
+        (PeriodPrompt, "serialization"),
+        (PeriodAnswerResult, "serialization"),
+        (PeriodAnswerBody, "validation"),
+    ],
+    # Тела `PUT …/draft` — отдельно (L-031): `Style`, `Period`, `Character` есть и в ответах.
+    "canon_draft": [(Style, "validation"), (Period, "validation"), (Character, "validation")],
 }
 
 log = logging.getLogger(__name__)

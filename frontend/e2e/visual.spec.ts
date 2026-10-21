@@ -1,8 +1,10 @@
-/* Снимки оболочки: 11 маршрутов на трёх ширинах; при 1536 — диалог, меню, тост, восемь вкладок каталога (регрессия кита)
-   и режимы экранов 2 и 3: «План кадров», «JSON», вкладка «Референс» (M4.12).
-   Данные — моки API (`./api`), часы — «сейчас» артборда 1 (11 сентября, 12:41), анимации выключены конфигом.
-   Экраны выпуска открывают Pirate Ship из моков, экран 1 снимается в режиме «Все каналы». */
+/* Снимки оболочки: 11 маршрутов на трёх ширинах; при 1536 — диалог, меню, тост, восемь вкладок каталога (регрессия кита),
+   режимы экранов 2 и 3: «План кадров», «JSON», вкладка «Референс» (M4.12), слои и лист экрана 12 и канон выпуска,
+   который не готов, на экране 3 (M5.11). Данные — моки API (`./api`), часы — «сейчас» артборда 1 (11 сентября, 12:41),
+   анимации выключены конфигом. Экраны выпуска открывают Pirate Ship из моков, экран 1 снимается в режиме «Все каналы». */
 import type { Page } from '@playwright/test'
+import type { MockApi } from '../src/mocks/api'
+import type { PeriodDoc } from '../src/types/canon'
 import { expect, test } from './api'
 
 const SCREENS: { id: string; path: string }[] = [
@@ -41,6 +43,11 @@ async function open(page: Page, path: string) {
     await expect(page.getByRole('article', { name: 'Лист сценария' })).toContainText('Cursus — Every Rank on a Pirate Ship')
     await expect(page.getByRole('region', { name: 'Смета по плану' })).toContainText('Итого')
   }
+  // Экран 12 — форма слоя на месте; кадры стиля — шесть миниатюр
+  if (path === '/canon') {
+    await expect(page.getByRole('form', { name: 'Стиль канала' })).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Кадры стиля' }).locator('img')).toHaveCount(6)
+  }
   // Каталог состояний — отдельный чанк dev-сборки: без ожидания снимок ловил пустую рабочую зону (эталон M1.6)
   if (path === '/states') await expect(page.getByRole('heading', { name: 'Состояния', level: 1 })).toBeVisible()
   // Данные оболочки на месте: процесс из снимка джобов и риск слота в статус-строке
@@ -49,6 +56,25 @@ async function open(page: Page, path: string) {
   await expect(statusBar).toContainText('Следующий слот 13 сентября')
   await page.evaluate(() => document.fonts.ready)
   await expect(page.getByRole('main')).toBeVisible()
+  await thumbsLoaded(page)
+}
+
+/** Миниатюры в окне (SVG-заглушки моков) догрузились — `loading="lazy"`, поэтому только видимые */
+async function thumbsLoaded(page: Page) {
+  await page.waitForFunction(() =>
+    [...document.images].filter((img) => img.getBoundingClientRect().top < window.innerHeight).every((img) => img.complete && img.naturalWidth > 0),
+  )
+}
+
+/** Канон «Пиратов» не готов: у эпохи caribbean-1716 есть v002 (выпуск прибит к v001), у пороховой обезьяны выбраны
+ *  три ракурса из шести */
+function pirateCanonNotReady(api: MockApi) {
+  const period = api.handle('GET', '/api/canon/cursus/periods/caribbean-1716').body as PeriodDoc
+  const data = { ...period.data, light_sources: [...period.data.light_sources, 'moonlight through the gratings'] }
+  expect(api.handle('PUT', '/api/canon/cursus/periods/caribbean-1716/draft', data).status).toBe(200)
+  expect(api.handle('POST', '/api/canon/cursus/periods/caribbean-1716/publish').status).toBe(201)
+  const sheet = api.canon.sheets.cursus.get('you@powder-monkey-11')!
+  for (const slot of ['full_body', 'in_action', 'detail']) delete sheet.chosen[slot]
 }
 
 test.describe('экраны', () => {
@@ -136,5 +162,46 @@ test.describe('режимы экранов 2 и 3 (только 1536)', () => {
     await expect(map.getByRole('region', { name: 'Приёмы подачи' }).getByRole('listitem')).toHaveCount(4)
     await expect(page.getByRole('region', { name: 'Сходство с референсом' })).toContainText('Выпусков по этому референсу ещё нет')
     await expect(page).toHaveScreenshot('02-ideas-reference.png')
+  })
+})
+
+test.describe('экран 12 и канон на экране 3 (только 1536)', () => {
+  test.skip(({ viewport }) => viewport?.width !== 1536, 'слои канона снимаются на базовой ширине')
+
+  test('периоды', async ({ page }) => {
+    await open(page, '/canon?layer=periods')
+    await expect(page.getByRole('form', { name: 'Эпоха' }).getByRole('heading', { name: 'Карибы, 1716' })).toBeVisible()
+    const needed = page.getByRole('complementary', { name: 'Нужно каналу' })
+    await expect(needed).toContainText('edo-1650')
+    await expect(needed).toContainText('venice-1560')
+    await expect(page).toHaveScreenshot('12-canon-periods.png')
+  })
+
+  test('персонажи', async ({ page }) => {
+    await open(page, '/canon?layer=characters&character=you')
+    const looks = page.getByRole('form', { name: 'Персонаж' }).getByRole('list', { name: 'Облики персонажа' })
+    await expect(looks.getByRole('button')).toHaveCount(5)
+    await expect(looks.locator('img')).toHaveCount(4) // выбранный фас: три готовых листа и боцман 3/6
+    await thumbsLoaded(page)
+    await expect(page).toHaveScreenshot('12-canon-characters.png')
+  })
+
+  test('лист опорных портретов', async ({ page }) => {
+    await open(page, '/canon?layer=characters&character=you&appearance=you%40powder-monkey-11&sheet=you%40powder-monkey-11')
+    const sheet = page.getByRole('dialog', { name: /^Лист опорных портретов/ })
+    await expect(sheet.getByText('готов 6/6')).toBeVisible()
+    await expect(sheet.locator('img').first()).toBeVisible()
+    await thumbsLoaded(page)
+    await expect(page).toHaveScreenshot('12-canon-sheet.png')
+  })
+
+  test('канон выпуска не готов', async ({ page, apiMock }) => {
+    pirateCanonNotReady(apiMock.api)
+    await open(page, '/episodes/pirate/script')
+    const canon = page.getByRole('complementary', { name: 'Источник плана' }).getByRole('region', { name: 'Канон выпуска' })
+    await expect(canon.getByRole('button', { name: 'Перевести на новые версии' })).toBeVisible()
+    await canon.scrollIntoViewIfNeeded()
+    await expect(page.locator('footer[role="status"]')).toContainText('Канон:')
+    await expect(page).toHaveScreenshot('03-script-canon.png')
   })
 })

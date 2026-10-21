@@ -1,8 +1,9 @@
 /* Экран 3 «Сценарий и план»: заголовок с режимами «Сценарий / План кадров / JSON» (⌘⇧1…⌘⇧3, режим — в адресе
    `?mode=`) и счётчиками; в центре — заявка, лист сценария 760, таблица плана или JSON-редактор; справа — «Источник
-   плана» (мост через чат), факт-чек, смета и «Утвердить план» в подвале (M4.7). На 2560 у листа — колонка
-   раскадровки (плейсхолдеры до картинок M6). Ссылка на кадр из факт-чека и отказа утверждения открывает лист и
-   ставит фокус на VO кадра. Уход из «JSON» с несохранёнными правками — вопрос. План — только кэш запросов. */
+   плана» (мост через чат), факт-чек, канон выпуска (M5.10), смета и «Утвердить план» в подвале (M4.7). На 2560 у
+   листа — колонка раскадровки (плейсхолдеры до картинок M6). Ссылка на кадр из факт-чека и отказа утверждения
+   открывает лист и ставит фокус на VO кадра; у кадра на листе и в таблице — предпросмотр итогового промпта. Канон не
+   готов — строка в статус-строке. Уход из «JSON» с несохранёнными правками — вопрос. План — только кэш запросов. */
 import { ChevronDown, ChevronRight, LayoutGrid, MessagesSquare } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { EpisodeListItem } from '@/types/episode'
@@ -15,7 +16,8 @@ import { setSearchParam, useSearchParam } from '../../app/navigation'
 import type { RouteParams } from '../../app/routes'
 import { ScreenLayout } from '../../app/ScreenLayout'
 import { useHotkeySet } from '../../app/useHotkey'
-import { useChannelName, useFormat, usePlan, usePlanParts, useProject, useSaveBrief } from '../../api/queries'
+import { useStatusNote } from '../../app/useStatusNote'
+import { useChannelName, useEpisodeCanon, useFormat, usePlan, usePlanParts, useProject, useSaveBrief } from '../../api/queries'
 import { PanelHeader } from '../../app/PanelHeader'
 import { useUiStore } from '../../store/uiStore'
 import { Button, Dialog, EmptyState, SegmentedControl, Skeleton, cn } from '../../ui'
@@ -24,6 +26,8 @@ import { ApprovePlan } from './ApprovePlan'
 import { BridgePanel } from './BridgePanel'
 import { EMPTY_BRIEF } from './brief'
 import { BriefForm } from './BriefForm'
+import { CanonPanel } from './CanonPanel'
+import { canonNote } from './canonLinks'
 import { EstimatePanel } from './EstimatePanel'
 import { FactCheck } from './FactCheck'
 import { JsonEditor } from './JsonEditor'
@@ -31,6 +35,7 @@ import { discardJsonDraft, hasJsonDraft } from './jsonDrafts'
 import { PlanTable } from './PlanTable'
 import { ReferenceNote } from './ReferenceNote'
 import { ScriptSheet } from './ScriptSheet'
+import { ShotPrompt } from './ShotPrompt'
 import { SimilarityPanel } from './SimilarityPanel'
 
 export type ScriptMode = 'script' | 'plan' | 'json'
@@ -79,6 +84,9 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
   const project = useProject(episode.id)
   const plan = usePlan(episode.id)
   const parts = usePlanParts(episode.id)
+  const canon = useEpisodeCanon(episode.channel, episode.id, plan.data?.version ?? null)
+  useStatusNote(canonNote(canon.data))
+  const [promptShot, setPromptShot] = useState<string | null>(null)
   const pushToast = useUiStore((s) => s.pushToast)
 
   // Переход к кадру: режим «Сценарий», после отрисовки листа — прокрутка к строке кадра и фокус на его VO
@@ -135,6 +143,14 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
             <div className="min-h-0 flex-1 overflow-y-auto">
               <BridgePanel episodeId={episode.id} hasIdea={brief.idea.trim() !== ''} />
               {plan.data && <FactCheck facts={plan.data.facts} onShot={goToShot} />}
+              {plan.data && (
+                <CanonPanel
+                  episodeId={episode.id}
+                  canon={canon.data}
+                  error={canon.error}
+                  approved={plan.data.approved_version === plan.data.version}
+                />
+              )}
               {plan.data && <EstimatePanel episodeId={episode.id} planStamp={plan.dataUpdatedAt} />}
               {project.data?.brief?.reference_id && (
                 <SimilarityPanel episodeId={episode.id} planStamp={plan.data ? plan.dataUpdatedAt : 0} />
@@ -152,6 +168,13 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
         planError={plan.error}
         brief={project.isPending ? undefined : brief}
         onBrief={setDraft}
+        onPrompt={setPromptShot}
+      />
+      <ShotPrompt
+        episodeId={episode.id}
+        shotId={promptShot}
+        planStamp={plan.dataUpdatedAt}
+        onClose={() => setPromptShot(null)}
       />
       <Dialog
         open={leaving !== null}
@@ -198,6 +221,7 @@ function Center({
   planError,
   brief,
   onBrief,
+  onPrompt,
 }: {
   episode: EpisodeListItem
   mode: ScriptMode
@@ -205,9 +229,10 @@ function Center({
   planError: Error | null
   brief: EpisodeBrief | undefined
   onBrief: (next: EpisodeBrief) => void
+  onPrompt: (shotId: string) => void
 }) {
   const channelName = useChannelName(episode.channel)
-  if (plan && brief && mode === 'plan') return <PlanTable episodeId={episode.id} plan={plan} />
+  if (plan && brief && mode === 'plan') return <PlanTable episodeId={episode.id} plan={plan} onPrompt={onPrompt} />
   if (plan && brief && mode === 'json') return <JsonEditor episodeId={episode.id} plan={plan} onSaved={() => setMode('script')} />
   return (
     <div className="flex min-h-0 flex-1 justify-center gap-4 overflow-y-auto p-4">
@@ -234,7 +259,7 @@ function Center({
         <>
           <div className="flex w-190 shrink-0 flex-col gap-3 self-start">
             <BriefBlock brief={brief} onBrief={onBrief} />
-            <ScriptSheet episodeId={episode.id} channelName={channelName} plan={plan} />
+            <ScriptSheet episodeId={episode.id} channelName={channelName} plan={plan} onPrompt={onPrompt} />
           </div>
           <Storyboard count={plan.shots.filter((shot) => shot.status !== 'removed').length} />
         </>

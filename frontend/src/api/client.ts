@@ -37,7 +37,7 @@ export interface RequestOptions {
   keepalive?: boolean
 }
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'PUT'
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 function buildUrl(path: string, query: Query = {}): string {
   if (!path.startsWith('/')) throw new Error(`api path must start with "/": ${path}`)
@@ -189,4 +189,5 @@ export const api = {
     request<T>('PATCH', path, body, options),
   put: <T>(path: string, body: unknown, options?: RequestOptions) =>
     request<T>('PUT', path, body, options),
+  delete: <T = null>(path: string, options?: RequestOptions) => request<T>('DELETE', path, undefined, options),
 }

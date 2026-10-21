@@ -4,6 +4,18 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import type { BridgeSettings } from '@/types/bridge'
+import type {
+  AnchorSetState,
+  AnchorsEstimate,
+  AppearanceCopy,
+  CanonNeeded,
+  CanonSummary,
+  CharacterDoc,
+  PeriodAnswerResult,
+  PeriodDoc,
+  PeriodPrompt,
+  StyleDoc,
+} from '@/types/canon'
 import type { ChannelProfile, FormatPreview } from '@/types/channel'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
@@ -12,11 +24,13 @@ import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from
 import type { Job, JobEventData, JobList } from '@/types/job'
 import type {
   EffectivePlan,
+  EpisodeCanon,
   PlanAnswerResult,
   PlanCheck,
   PlanEstimate,
   PlanParts,
   PlanPrompt,
+  ShotPrompt,
   SimilarityReport,
 } from '@/types/plan'
 import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
@@ -42,10 +56,14 @@ export const qk = {
   episodeLists: ['episodes', 'list'] as const,
   episodeList: (scope: ChannelScope) => ['episodes', 'list', scope] as const,
   episode: (id: string) => ['episodes', 'one', id] as const,
+  /** Префикс сводок расходов: конец любого джоба перезапрашивает их — платный джоб списал деньги */
+  cost: ['cost'] as const,
   costSummary: (channel: ChannelId) => ['cost', 'summary', channel] as const,
   slots: ['slots'] as const,
   format: (channel: ChannelId) => ['formats', channel] as const,
   jobs: ['jobs'] as const,
+  /** Джоб целиком, с payload и result (`GET /api/jobs/{id}`): снимок `qk.jobs` их не несёт */
+  job: (id: string) => ['job', id] as const,
   bridgeSettings: ['bridge', 'settings'] as const,
   /** Идеи канала всех статусов: экран делит их на бэклог, убранные и «Идеи из чата» */
   ideas: (channel: ChannelId) => ['ideas', channel] as const,
@@ -61,6 +79,24 @@ export const qk = {
   similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
+  /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
+  shotPrompt: (id: string, shotId: string, stamp: number) => ['projects', id, 'plan', 'prompt', shotId, stamp] as const,
+  /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
+  canon: (channel: string) => ['canon', channel] as const,
+  canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
+  canonNeeded: (channel: string) => ['canon', channel, 'needed'] as const,
+  /** Канон выпуска — под префиксом канона канала: публикация и конец джоба листа перезапрашивают его; `version` —
+   *  текущая версия плана, новая версия (перевод, импорт) — новый ключ */
+  episodeCanon: (channel: string, id: string, version: string) => ['canon', channel, 'episode', id, version] as const,
+  /** Документ слоя (`style`, `periods/<id>`, `characters/<id>`): `head` — черновик, а без него последняя версия;
+   *  `vNNN` — версия как есть */
+  canonDoc: (channel: string, path: string, version: string | null) => ['canon', channel, ...path.split('/'), version ?? 'head'] as const,
+  /** Префикс наборов опорных канала (листы обликов, кадры стиля, сметы) — по ходу джоба опорных */
+  canonAnchors: (channel: string) => ['canon', channel, 'anchors'] as const,
+  styleAnchors: (channel: string) => ['canon', channel, 'anchors', 'style'] as const,
+  anchorsEstimate: (channel: string) => ['canon', channel, 'anchors', 'estimate'] as const,
+  appearanceAnchors: (channel: string, appearance: string) => ['canon', channel, 'anchors', appearance] as const,
+  appearanceEstimate: (channel: string, appearance: string) => ['canon', channel, 'anchors', appearance, 'estimate'] as const,
 }
 
 const segment = (id: string) => encodeURIComponent(id)
@@ -263,6 +299,383 @@ export function useEstimate(id: string, planStamp: number) {
   })
 }
 
+/** Канон выпуска (M5.2, docs/project_schema.md, «Канон выпуска»): прибитые версии, статусы, листы и проблемы, с
+ *  которыми откажет «Утвердить план». Без плана (`version` null) не запрашивается. */
+export function useEpisodeCanon(channel: ChannelId, id: string, version: string | null) {
+  return useQuery({
+    queryKey: qk.episodeCanon(channel, id, version ?? ''),
+    queryFn: ({ signal }) => api.get<EpisodeCanon | null>(`/projects/${segment(id)}/canon`, { signal }),
+    enabled: version !== null,
+  })
+}
+
+/** Итоговый запрос кадра (M5.5, docs/prompt_assembly.md): собирает бэкенд, экран только показывает (принцип 13).
+ *  `shotId` null — предпросмотр закрыт, запроса нет. */
+export function useShotPrompt(id: string, shotId: string | null, planStamp: number) {
+  return useQuery({
+    queryKey: qk.shotPrompt(id, shotId ?? '', planStamp),
+    queryFn: ({ signal }) => api.get<ShotPrompt>(`/projects/${segment(id)}/shots/${segment(shotId ?? '')}/prompt`, { signal }),
+    enabled: shotId !== null,
+  })
+}
+
+/** «Перевести на новые версии» (M5.2): новая версия плана `manual` с последними версиями канона, затронутые кадры —
+ *  `stale` с причиной. Меняются план, project.json, стадия выпуска (`generate` → `script`) и его счётчики. */
+export function useUpdateEpisodeCanon(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<ImportResult>(`/projects/${segment(id)}/canon/update`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.project(id) })
+      void client.invalidateQueries({ queryKey: qk.episode(id) })
+      void client.invalidateQueries({ queryKey: qk.episodeLists })
+    },
+  })
+}
+
+// --- канон канала (экран 12, docs/canon_schema.md) ------------------------------------------------
+
+const canonPath = (channel: ChannelId, rest = '') => `/canon/${segment(channel)}${rest}`
+
+/** Сводка канона: версии стиля, эпохи и персонажи с черновиками и счётчиками */
+export function useCanonSummary(channel: ChannelId) {
+  return useQuery({
+    queryKey: qk.canonSummary(channel),
+    queryFn: ({ signal }) => api.get<CanonSummary>(canonPath(channel), { signal }),
+  })
+}
+
+/** Слой канона по пути: `style`, `periods/<эпоха>`, `characters/<персонаж>` (docs/canon_schema.md, «API») */
+export type CanonPath = 'style' | `periods/${string}` | `characters/${string}`
+
+/** Документ слоя: черновик или версия; у всех слоёв одна форма */
+export type CanonDocOf<P extends CanonPath> = P extends 'style' ? StyleDoc : P extends `periods/${string}` ? PeriodDoc : CharacterDoc
+export type CanonDataOf<P extends CanonPath> = CanonDocOf<P>['data']
+
+const docPath = (path: CanonPath) =>
+  path
+    .split('/')
+    .map((part) => segment(part))
+    .join('/')
+
+/** Документ слоя. `version: null` — шапка: черновик, а без него последняя версия; сущности нет вовсе (404) — `null`.
+ *  Версия неизменяема — повторно не запрашивается. */
+export function useCanonDoc<P extends CanonPath>(channel: ChannelId, path: P, version: string | null, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: qk.canonDoc(channel, path, version),
+    queryFn: async ({ signal }) => {
+      try {
+        return await api.get<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}`), { signal, query: { version } })
+      } catch (error) {
+        if (version === null && error instanceof ApiError && error.status === 404) return null
+        throw error
+      }
+    },
+    staleTime: version === null ? 0 : Infinity,
+  })
+}
+
+/** Черновик слоя целиком (автосохранение, ключ `canon:<канал>:<путь>`): ответ — документ черновика в шапку */
+export function useSaveCanonDraft<P extends CanonPath>(channel: ChannelId, path: P) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CanonDataOf<P>) => api.put<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/draft`), data, { keepalive: true }),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Новая сущность слоя («Новый период», «Дублировать период», «Новый персонаж»): черновик по пути, которого ещё нет.
+ *  Путь известен только в момент записи — id набирает человек, поэтому он в аргументах, а не в хуке. */
+export function useCreateCanonDraft(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ path, data }: { path: `periods/${string}` | `characters/${string}`; data: CanonDataOf<`periods/${string}`> | CanonDataOf<`characters/${string}`> }) =>
+      api.put<PeriodDoc | CharacterDoc>(canonPath(channel, `/${docPath(path)}/draft`), data),
+    onSuccess: (doc, { path }) => {
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** «Создать vN из vM»: черновик из версии; черновик уже есть — 409 с текстом бэкенда */
+export function useCanonDraftFrom<P extends CanonPath>(channel: ChannelId, path: P) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (from: string) => api.post<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/draft`), undefined, { query: { from } }),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+/** «Сбросить черновик»: версии не трогаются, шапка — снова последняя версия (или сущности больше нет) */
+export function useDiscardCanonDraft(channel: ChannelId, path: CanonPath) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete(canonPath(channel, `/${docPath(path)}/draft`)),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.canonDoc(channel, path, null) })
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** «Опубликовать vN»: черновик → новая версия; от неё зависят сводка, шапка, «нужно каналу» и устаревание опорных */
+export function usePublishCanon<P extends CanonPath>(channel: ChannelId, path: P) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<CanonDocOf<P>>(canonPath(channel, `/${docPath(path)}/publish`)),
+    // Перезапрос ждём: тост «Опубликована vN» и закрытие диалога — уже со статусами листов против новой версии,
+    // иначе карточка облика долю секунды показывала прежний «готов 6/6» (хвост M5.11)
+    onSuccess: async (doc) => {
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      if (doc.version) client.setQueryData(qk.canonDoc(channel, path, doc.version), doc)
+      await client.invalidateQueries({ queryKey: qk.canon(channel) })
+    },
+  })
+}
+
+/** «Нужно каналу»: эпохи и облики из планов выпусков без опубликованной версии */
+export function useCanonNeeded(channel: ChannelId) {
+  return useQuery({
+    queryKey: qk.canonNeeded(channel),
+    queryFn: ({ signal }) => api.get<CanonNeeded>(canonPath(channel, '/needed'), { signal }),
+  })
+}
+
+/** «Создать» из «нужно каналу»: скелет-черновик эпохи или облик в черновике персонажа; отказ — 409 с текстом */
+export function useCreateNeeded(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ kind, id }: { kind: 'periods' | 'appearances'; id: string }) =>
+      api.post<PeriodDoc | CharacterDoc>(canonPath(channel, `/needed/${kind}/${segment(id)}`)),
+    onSuccess: (doc, { kind }) => {
+      const path: CanonPath = kind === 'periods' ? `periods/${doc.data.id}` : `characters/${doc.data.id}`
+      client.setQueryData(qk.canonDoc(channel, path, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Промпт эпохи для чата (`draft` — черновик целиком, `forbidden` — «Дополнить запреты»); обмен `prompted` */
+export function usePeriodPrompt(channel: ChannelId, periodId: string) {
+  return useMutation({
+    mutationFn: (mode: PeriodPrompt['mode']) =>
+      api.post<PeriodPrompt>(canonPath(channel, `/periods/${segment(periodId)}/prompt`), undefined, { query: { mode } }),
+  })
+}
+
+/** Ответ чата → черновик эпохи; неверный ответ — 422 `BridgeError`, на диске ничего */
+export function useApplyPeriodAnswer(channel: ChannelId, periodId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ mode, text }: { mode: PeriodPrompt['mode']; text: string }) =>
+      api.post<PeriodAnswerResult>(canonPath(channel, `/periods/${segment(periodId)}/answer`), { text }, { query: { mode }, timeoutMs: 60_000 }),
+    onSuccess: (result) => {
+      client.setQueryData(qk.canonDoc(channel, `periods/${periodId}`, null), result.doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+      void client.invalidateQueries({ queryKey: qk.canonNeeded(channel) })
+    },
+  })
+}
+
+/** Лист опорных портретов облика: готовность 6/6, устаревание против последней версии, оплаченное */
+export function useAppearanceAnchors(channel: ChannelId, appearanceId: string) {
+  return useQuery({
+    queryKey: qk.appearanceAnchors(channel, appearanceId),
+    queryFn: ({ signal }) => api.get<AnchorSetState>(canonPath(channel, `/appearances/${segment(appearanceId)}/anchors`), { signal }),
+  })
+}
+
+/** Листы нескольких обликов — те же запросы, что у карточек облика: сводка «N листов готово» */
+export function useAppearanceSheets(channel: ChannelId, appearanceIds: string[]) {
+  return useQueries({
+    queries: appearanceIds.map((id) => ({
+      queryKey: qk.appearanceAnchors(channel, id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => api.get<AnchorSetState>(canonPath(channel, `/appearances/${segment(id)}/anchors`), { signal }),
+    })),
+  }).map((result) => result.data)
+}
+
+/** Цена листа облика до клика — смета бэкенда по адресу облика, кэш не вычитается */
+export function useAppearanceEstimate(channel: ChannelId, appearanceId: string) {
+  return useQuery({
+    queryKey: qk.appearanceEstimate(channel, appearanceId),
+    queryFn: ({ signal }) => api.get<AnchorsEstimate>(canonPath(channel, `/appearances/${segment(appearanceId)}/anchors/estimate`), { signal }),
+  })
+}
+
+/** «Скопировать облик в другой период»: новый облик в черновике персонажа, лица и телосложение — побайтово */
+export function useCopyAppearance(channel: ChannelId, characterId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ source, ...body }: AppearanceCopy & { source: string }) =>
+      api.post<CharacterDoc>(canonPath(channel, `/appearances/${segment(source)}/copy`), body),
+    onSuccess: (doc) => {
+      client.setQueryData(qk.canonDoc(channel, `characters/${characterId}`, null), doc)
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+/** Кадры стиля: выбор по шаблону и устаревание против последней версии стиля */
+export function useStyleAnchors(channel: ChannelId, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.styleAnchors(channel),
+    queryFn: ({ signal }) => api.get<AnchorSetState>(canonPath(channel, '/style/anchors'), { signal }),
+    enabled,
+  })
+}
+
+/** Цена до клика «Пересобрать (6, ~$0.80)» — смета бэкенда, кэш не вычитается */
+export function useAnchorsEstimate(channel: ChannelId, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.anchorsEstimate(channel),
+    queryFn: ({ signal }) => api.get<AnchorsEstimate>(canonPath(channel, '/style/anchors/estimate'), { signal }),
+    enabled,
+  })
+}
+
+/** «Пересобрать кадры стиля» в эпохе: джоб в снимок сразу, дальше его ведёт поток SSE. Отказ бюджета — 409
+ *  `BudgetRefusal`, джоб не создаётся. */
+export function useCollectStyleAnchors(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (period: string) => api.post<Job>(canonPath(channel, '/style/anchors'), { period }),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** Джоб из ответа постановки или отмены — целиком в `qk.job`, в снимок — если его там ещё нет: событие потока
+ *  могло прийти раньше ответа и новее его */
+function rememberJob(client: QueryClient, job: Job) {
+  client.setQueryData(qk.job(job.id), job)
+  client.setQueryData<LiveJobs>(qk.jobs, (jobs) =>
+    !jobs || jobs.items.some((item) => item.job_id === job.id) ? jobs : { ...jobs, items: [...jobs.items, toJobState(job)] },
+  )
+}
+
+// --- лист опорных портретов облика (M5.9, docs/canon_schema.md, «API опорных») ---------------------
+
+const anchorsPath = (channel: ChannelId, appearanceId: string, rest = '') => canonPath(channel, `/appearances/${segment(appearanceId)}/anchors${rest}`)
+
+/** Миниатюра webp кандидата (принцип 12): сетки не грузят полноразмерные картинки. `target` — облик или `style` */
+export function anchorThumb(channel: ChannelId, target: string, candidate: string, width: 160 | 320 = 320): string {
+  return `/api${canonPath(channel, `/anchors/${segment(target)}/${segment(candidate)}/thumb`)}?w=${width}`
+}
+
+/** «Собрать лист»: джоб `anchor_sheet` — фасы, затем остальные ракурсы с фасом-референсом */
+export function useCollectSheet(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Job>(anchorsPath(channel, appearanceId)),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** «Перегенерировать ракурс»: джоб `anchor_angle`, новые кандидаты одного ракурса */
+export function useRegenerateAngle(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (angle: string) => api.post<Job>(anchorsPath(channel, appearanceId, `/${segment(angle)}/regenerate`)),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** «Пересобрать устаревшие ракурсы»: один джоб `anchor_angle` на все устаревшие ракурсы листа */
+export function useRegenerateStale(channel: ChannelId, appearanceId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<Job>(anchorsPath(channel, appearanceId, '/stale')),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
+/** Выбор и отбраковка кандидата — одна запись; ответ — лист целиком: карточка облика видит его сразу */
+function useSheetPick(channel: ChannelId, appearanceId: string, action: 'choose' | 'reject') {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ angle, candidate }: { angle: string; candidate: string }) =>
+      api.post<AnchorSetState>(anchorsPath(channel, appearanceId, `/${segment(angle)}/${action}`), { candidate }),
+    onSuccess: (state) => {
+      client.setQueryData(qk.appearanceAnchors(channel, appearanceId), state)
+      void client.invalidateQueries({ queryKey: qk.appearanceEstimate(channel, appearanceId) })
+      void client.invalidateQueries({ queryKey: qk.canonSummary(channel) })
+    },
+  })
+}
+
+export const useChooseCandidate = (channel: ChannelId, appearanceId: string) => useSheetPick(channel, appearanceId, 'choose')
+export const useRejectCandidate = (channel: ChannelId, appearanceId: string) => useSheetPick(channel, appearanceId, 'reject')
+
+/** Заказ джоба опорных (`AnchorOrder`, docs/jobs.md): набор и кандидаты в порядке рисования */
+export interface AnchorOrderPayload {
+  target: string
+  /** Версия персонажа облика, с которой рисует заказ */
+  version: string
+  items: { slot: string; label: string; n: number }[]
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+export function anchorOrderOf(job: Job | undefined): AnchorOrderPayload | null {
+  const payload = job?.payload
+  if (!payload || typeof payload.target !== 'string' || !Array.isArray(payload.items)) return null
+  const items = payload.items.filter(isRecord).map((item) => ({ slot: String(item.slot), label: String(item.label), n: Number(item.n) }))
+  return { target: payload.target, version: String(payload.version), items }
+}
+
+/** Джобы листа облика: сборка и перегенерация ракурсов (кадры стиля — `style_anchors`) */
+export const SHEET_KINDS: ReadonlySet<string> = new Set(['anchor_sheet', 'anchor_angle'])
+export const ACTIVE_JOB: ReadonlySet<JobEventData['status']> = new Set(['queued', 'running'])
+
+export interface SheetJob {
+  state: JobEventData
+  order: AnchorOrderPayload
+}
+
+/** Идущий джоб листа облика. Событие SSE набора не называет: набор — в payload джоба, его даёт `GET /api/jobs/{id}`
+ *  (один запрос на джоб: payload не меняется) */
+export function useSheetJob(channel: ChannelId, appearanceId: string): SheetJob | null {
+  const items = useJobs().data?.items ?? []
+  const active = items.filter((job) => job.channel === channel && SHEET_KINDS.has(job.kind) && ACTIVE_JOB.has(job.status))
+  const details = useQueries({
+    queries: active.map((job) => ({
+      queryKey: qk.job(job.job_id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => api.get<Job>(`/jobs/${segment(job.job_id)}`, { signal }),
+      staleTime: Infinity,
+    })),
+  })
+  const index = details.findIndex((detail) => anchorOrderOf(detail.data)?.target === appearanceId)
+  const order = index === -1 ? null : anchorOrderOf(details[index]?.data)
+  const state = index === -1 ? undefined : active[index]
+  return order && state ? { state, order } : null
+}
+
+/** Джоб целиком заново — итог (`result`) после конечного события */
+export function fetchJob(client: QueryClient, id: string): Promise<Job> {
+  return client.fetchQuery({ queryKey: qk.job(id), queryFn: ({ signal }) => api.get<Job>(`/jobs/${segment(id)}`, { signal }), staleTime: 0 })
+}
+
+/** «Отменить»: `queued` — сразу `cancelled`, `running` — флаг, джоб остановится между кандидатами */
+export function useCancelJob() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.post<Job>(`/jobs/${segment(id)}/cancel`),
+    onSuccess: (job) => rememberJob(client, job),
+  })
+}
+
 export function toJobState(job: Job): JobEventData {
   return {
     job_id: job.id,
@@ -274,6 +687,7 @@ export function toJobState(job: Job): JobEventData {
     cancel_requested: job.cancel_requested,
     episode_id: job.episode_id,
     batch_id: job.batch_id,
+    channel: job.channel,
     error: job.error,
   }
 }

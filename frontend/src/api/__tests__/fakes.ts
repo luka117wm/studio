@@ -75,7 +75,8 @@ export function stubApi(api: MockApi = createMockApi()): ApiStub {
     if (down) return new Response('', { status: 502, headers: { 'Content-Type': 'text/plain' } })
     const body = init?.body ? (JSON.parse(String(init.body)) as unknown) : undefined
     const response = api.handle(init?.method ?? 'GET', url, body)
-    return new Response(JSON.stringify(response.body), {
+    // 204 — без тела: Response не принимает тело у статуса без содержимого
+    return new Response(response.status === 204 ? null : JSON.stringify(response.body), {
       status: response.status,
       headers: { 'Content-Type': 'application/json' },
     })

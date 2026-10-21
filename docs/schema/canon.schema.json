@@ -1,0 +1,1559 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/canon",
+  "title": "canon",
+  "description": "Модели API Studio, группа «canon». Сгенерировано из Pydantic.",
+  "$defs": {
+    "AnchorCandidate": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "rejected",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "File"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ref"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cached": {
+          "title": "Cached",
+          "type": "boolean"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "n",
+        "status",
+        "file",
+        "error",
+        "seed",
+        "version",
+        "ref",
+        "usd",
+        "cached",
+        "created_at"
+      ],
+      "title": "AnchorCandidate",
+      "type": "object"
+    },
+    "AnchorSetState": {
+      "description": "Лист облика (`GET …/appearances/{id}/anchors`) или кадры стиля (`GET …/style/anchors`).",
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "status": {
+          "enum": [
+            "missing",
+            "partial",
+            "ready",
+            "outdated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "chosen": {
+          "title": "Chosen",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/AnchorSlot"
+          },
+          "title": "Slots",
+          "type": "array"
+        },
+        "spent": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "channel",
+        "target",
+        "version",
+        "status",
+        "chosen",
+        "total",
+        "stale",
+        "slots",
+        "spent"
+      ],
+      "title": "AnchorSetState",
+      "type": "object"
+    },
+    "AnchorSlot": {
+      "description": "Ракурс листа или шаблон кадра стиля.",
+      "properties": {
+        "slot": {
+          "title": "Slot",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "hint": {
+          "title": "Hint",
+          "type": "string"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/AnchorCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "chosen": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChosenAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stale"
+        }
+      },
+      "required": [
+        "slot",
+        "label",
+        "hint",
+        "candidates",
+        "chosen",
+        "stale"
+      ],
+      "title": "AnchorSlot",
+      "type": "object"
+    },
+    "AnchorsEstimate": {
+      "description": "Цена до клика (`GET …/anchors/estimate`): лист, ракурс, кадры стиля и устаревшие ракурсы\nлиста облика (`null` — устаревших нет или смета без облика).",
+      "properties": {
+        "sheet": {
+          "$ref": "#/$defs/EstimateLine"
+        },
+        "angle": {
+          "$ref": "#/$defs/EstimateLine"
+        },
+        "style": {
+          "$ref": "#/$defs/EstimateLine"
+        },
+        "stale": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EstimateLine"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sheet",
+        "angle",
+        "style",
+        "stale"
+      ],
+      "title": "AnchorsEstimate",
+      "type": "object"
+    },
+    "Appearance": {
+      "additionalProperties": false,
+      "description": "Облик: персонаж в одной эпохе и одном возрасте. Свой лист опорных портретов.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "period": {
+          "default": "",
+          "title": "Period",
+          "type": "string"
+        },
+        "age": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Age"
+        },
+        "build": {
+          "default": "",
+          "title": "Build",
+          "type": "string"
+        },
+        "face": {
+          "default": "",
+          "title": "Face",
+          "type": "string"
+        },
+        "hair": {
+          "default": "",
+          "title": "Hair",
+          "type": "string"
+        },
+        "clothing": {
+          "default": "",
+          "title": "Clothing",
+          "type": "string"
+        },
+        "wear": {
+          "default": "",
+          "title": "Wear",
+          "type": "string"
+        },
+        "props": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Props",
+          "type": "array"
+        },
+        "negative_local": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Local",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "period",
+        "age",
+        "build",
+        "face",
+        "hair",
+        "clothing",
+        "wear",
+        "props",
+        "negative_local"
+      ],
+      "title": "Appearance",
+      "type": "object"
+    },
+    "AppearanceCopy": {
+      "additionalProperties": false,
+      "description": "Тело «Копировать облик в другую эпоху»: эпоха и id нового облика того же персонажа.",
+      "properties": {
+        "period": {
+          "title": "Period",
+          "type": "string"
+        },
+        "appearance_id": {
+          "title": "Appearance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "period",
+        "appearance_id"
+      ],
+      "title": "AppearanceCopy",
+      "type": "object"
+    },
+    "CandidatePick": {
+      "additionalProperties": false,
+      "description": "Тело «Выбрать» и «Отбраковать»: id кандидата из состояния листа.",
+      "properties": {
+        "candidate": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Candidate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate"
+      ],
+      "title": "CandidatePick",
+      "type": "object"
+    },
+    "CanonCharacterItem": {
+      "additionalProperties": false,
+      "description": "Подпись и число обликов — из черновика, а без него — из последней версии.\n`sheets_ready` — у скольких из этих обликов лист опорных портретов готов 6/6 и не устарел\nпротив последней опубликованной версии с обликом, `sheets_outdated` — у скольких лист устарел\n(выбор есть, но лицо или одежда в новой версии другие). Считает `episode_canon.canon_overview`.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "appearances_count": {
+          "title": "Appearances Count",
+          "type": "integer"
+        },
+        "sheets_ready": {
+          "default": 0,
+          "title": "Sheets Ready",
+          "type": "integer"
+        },
+        "sheets_outdated": {
+          "default": 0,
+          "title": "Sheets Outdated",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "versions",
+        "draft",
+        "appearances_count",
+        "sheets_ready",
+        "sheets_outdated"
+      ],
+      "title": "CanonCharacterItem",
+      "type": "object"
+    },
+    "CanonNeeded": {
+      "description": "«Нужно каналу» (`GET /api/canon/{channel}/needed`): эпохи и облики из `canon_ref` текущих\nверсий планов, у которых нет ни одной опубликованной версии.",
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/NeededItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "appearances": {
+          "items": {
+            "$ref": "#/$defs/NeededAppearance"
+          },
+          "title": "Appearances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "periods",
+        "appearances"
+      ],
+      "title": "CanonNeeded",
+      "type": "object"
+    },
+    "CanonPeriodItem": {
+      "additionalProperties": false,
+      "description": "Подпись, регион, годы и число запретов — из черновика, а без него — из последней версии.\n`episodes` — сколько выпусков ссылаются на эпоху текущими планами (`canon_ref` или кадры);\nсчитает `episode_canon.canon_overview`, хранилище оставляет 0.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "region": {
+          "title": "Region",
+          "type": "string"
+        },
+        "years": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Years"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "forbidden_count": {
+          "title": "Forbidden Count",
+          "type": "integer"
+        },
+        "episodes": {
+          "default": 0,
+          "title": "Episodes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "region",
+        "years",
+        "versions",
+        "draft",
+        "forbidden_count",
+        "episodes"
+      ],
+      "title": "CanonPeriodItem",
+      "type": "object"
+    },
+    "CanonStyleSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/CanonVersionInfo"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "versions",
+        "draft"
+      ],
+      "title": "CanonStyleSummary",
+      "type": "object"
+    },
+    "CanonSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "title": "Channel",
+          "type": "string"
+        },
+        "style": {
+          "$ref": "#/$defs/CanonStyleSummary"
+        },
+        "periods": {
+          "items": {
+            "$ref": "#/$defs/CanonPeriodItem"
+          },
+          "title": "Periods",
+          "type": "array"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/CanonCharacterItem"
+          },
+          "title": "Characters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "channel",
+        "style",
+        "periods",
+        "characters"
+      ],
+      "title": "CanonSummary",
+      "type": "object"
+    },
+    "CanonVersionInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "published_at": {
+          "title": "Published At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "based_on",
+        "published_at"
+      ],
+      "title": "CanonVersionInfo",
+      "type": "object"
+    },
+    "Character": {
+      "additionalProperties": false,
+      "description": "Персонаж — один файл версии на всех обликов; ссылка на облик —\n`characters/<персонаж>/vNNN#<облик>`.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "nature": {
+          "$ref": "#/$defs/Nature",
+          "default": {
+            "personality": "",
+            "posture": "",
+            "manner": "",
+            "face": ""
+          }
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Appearance"
+          },
+          "title": "Appearances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "nature",
+        "appearances"
+      ],
+      "title": "Character",
+      "type": "object"
+    },
+    "CharacterDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Character"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "CharacterDoc",
+      "type": "object"
+    },
+    "ChosenAnchor": {
+      "properties": {
+        "candidate": {
+          "title": "Candidate",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "chosen_at": {
+          "title": "Chosen At",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "candidate",
+        "file",
+        "seed",
+        "version",
+        "chosen_at",
+        "usd"
+      ],
+      "title": "ChosenAnchor",
+      "type": "object"
+    },
+    "CostLine": {
+      "properties": {
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "quantity": {
+          "title": "Quantity",
+          "type": "number"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "unit",
+        "quantity",
+        "variant",
+        "usd_micro"
+      ],
+      "title": "CostLine",
+      "type": "object"
+    },
+    "EstimateLine": {
+      "description": "Строка сметы плана для экрана: что, сколько и почём.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        },
+        "cost": {
+          "$ref": "#/$defs/StageCost"
+        }
+      },
+      "required": [
+        "title",
+        "label",
+        "usd",
+        "cost"
+      ],
+      "title": "EstimateLine",
+      "type": "object"
+    },
+    "Light": {
+      "additionalProperties": false,
+      "properties": {
+        "character": {
+          "default": "",
+          "title": "Character",
+          "type": "string"
+        },
+        "contrast": {
+          "default": "",
+          "title": "Contrast",
+          "type": "string"
+        },
+        "direction": {
+          "default": "",
+          "title": "Direction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character",
+        "contrast",
+        "direction"
+      ],
+      "title": "Light",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "Nature": {
+      "additionalProperties": false,
+      "description": "Неизменяемое персонажа: одинаково во всех обликах.",
+      "properties": {
+        "personality": {
+          "default": "",
+          "title": "Personality",
+          "type": "string"
+        },
+        "posture": {
+          "default": "",
+          "title": "Posture",
+          "type": "string"
+        },
+        "manner": {
+          "default": "",
+          "title": "Manner",
+          "type": "string"
+        },
+        "face": {
+          "default": "",
+          "title": "Face",
+          "type": "string"
+        }
+      },
+      "required": [
+        "personality",
+        "posture",
+        "manner",
+        "face"
+      ],
+      "title": "Nature",
+      "type": "object"
+    },
+    "NeededAppearance": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/NeededEpisode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        },
+        "character_exists": {
+          "title": "Character Exists",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "draft",
+        "shots",
+        "episodes",
+        "character_exists"
+      ],
+      "title": "NeededAppearance",
+      "type": "object"
+    },
+    "NeededEpisode": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "shots"
+      ],
+      "title": "NeededEpisode",
+      "type": "object"
+    },
+    "NeededItem": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "shots": {
+          "title": "Shots",
+          "type": "integer"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/NeededEpisode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "draft",
+        "shots",
+        "episodes"
+      ],
+      "title": "NeededItem",
+      "type": "object"
+    },
+    "Optics": {
+      "additionalProperties": false,
+      "properties": {
+        "focal": {
+          "default": "",
+          "title": "Focal",
+          "type": "string"
+        },
+        "depth": {
+          "default": "",
+          "title": "Depth",
+          "type": "string"
+        },
+        "distortion": {
+          "default": "",
+          "title": "Distortion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "focal",
+        "depth",
+        "distortion"
+      ],
+      "title": "Optics",
+      "type": "object"
+    },
+    "Palette": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "default": "",
+          "title": "Rule",
+          "type": "string"
+        },
+        "swatches": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Swatch"
+          },
+          "title": "Swatches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rule",
+        "swatches"
+      ],
+      "title": "Palette",
+      "type": "object"
+    },
+    "Period": {
+      "additionalProperties": false,
+      "description": "Эпоха: факты времени и места, переиспользуются между выпусками. `forbidden` —\nанахронизмы: идут в negative каждого кадра эпохи (L-007).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "region": {
+          "default": "",
+          "title": "Region",
+          "type": "string"
+        },
+        "years": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Years"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "palette_shift": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Palette Shift",
+          "type": "array"
+        },
+        "materials": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Materials",
+          "type": "array"
+        },
+        "light_sources": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Light Sources",
+          "type": "array"
+        },
+        "architecture": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Architecture",
+          "type": "array"
+        },
+        "clothing": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Clothing",
+          "type": "array"
+        },
+        "props": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Props",
+          "type": "array"
+        },
+        "forbidden": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "region",
+        "years",
+        "palette_shift",
+        "materials",
+        "light_sources",
+        "architecture",
+        "clothing",
+        "props",
+        "forbidden"
+      ],
+      "title": "Period",
+      "type": "object"
+    },
+    "PeriodAnswerBody": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 200000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "PeriodAnswerBody",
+      "type": "object"
+    },
+    "PeriodAnswerResult": {
+      "description": "Ответ чата принят в черновик эпохи. `filled`, `conflicts` — у черновика; `added`,\n`repeats` — у «Дополнить запреты».",
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "draft",
+            "forbidden"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "doc": {
+          "$ref": "#/$defs/PeriodDoc"
+        },
+        "filled": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Filled",
+          "type": "array"
+        },
+        "conflicts": {
+          "items": {
+            "$ref": "#/$defs/PeriodConflict"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array"
+        },
+        "repeats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repeats",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "period_id",
+        "mode",
+        "doc",
+        "filled",
+        "conflicts",
+        "added",
+        "repeats",
+        "message"
+      ],
+      "title": "PeriodAnswerResult",
+      "type": "object"
+    },
+    "PeriodConflict": {
+      "description": "Поле, заполненное человеком, где чат предложил другое: в черновике остаётся `current`.",
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "current": {
+          "title": "Current"
+        },
+        "proposed": {
+          "title": "Proposed"
+        }
+      },
+      "required": [
+        "field",
+        "current",
+        "proposed"
+      ],
+      "title": "PeriodConflict",
+      "type": "object"
+    },
+    "PeriodDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Period"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "PeriodDoc",
+      "type": "object"
+    },
+    "PeriodPrompt": {
+      "description": "Промпт эпохи для claude.ai и обмен `prompted` в журнале моста.",
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "prompt_id": {
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "integer"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "period_id": {
+          "title": "Period Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "draft",
+            "forbidden"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "prompt_id",
+        "version",
+        "run_id",
+        "period_id",
+        "mode"
+      ],
+      "title": "PeriodPrompt",
+      "type": "object"
+    },
+    "StageCost": {
+      "description": "Цена этапа в смете. Этап через мост через чат — $0 без строк единиц и с `via: bridge`;\nу платного этапа поля нет.",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CostLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "stale_pricing": {
+          "default": false,
+          "title": "Stale Pricing",
+          "type": "boolean"
+        },
+        "via": {
+          "anyOf": [
+            {
+              "const": "bridge",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Via"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "lines",
+        "usd_micro",
+        "stale_pricing"
+      ],
+      "title": "StageCost",
+      "type": "object"
+    },
+    "Style": {
+      "additionalProperties": false,
+      "description": "Стиль канала — один на канал, одинаков для всех выпусков (артборд 12, слой «Стиль»).",
+      "properties": {
+        "render": {
+          "default": "",
+          "title": "Render",
+          "type": "string"
+        },
+        "material": {
+          "default": "",
+          "title": "Material",
+          "type": "string"
+        },
+        "processing": {
+          "default": "",
+          "title": "Processing",
+          "type": "string"
+        },
+        "optics": {
+          "$ref": "#/$defs/Optics",
+          "default": {
+            "focal": "",
+            "depth": "",
+            "distortion": ""
+          }
+        },
+        "light": {
+          "$ref": "#/$defs/Light",
+          "default": {
+            "character": "",
+            "contrast": "",
+            "direction": ""
+          }
+        },
+        "palette": {
+          "$ref": "#/$defs/Palette",
+          "default": {
+            "rule": "",
+            "swatches": []
+          }
+        },
+        "grain": {
+          "default": "",
+          "title": "Grain",
+          "type": "string"
+        },
+        "composition": {
+          "default": "",
+          "title": "Composition",
+          "type": "string"
+        },
+        "negative_global": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Global",
+          "type": "array"
+        }
+      },
+      "required": [
+        "render",
+        "material",
+        "processing",
+        "optics",
+        "light",
+        "palette",
+        "grain",
+        "composition",
+        "negative_global"
+      ],
+      "title": "Style",
+      "type": "object"
+    },
+    "StyleAnchorsCreate": {
+      "additionalProperties": false,
+      "description": "Тело «Пересобрать кадры стиля»: эпоха, в которой показать стиль.",
+      "properties": {
+        "period": {
+          "title": "Period",
+          "type": "string"
+        }
+      },
+      "required": [
+        "period"
+      ],
+      "title": "StyleAnchorsCreate",
+      "type": "object"
+    },
+    "StyleDoc": {
+      "additionalProperties": false,
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Version"
+        },
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Based On"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/Style"
+        }
+      },
+      "required": [
+        "draft",
+        "version",
+        "based_on",
+        "updated_at",
+        "data"
+      ],
+      "title": "StyleDoc",
+      "type": "object"
+    },
+    "Swatch": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "hex": {
+          "title": "Hex",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "hex"
+      ],
+      "title": "Swatch",
+      "type": "object"
+    },
+    "Years": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "integer"
+        },
+        "to": {
+          "title": "To",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Years",
+      "type": "object"
+    }
+  }
+}

@@ -435,7 +435,7 @@ def test_similarity_reasons_without_plan_or_reference(
 
 
 def test_own_plan_is_below_threshold_and_approves(
-    seeded: TestClient, reference_episode: str
+    seeded: TestClient, reference_episode: str, no_canon_gate: None
 ) -> None:
     import_plan(seeded, reference_episode, [])
     found = seeded.get(f"/api/projects/{reference_episode}/similarity").json()["similarity"]
@@ -444,7 +444,9 @@ def test_own_plan_is_below_threshold_and_approves(
     assert seeded.post(f"/api/episodes/{reference_episode}/approve").status_code == 200
 
 
-def test_copied_plan_is_refused_with_phrases(seeded: TestClient, reference_episode: str) -> None:
+def test_copied_plan_is_refused_with_phrases(
+    seeded: TestClient, reference_episode: str, no_canon_gate: None
+) -> None:
     import_plan(seeded, reference_episode, COPIED)
     found = seeded.get(f"/api/projects/{reference_episode}/similarity").json()["similarity"]
     assert not found["ok"]

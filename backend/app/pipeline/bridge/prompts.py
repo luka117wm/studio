@@ -1,7 +1,8 @@
 """Шаблоны промптов моста: `<каталог>/<id>.md` с front-matter и подстановками `{{name}}`.
 
 Front-matter — простой YAML между строками `---`: `id` (равен имени файла, отсюда уникальность),
-`version` (целое; меняется текст — растёт версия), `task`, `model_hint`. Текст шаблона — на
+`version` (целое; меняется текст — растёт версия), `task`, `model_hint`. `task: image` — шаблон
+картинки канона (M5.4: лист опорных портретов, кадры стиля), а не задача моста. Текст шаблона — на
 английском. Рендер детерминирован и строг: каждое имя `{{name}}` должно прийти в контексте,
 лишний ключ контекста — тоже ошибка. Значения подставляются как есть, один проход: значение с
 `{{…}}` внутри не раскрывается повторно. JSON-фрагменты сериализует код (`json_block`), а не
@@ -28,8 +29,12 @@ log = logging.getLogger(__name__)
 # Шаблоны приложения; тесты подают загрузчику свой каталог.
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
-# Задачи моста (устав M4, решение 1): план частями, идеи, разбор референса.
-BridgeTask = Literal["plan", "ideas", "reference"]
+# Задачи моста (устав M4, решение 1): план частями, идеи, разбор референса; черновик эпохи и
+# «Дополнить запреты» (M5.6, устав M5, решение 4). Стиль канала и облики мост не пишет.
+BridgeTask = Literal["plan", "ideas", "reference", "canon_period"]
+# Шаблон в каталоге — задача моста или промпт картинки канона (`image`, M5.4). Один плоский
+# Literal: у объединения pydantic пишет ошибку по каждому члену, и текст отказа теряет смысл.
+PromptTask = Literal["plan", "ideas", "reference", "canon_period", "image"]
 
 PROMPT_ID_PATTERN = r"^[a-z][a-z0-9_-]*$"
 _PLACEHOLDER = re.compile(r"\{\{([a-z_][a-z0-9_]*)\}\}")
@@ -43,7 +48,7 @@ class PromptRenderError(ValueError):
 class FrontMatter(StrictModel):
     id: str = Field(pattern=PROMPT_ID_PATTERN)
     version: Annotated[int, Field(strict=True, ge=1)]
-    task: BridgeTask
+    task: PromptTask
     model_hint: str = Field(min_length=1)
 
 
@@ -62,7 +67,7 @@ class RenderedPrompt(BaseModel):
 class PromptTemplate:
     id: str
     version: int
-    task: BridgeTask
+    task: PromptTask
     model_hint: str
     body: str
     placeholders: frozenset[str]

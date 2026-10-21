@@ -1,0 +1,87 @@
+# Канон канала (M5.4): ракурсы листа опорных портретов и шаблоны опорных кадров стиля.
+# Контракт — docs/canon_schema.md, «Листы опорных портретов» и «Опорные кадры стиля».
+#
+# `label` и `hint` — подписи на экране, по-русски (подсказки ракурсов — как в артборде 12).
+# `prompt` — строка кадрирования, по-английски: идёт в промпт картинки (принцип 13). Стиль, эпоху и
+# внешность туда не писать — их подставляет код из канона.
+# Набор ракурсов фиксирован (устав M5, решение 5): на id опираются правила устаревания листа.
+
+anchors:
+  candidates: 2          # кандидатов на ракурс при сборке листа и при перегенерации ракурса
+  angles:
+    - id: front
+      label: Фас
+      hint: лицо прямо, нейтральный свет
+      prompt: head-and-shoulders portrait, the face turned straight to the camera, neutral expression
+      aspect_ratio: "3:4"
+    - id: three_quarter
+      label: Три четверти
+      hint: поворот 45°, ключевой свет сбоку
+      prompt: head-and-shoulders portrait, the head turned 45 degrees to one side, both eyes visible
+      aspect_ratio: "3:4"
+    - id: profile
+      label: Профиль
+      hint: силуэт линии носа и лба
+      prompt: head-and-shoulders portrait in strict side profile, the line of the forehead and nose clear
+      aspect_ratio: "3:4"
+    - id: full_body
+      label: В полный рост
+      hint: одежда целиком, обувь, пропорции
+      prompt: full-length standing figure from head to feet, arms relaxed, the whole outfit and footwear visible
+      aspect_ratio: "2:3"
+    - id: in_action
+      label: В действии
+      hint: рабочая поза ранга
+      prompt: full figure in the typical working pose of this person, using the props they carry
+      aspect_ratio: "2:3"
+    - id: detail
+      label: Деталь
+      hint: руки и предметы
+      prompt: close-up of the hands holding the props of this person, sleeves and cuffs visible
+      aspect_ratio: "1:1"
+
+# Опорные кадры стиля: по одному кадру на шаблон, эпоха выбирается при сборке.
+style_frames:
+  aspect_ratio: "16:9"
+  frames:
+    - id: establishing
+      label: Общий план
+      prompt: wide establishing view of a typical place of this era, people small in the frame
+    - id: portrait
+      label: Портрет
+      prompt: waist-up portrait of an anonymous ordinary person of this era at work
+    - id: detail
+      label: Деталь
+      prompt: close detail of hands working with the typical materials and tools of this era
+    - id: crowd
+      label: Толпа
+      prompt: a crowd of ordinary people of this era gathered in a typical place
+    - id: night
+      label: Ночь
+      prompt: night scene lit by a single light source of this era, details falling into shadow
+    - id: silhouette
+      label: Силуэт
+      prompt: a lone figure seen as a silhouette against a bright opening or sky
+
+# Кадр выпуска (M5.5): соотношение сторон и по крупности — строка для промпта, ракурсы листа каждого
+# облика кадра и до двух кадров стиля (docs/prompt_assembly.md). Первый ракурс — фас: при лимите
+# референсов модели он не уходит никогда. Кадры стиля — id шаблонов из `style_frames` выше.
+shots:
+  aspect_ratio: "16:9"
+  sizes:
+    establishing:
+      prompt: wide establishing shot, the place reads first, people small in the frame
+      angles: [front, full_body]
+      style_frames: [establishing, crowd]
+    action:
+      prompt: medium-wide shot of the action, whole figures readable
+      angles: [front, three_quarter, full_body, in_action]
+      style_frames: [establishing, portrait]
+    reaction:
+      prompt: close shot on the face and shoulders, the emotion readable
+      angles: [front, three_quarter, profile]
+      style_frames: [portrait, night]
+    detail:
+      prompt: close-up of the object or the hands in the action
+      angles: [front, detail]
+      style_frames: [detail, portrait]

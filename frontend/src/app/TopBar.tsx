@@ -1,5 +1,6 @@
 /* Верхняя панель 44px (components.md, TopBar): логотип → переключатель канала → название выпуска с
-   переименованием → индикатор сохранения → расход месяца → «?» → настройки. */
+   переименованием → индикатор сохранения → расход месяца → «?» → настройки. На экране 12 вместо выпуска — «Канон»
+   и «уровень канала, не выпуска» (артборд 12): канон не принадлежит выпуску, даже если какой-то открыт. */
 import { CircleQuestionMark, Settings } from 'lucide-react'
 import type { CostSummary } from '@/types/cost'
 import { useBackendDown, useChannels, useCostSummaries, useEpisode, type ChannelScope } from '../api/queries'
@@ -10,7 +11,7 @@ import { EpisodeTitle } from './EpisodeTitle'
 import { formatUsd } from './format'
 import { STAGE_LABEL } from './labels'
 import { Link } from './Link'
-import { navigate } from './navigation'
+import { navigate, useRoute } from './navigation'
 import { paths } from './routes'
 import { SaveIndicator } from './SaveIndicator'
 
@@ -48,6 +49,7 @@ export function TopBar() {
   const setHelpOpen = useUiStore((s) => s.setHelpOpen)
   const episode = useEpisode(episodeId)
   const down = useBackendDown()
+  const canon = useRoute()?.route.screen === 'canon'
 
   return (
     <header aria-label="Верхняя панель" className="flex h-shell-topbar shrink-0 items-center gap-3 border-b border-line bg-panel px-3">
@@ -55,7 +57,12 @@ export function TopBar() {
         Studio
       </Link>
       <ChannelSwitcher />
-      {episodeId === null ? (
+      {canon ? (
+        <div className="flex items-baseline gap-3">
+          <span className="text-18 font-semibold text-ink">Канон</span>
+          <span className="whitespace-nowrap text-12 text-muted">уровень канала, не выпуска</span>
+        </div>
+      ) : episodeId === null ? (
         <span className="text-13 text-muted">Выпуск не открыт</span>
       ) : episode.data ? (
         <div className="flex min-w-0 items-baseline gap-2">
