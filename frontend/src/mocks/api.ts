@@ -27,9 +27,14 @@ import type { Director } from '@/types/director'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobList } from '@/types/job'
 import type {
+  AnchorSheet,
   ApprovalProblem,
   ApprovalRefusal,
+  CanonProblem,
   EffectivePlan,
+  EpisodeAppearanceItem,
+  EpisodeCanon,
+  EpisodeCanonItem,
   EstimateLine,
   PlanAnswerResult,
   PlanCheck,
@@ -37,6 +42,10 @@ import type {
   PlanParts,
   PlanPrompt,
   PlanShot,
+  PromptRef,
+  PromptSection,
+  ShotChange,
+  ShotPrompt,
   SimilarityReport,
   ValidationItem,
 } from '@/types/plan'
@@ -1312,6 +1321,244 @@ interface StyleState extends LayerState<Style> {
   frames: string | null
 }
 
+/* ---- Канон выпуска на экране 3 (M5.10, docs/project_schema.md, «Канон выпуска»; docs/prompt_assembly.md) ---- */
+
+type CanonKind = CanonProblem['kind']
+
+/** Отличие сущности канона выпуска от «прибита последняя версия, лист 6/6». Ключ — `style`, `period:<id>`,
+ *  `appearance:<id>`; `latest: null` — опубликованной версии нет; `resolved: false` — прибитая версия не находится,
+ *  хотя опубликованная есть (облик прибит к версии персонажа, где его ещё не было) */
+export interface CanonTweak {
+  pinned?: string
+  latest?: string | null
+  draft?: boolean
+  resolved?: boolean
+  sheet?: AnchorSheet
+}
+
+/** Планы мока прибиты к последнему стилю Cursus (v003) и к v001 эпох и обликов */
+const PLAN_STYLE = 'v003'
+const SHEET_READY: AnchorSheet = { status: 'ready', chosen: 6, total: 6 }
+const ON_CANON_SCREEN = ' на экране «Канон»'
+const CANON_SUBJECT: Record<CanonKind, string> = { style: 'стиль канала', period: 'эпоха', appearance: 'облик' }
+const NOT_PUBLISHED: Record<CanonKind, (id: string) => string> = {
+  style: () => 'стиль канала не опубликован — заполните и опубликуйте его',
+  period: (id) => `эпоха ${id} не опубликована — создайте и опубликуйте её`,
+  appearance: (id) => `облик ${id} не опубликован — создайте и опубликуйте его`,
+}
+
+function canonRefOf(kind: CanonKind, id: string, tag: string): string {
+  if (kind === 'style') return `style/${tag}`
+  if (kind === 'period') return `periods/${id}/${tag}`
+  const [character, look] = id.split('@')
+  return `characters/${character}/${tag}#${look}`
+}
+
+/** Сущность канона выпуска — правила статуса как у `episode_canon._item` бэкенда */
+function canonItem(kind: CanonKind, id: string, shots: number, tweak: CanonTweak = {}): EpisodeCanonItem {
+  const pinned = tweak.pinned ?? (kind === 'style' ? PLAN_STYLE : 'v001')
+  const latest = tweak.latest === undefined ? pinned : tweak.latest
+  const draft = tweak.draft ?? false
+  const resolved = latest !== null && (tweak.resolved ?? pinned <= latest)
+  const status = latest === null ? (draft ? 'draft_only' : 'missing') : resolved && pinned === latest ? 'ready' : 'outdated'
+  return { id, ref: canonRefOf(kind, id, pinned), pinned, latest, status, resolved, draft, shots }
+}
+
+function refProblem(kind: CanonKind, item: EpisodeCanonItem): CanonProblem | null {
+  if (item.resolved) return null
+  const subject = kind === 'style' ? CANON_SUBJECT.style : `${CANON_SUBJECT[kind]} ${item.id}`
+  if (item.latest === null) {
+    const message =
+      item.status === 'draft_only' ? `${subject}: есть только черновик — опубликуйте его${ON_CANON_SCREEN}` : `${NOT_PUBLISHED[kind](item.id)}${ON_CANON_SCREEN}`
+    return { kind, id: item.id, issue: 'unpublished', message }
+  }
+  return {
+    kind,
+    id: item.id,
+    issue: 'unresolved',
+    message: `${subject}: ссылка ${item.ref} не находит опубликованную версию — переведите выпуск на ${item.latest} кнопкой «Перевести на новые версии»`,
+  }
+}
+
+function sheetProblem(item: EpisodeAppearanceItem): CanonProblem | null {
+  const { sheet } = item
+  if (!item.resolved || sheet.status === 'ready') return null
+  const subject = `облик ${item.id}`
+  if (sheet.status === 'missing') {
+    return { kind: 'appearance', id: item.id, issue: 'no_sheet', message: `${subject}: нет листа опорных портретов — соберите его${ON_CANON_SCREEN}` }
+  }
+  if (sheet.status === 'partial') {
+    return {
+      kind: 'appearance',
+      id: item.id,
+      issue: 'sheet_incomplete',
+      message: `${subject}: лист ${sheet.chosen}/${sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`,
+    }
+  }
+  return { kind: 'appearance', id: item.id, issue: 'sheet_outdated', message: `${subject}: лист устарел — пересоберите его${ON_CANON_SCREEN}` }
+}
+
+/** Канон выпуска из кадров версии плана: эпохи и облики — в порядке первого появления, у стиля — все кадры */
+export function mockEpisodeCanon(plan: EffectivePlan, tweaks: Record<string, CanonTweak> = {}): EpisodeCanon {
+  const shots = plan.shots.filter((shot) => shot.status !== 'removed')
+  const style = canonItem('style', 'style', shots.length, tweaks.style)
+  const periods = [...new Set(shots.map((shot) => shot.image.period))].map((id) =>
+    canonItem('period', id, shots.filter((shot) => shot.image.period === id).length, tweaks[`period:${id}`]),
+  )
+  const appearances = [...new Set(shots.flatMap((shot) => shot.image.appearances))].map((id): EpisodeAppearanceItem => {
+    const tweak = tweaks[`appearance:${id}`]
+    const base = canonItem('appearance', id, shots.filter((shot) => shot.image.appearances.includes(id)).length, tweak)
+    return { ...base, sheet: base.resolved ? (tweak?.sheet ?? SHEET_READY) : { status: 'missing', chosen: 0, total: 6 } }
+  })
+  const problems = [
+    refProblem('style', style),
+    ...periods.map((item) => refProblem('period', item)),
+    ...appearances.map((item) => refProblem('appearance', item)),
+    ...appearances.map(sheetProblem),
+  ].filter((problem): problem is CanonProblem => problem !== null)
+  return {
+    plan_version: plan.version,
+    ready: !problems.length,
+    updatable: [style, ...periods, ...appearances].some((item) => item.latest !== null && item.latest !== item.pinned),
+    style,
+    periods,
+    appearances,
+    problems,
+  }
+}
+
+/** Сводка отказа по канону — как `approve.canon_summary` бэкенда */
+function canonRefusal(problems: CanonProblem[]): string {
+  const counted = (kind: CanonKind | null, issue: CanonProblem['issue']) =>
+    problems.filter((p) => (kind === null || p.kind === kind) && p.issue === issue).length
+  const parts: string[] = []
+  if (counted('style', 'unpublished')) parts.push('стиль канала не опубликован')
+  const periods = counted('period', 'unpublished')
+  if (periods) parts.push(`${periods} ${ru(periods, ['эпоха', 'эпохи', 'эпох'])} не ${ru(periods, ['опубликована', 'опубликованы', 'опубликованы'])}`)
+  const looks = counted('appearance', 'unpublished')
+  if (looks) parts.push(`${looks} ${ru(looks, ['облик', 'облика', 'обликов'])} не ${ru(looks, ['опубликован', 'опубликованы', 'опубликованы'])}`)
+  const unresolved = counted(null, 'unresolved')
+  if (unresolved) parts.push(`${unresolved} ${ru(unresolved, ['ссылка', 'ссылки', 'ссылок'])} не ${ru(unresolved, ['находит', 'находят', 'находят'])} версию`)
+  for (const [issue, text] of [
+    ['no_sheet', 'нет листа'],
+    ['sheet_incomplete', 'лист не собран'],
+    ['sheet_outdated', 'лист устарел'],
+  ] as const) {
+    const n = counted('appearance', issue)
+    if (n) parts.push(`у ${n} ${ru(n, ['облика', 'обликов', 'обликов'])} ${text}`)
+  }
+  const where = [
+    ...(problems.some((p) => p.issue !== 'unresolved') ? ['экран «Канон»'] : []),
+    ...(problems.some((p) => p.issue === 'unresolved') ? ['«Перевести на новые версии»'] : []),
+  ]
+  return `Канон не готов: ${parts.join(', ')} — ${where.join(' и ')}.`
+}
+
+/** Крупность → строка промпта, ракурсы листа и кадры стиля (`config/canon.yaml → shots.sizes`) */
+const SHOT_SIZES: Record<PlanShot['image']['shot_size'], { line: string; angles: string[]; frames: string[] }> = {
+  establishing: { line: 'wide establishing shot, the place reads first, people small in the frame', angles: ['front', 'full_body'], frames: ['establishing', 'crowd'] },
+  action: { line: 'medium-wide shot of the action, whole figures readable', angles: ['front', 'three_quarter', 'full_body', 'in_action'], frames: ['establishing', 'portrait'] },
+  reaction: { line: 'close shot on the face and shoulders, the emotion readable', angles: ['front', 'three_quarter', 'profile'], frames: ['portrait', 'night'] },
+  detail: { line: 'close-up of the object or the hands in the action', angles: ['front', 'detail'], frames: ['detail', 'portrait'] },
+}
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1)
+
+/** «(reference images 1–4)», «(reference image 5)», без референсов — пусто */
+function refRange(first: number, count: number, style = false): string {
+  const word = style ? 'style reference image' : 'reference image'
+  if (count === 0) return ''
+  return count === 1 ? ` (${word} ${first})` : ` (${word}s ${first}–${first + count - 1})`
+}
+
+/** Запрос кадра, как `GET …/shots/{id}/prompt` бэкенда (M5.5): секции из прибитых версий, референсы по крупности,
+ *  проблемы канона вместо секций, которые не резолвятся. Тексты секций — короткие, по примерам prompt_assembly.md */
+export function mockShotPrompt(channel: ChannelId, shot: PlanShot, canon: EpisodeCanon): ShotPrompt {
+  const size = SHOT_SIZES[shot.image.shot_size]
+  const problems: string[] = []
+  const period = canon.periods.find((item) => item.id === shot.image.period)
+  const looks = shot.image.appearances.map((id) => canon.appearances.find((item) => item.id === id)).filter((item) => item !== undefined)
+  if (!canon.style.resolved) problems.push(`кадр ${shot.id}: стиль ${canon.style.ref} не найден в каноне ${channel}`)
+  if (period && !period.resolved) problems.push(`кадр ${shot.id}: эпоха ${period.ref} не найдена в каноне ${channel}`)
+  const drawable = looks.filter((look) => {
+    if (!look.resolved) {
+      problems.push(`кадр ${shot.id}: облик ${look.id} не найден в ${look.ref.split('#')[0]}`)
+      return false
+    }
+    if (look.sheet.status === 'missing') problems.push(`кадр ${shot.id}: у облика ${look.id} нет листа опорных портретов — соберите его${ON_CANON_SCREEN}`)
+    else if (look.sheet.status === 'partial') problems.push(`кадр ${shot.id}: лист облика ${look.id} ${look.sheet.chosen}/${look.sheet.total} — выберите недостающие ракурсы${ON_CANON_SCREEN}`)
+    else if (look.sheet.status === 'outdated') problems.push(`кадр ${shot.id}: лист облика ${look.id} устарел — пересоберите его${ON_CANON_SCREEN}`)
+    return true
+  })
+
+  const refs: PromptRef[] = []
+  const anchorRef = (owner: string, slot: string, label: string): PromptRef => ({
+    kind: 'anchor',
+    owner,
+    slot,
+    label: `${owner} — ${lowerFirst(label)}`,
+    file: `channels/${channel}/canon/anchors/${owner}/candidates/${slot}-1.jpg`,
+    sha256: hex16(`${owner}:${slot}`).repeat(4),
+  })
+  const persons = drawable.map((look, i) => {
+    const first = refs.length + 1
+    const angles = look.sheet.status === 'ready' ? size.angles : []
+    for (const slot of angles) refs.push(anchorRef(look.id, slot, SHEET_ANGLES.find(([id]) => id === slot)?.[1] ?? slot))
+    return { look, header: `Person ${i + 1}${refRange(first, angles.length)}:` }
+  })
+  const firstFrame = refs.length + 1
+  for (const frame of size.frames) {
+    const label = STYLE_FRAMES.find(([id]) => id === frame)?.[1] ?? frame
+    refs.push({
+      kind: 'style_frame',
+      owner: 'style',
+      slot: frame,
+      label: `Кадр стиля — ${lowerFirst(label)}`,
+      file: `channels/${channel}/canon/anchors/style/${frame}.jpg`,
+      sha256: hex16(`style:${frame}`).repeat(4),
+    })
+  }
+
+  const sections: PromptSection[] = []
+  if (canon.style.resolved) {
+    sections.push({
+      kind: 'style',
+      source: canon.style.ref,
+      label: 'Стиль канала',
+      text: `Rendering${refRange(firstFrame, size.frames.length, true)}:\n- Technique: painterly digital illustration with the restraint of a museum diorama\n- Grain: fine even film grain across the frame`,
+    })
+  }
+  if (period?.resolved) {
+    const label = CURSUS_PERIODS[period.id]?.versions[0]?.data.label ?? period.id
+    sections.push({ kind: 'period', source: period.ref, label: `Эпоха: ${label}`, text: 'Era:\n- Place: Caribbean Sea, Nassau\n- Years: 1716 to 1726' })
+  }
+  for (const { look, header } of persons) {
+    sections.push({ kind: 'appearance', source: look.ref, label: `Облик: ${look.id}`, text: `${header}\n- Build: small and wiry\n- Clothing: oversized linen shirt, barefoot` })
+  }
+  const edited = shot.overridden.includes('image.prompt')
+  sections.push({ kind: 'action', source: 'shot', label: edited ? 'Действие — правка человека' : 'Действие', text: `Action: ${shot.image.prompt}` })
+  sections.push({ kind: 'shot_size', source: 'shot', label: `Крупность: ${shot.image.shot_size}`, text: `Shot size: ${size.line}` })
+
+  const text = sections.map((section) => section.text).join('\n\n')
+  const model = 'gemini-3.1-flash-image'
+  return {
+    shot_id: shot.id,
+    sections,
+    text,
+    negative: 'text, watermark, modern clothing, plastic sheen, zipper, wristwatch',
+    refs,
+    dropped: [],
+    seed: parseInt(hex16(`${shot.id}:${text}`).slice(0, 7), 16),
+    aspect_ratio: '16:9',
+    model,
+    cost: { stage: 'images', provider: 'gemini', model, lines: [{ unit: 'image', quantity: 1, variant: '1K', usd_micro: PRICE.image }], usd_micro: PRICE.image, stale_pricing: false },
+    usd: money(PRICE.image),
+    input_hash: problems.length ? null : hex16(text).repeat(4),
+    problems,
+    warnings: [],
+  }
+}
+
 export interface MockResponse {
   status: number
   body: unknown
@@ -1369,6 +1616,9 @@ export function createMockApi() {
   /** Джобы опорных: ответ постановки — `queued`, а `GET /jobs/{id}` — уже итог. Мок рисует сразу, конец джоба экрану
    *  сообщает поток SSE (в тестах — фейковый) */
   const canonJobRecords = new Map<string, Job>()
+  /** Канон выпусков (M5.10): по умолчанию план прибит к последним версиям и листы 6/6; тест задаёт отличия
+   *  (`CanonTweak` по сущности), перевод на новые версии их обновляет */
+  const episodeCanons = new Map<string, Record<string, CanonTweak>>()
   /** Листы обликов (M5.9) — как `sheet.json` и `chosen.json` бэкенда: кандидаты всех сборок и выбор по ракурсу */
   const canonSheets: Record<ChannelId, Map<string, MockSheet>> = { cursus: new Map(), otto: new Map() }
   for (const channel of ['cursus', 'otto'] as const) {
@@ -1979,8 +2229,11 @@ export function createMockApi() {
       if (!shot.vo.trim()) problems.push({ check: 'vo', shot_id: shot.id, message: `кадр ${shot.id}: пустой VO — допишите текст закадрового голоса` })
       if (!shot.image.prompt.trim()) problems.push({ check: 'prompt', shot_id: shot.id, message: `кадр ${shot.id}: пустой промпт — опишите действие и композицию` })
     }
+    const canon = episodeCanonOf(episode)?.problems ?? []
+    for (const { message, ...target } of canon) problems.push({ check: 'canon', shot_id: null, message, canon: target })
     if (problems.length) {
-      const parts = problems.filter((p) => p.shot_id === null).map((p) => p.message)
+      const parts = problems.filter((p) => p.shot_id === null && p.check !== 'canon').map((p) => p.message)
+      if (canon.length) parts.push(canonRefusal(canon))
       const groups = new Map<string, string[]>()
       for (const p of problems) if (p.shot_id) groups.set(p.check, [...(groups.get(p.check) ?? []), p.shot_id])
       const summaries = [...groups].map(([check, ids]) => `${ids.length} ${ru(ids.length, ['кадр', 'кадра', 'кадров'])} ${check === 'vo' ? 'без VO' : 'без промпта'}: ${ids.join(', ')}`)
@@ -1993,6 +2246,60 @@ export function createMockApi() {
     Object.assign(projectOf(episode), { approved_version: base.version, approved_at: NOW, updated_at: NOW })
     Object.assign(episode, { stage: 'generate', updated_at: NOW })
     return ok(episode)
+  }
+
+  /** Канон текущей версии плана (`GET …/canon`); плана нет — `null` */
+  function episodeCanonOf(episode: EpisodeListItem): EpisodeCanon | null {
+    const plan = plansOf(episode)
+    return plan ? mockEpisodeCanon(plan, episodeCanons.get(episode.id)) : null
+  }
+
+  /** «Перевести на новые версии», как бэкенд M5.2: новая версия `manual` со ссылками на последние версии; затронутые
+   *  кадры — `stale` с причиной «Эпоха …: periods/…/v001 → periods/…/v002»; переводить нечего — `created: false` */
+  function updateCanon(episode: EpisodeListItem): MockResponse {
+    const plan = plansOf(episode)
+    if (!plan) return fail(409, 'Плана ещё нет — переводить на новые версии нечего.')
+    const tweaks = { ...episodeCanons.get(episode.id) }
+    const canon = mockEpisodeCanon(plan, tweaks)
+    if (!canon.updatable) return ok({ version: plan.version, created: false, added: 0, changed: 0, removed: 0, changes: [] } satisfies ImportResult)
+    const moved: { kind: CanonKind; id: string; reason: string }[] = []
+    const move = (kind: CanonKind, key: string, item: EpisodeCanonItem, title: string) => {
+      if (item.latest === null || item.latest === item.pinned) return
+      moved.push({ kind, id: item.id, reason: `${title}: ${item.ref} → ${canonRefOf(kind, item.id, item.latest)}` })
+      const next: CanonTweak = { ...tweaks[key], pinned: item.latest }
+      delete next.resolved
+      tweaks[key] = next
+    }
+    move('style', 'style', canon.style, 'Стиль канала')
+    for (const item of canon.periods) move('period', `period:${item.id}`, item, `Эпоха ${item.id}`)
+    for (const item of canon.appearances) move('appearance', `appearance:${item.id}`, item, `Облик ${item.id}`)
+    episodeCanons.set(episode.id, tweaks)
+
+    const version = `v${String(Number(plan.version.slice(1)) + 1).padStart(3, '0')}`
+    const changes: ShotChange[] = []
+    const shots = plan.shots.map((shot): PlanShot => {
+      if (shot.status === 'removed') return shot
+      const reasons = moved
+        .filter(({ kind, id }) => kind === 'style' || (kind === 'period' ? shot.image.period === id : shot.image.appearances.includes(id)))
+        .map(({ reason }) => reason)
+      if (!reasons.length) return shot
+      changes.push({ shot_id: shot.id, section: shot.section, kind: 'changed', change: reasons.join('; '), fields: [], stale: true, drawn_at: null, price: null })
+      return { ...shot, status: 'stale', stale_reasons: reasons }
+    })
+    plans.set(episode.id, { ...plan, version, source: 'manual', shots })
+    projectOf(episode).director_version = version
+    if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
+    return ok({ version, created: true, added: 0, changed: changes.length, removed: 0, changes } satisfies ImportResult)
+  }
+
+  /** Предпросмотр запроса кадра действующего плана (`GET …/shots/{id}/prompt`): ничего не пишет и не оплачивает */
+  function shotPromptOf(episode: EpisodeListItem, shotId: string): MockResponse {
+    const plan = effectivePlan(episode)
+    const canon = episodeCanonOf(episode)
+    if (!plan || !canon) return fail(409, 'Плана ещё нет — предпросмотр промпта появится, когда план будет собран.')
+    const shot = plan.shots.find((item) => item.id === shotId && item.status !== 'removed')
+    if (!shot) return fail(404, `Кадра ${shotId} в действующем плане выпуска нет.`)
+    return ok(mockShotPrompt(episode.channel, shot, canon))
   }
 
   /* ---- Канон канала: стиль, версии, кадры стиля (docs/canon_schema.md, «API» и «API опорных») ---- */
@@ -2966,6 +3273,9 @@ export function createMockApi() {
         const plan = plansOf(episode)
         return plan && plan.version === parts[3] ? ok(directorFile(plan)) : fail(404, `Версия ${parts[3]} плана выпуска «${episode.id}» не найдена.`)
       }
+      if (method === 'GET' && rest === 'canon') return ok(episodeCanonOf(episode))
+      if (method === 'POST' && rest === 'canon/update') return updateCanon(episode)
+      if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'prompt') return shotPromptOf(episode, decodeURIComponent(parts[3]))
       if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
       if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
       if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
@@ -2977,7 +3287,15 @@ export function createMockApi() {
     handle,
     episodes: state,
     projects,
-    canon: { styles: canonStyles, periods: canonPeriods, characters: canonCharacters, sheets: canonSheets, jobs: canonJobRecords, monthlyLimit },
+    canon: {
+      styles: canonStyles,
+      periods: canonPeriods,
+      characters: canonCharacters,
+      sheets: canonSheets,
+      jobs: canonJobRecords,
+      monthlyLimit,
+      episodes: episodeCanons,
+    },
   }
 }
 

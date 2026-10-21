@@ -24,11 +24,13 @@ import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from
 import type { Job, JobEventData, JobList } from '@/types/job'
 import type {
   EffectivePlan,
+  EpisodeCanon,
   PlanAnswerResult,
   PlanCheck,
   PlanEstimate,
   PlanParts,
   PlanPrompt,
+  ShotPrompt,
   SimilarityReport,
 } from '@/types/plan'
 import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
@@ -77,10 +79,15 @@ export const qk = {
   similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
+  /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
+  shotPrompt: (id: string, shotId: string, stamp: number) => ['projects', id, 'plan', 'prompt', shotId, stamp] as const,
   /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
   canon: (channel: string) => ['canon', channel] as const,
   canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
   canonNeeded: (channel: string) => ['canon', channel, 'needed'] as const,
+  /** Канон выпуска — под префиксом канона канала: публикация и конец джоба листа перезапрашивают его; `version` —
+   *  текущая версия плана, новая версия (перевод, импорт) — новый ключ */
+  episodeCanon: (channel: string, id: string, version: string) => ['canon', channel, 'episode', id, version] as const,
   /** Документ слоя (`style`, `periods/<id>`, `characters/<id>`): `head` — черновик, а без него последняя версия;
    *  `vNNN` — версия как есть */
   canonDoc: (channel: string, path: string, version: string | null) => ['canon', channel, ...path.split('/'), version ?? 'head'] as const,
@@ -289,6 +296,40 @@ export function useEstimate(id: string, planStamp: number) {
     queryFn: ({ signal }) => api.get<PlanEstimate>(`/projects/${segment(id)}/estimate`, { signal }),
     enabled: planStamp > 0,
     placeholderData: keepPreviousData,
+  })
+}
+
+/** Канон выпуска (M5.2, docs/project_schema.md, «Канон выпуска»): прибитые версии, статусы, листы и проблемы, с
+ *  которыми откажет «Утвердить план». Без плана (`version` null) не запрашивается. */
+export function useEpisodeCanon(channel: ChannelId, id: string, version: string | null) {
+  return useQuery({
+    queryKey: qk.episodeCanon(channel, id, version ?? ''),
+    queryFn: ({ signal }) => api.get<EpisodeCanon | null>(`/projects/${segment(id)}/canon`, { signal }),
+    enabled: version !== null,
+  })
+}
+
+/** Итоговый запрос кадра (M5.5, docs/prompt_assembly.md): собирает бэкенд, экран только показывает (принцип 13).
+ *  `shotId` null — предпросмотр закрыт, запроса нет. */
+export function useShotPrompt(id: string, shotId: string | null, planStamp: number) {
+  return useQuery({
+    queryKey: qk.shotPrompt(id, shotId ?? '', planStamp),
+    queryFn: ({ signal }) => api.get<ShotPrompt>(`/projects/${segment(id)}/shots/${segment(shotId ?? '')}/prompt`, { signal }),
+    enabled: shotId !== null,
+  })
+}
+
+/** «Перевести на новые версии» (M5.2): новая версия плана `manual` с последними версиями канона, затронутые кадры —
+ *  `stale` с причиной. Меняются план, project.json, стадия выпуска (`generate` → `script`) и его счётчики. */
+export function useUpdateEpisodeCanon(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<ImportResult>(`/projects/${segment(id)}/canon/update`),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: qk.project(id) })
+      void client.invalidateQueries({ queryKey: qk.episode(id) })
+      void client.invalidateQueries({ queryKey: qk.episodeLists })
+    },
   })
 }
 

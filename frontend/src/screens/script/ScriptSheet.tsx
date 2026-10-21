@@ -1,7 +1,9 @@
 /* Лист сценария 760 (режим «Сценарий», components.md: ScriptSheet): разделы sluglines прописными, номера кадров на левом
-   поле, VO правится на месте, правое поле — плейсхолдер миниатюры (картинок до M6 нет), движение, анимация, SFX, статус.
-   Данные — действующий план бэкенда; правка VO — `useShotEdit` (автосохранение в `user_override`). */
+   поле, VO правится на месте, правое поле — плейсхолдер миниатюры (картинок до M6 нет), движение с входом в
+   предпросмотр промпта кадра (M5.10), анимация, SFX, статус. Данные — действующий план бэкенда; правка VO —
+   `useShotEdit` (автосохранение в `user_override`). */
 import {
+  FileText,
   Film,
   Maximize2,
   Minimize2,
@@ -37,9 +39,11 @@ export interface ScriptSheetProps {
   /** «Cursus» — первая часть шапки листа */
   channelName: string
   plan: EffectivePlan
+  /** Открыть предпросмотр итогового промпта кадра */
+  onPrompt: (shotId: string) => void
 }
 
-export function ScriptSheet({ episodeId, channelName, plan }: ScriptSheetProps) {
+export function ScriptSheet({ episodeId, channelName, plan, onPrompt }: ScriptSheetProps) {
   const version = useDirectorVersion(episodeId, plan.version)
   const planShots = useMemo(() => new Map((version.data?.shots ?? []).map((shot) => [shot.id, shot])), [version.data])
   // Убранные кадры на лист не выводятся: их больше нет в плане
@@ -64,7 +68,7 @@ export function ScriptSheet({ episodeId, channelName, plan }: ScriptSheetProps) 
               {section.title}
             </h3>
             {inSection.map((shot) => (
-              <SheetShot key={shot.id} episodeId={episodeId} shot={shot} planShot={planShots.get(shot.id)} />
+              <SheetShot key={shot.id} episodeId={episodeId} shot={shot} planShot={planShots.get(shot.id)} onPrompt={onPrompt} />
             ))}
           </section>
         )
@@ -73,7 +77,17 @@ export function ScriptSheet({ episodeId, channelName, plan }: ScriptSheetProps) 
   )
 }
 
-function SheetShot({ episodeId, shot, planShot }: { episodeId: string; shot: PlanShot; planShot: Shot | undefined }) {
+function SheetShot({
+  episodeId,
+  shot,
+  planShot,
+  onPrompt,
+}: {
+  episodeId: string
+  shot: PlanShot
+  planShot: Shot | undefined
+  onPrompt: (shotId: string) => void
+}) {
   const vo = useShotEdit(episodeId, shot, planShot, 'vo')
   const errorId = useId()
   return (
@@ -106,13 +120,13 @@ function SheetShot({ episodeId, shot, planShot }: { episodeId: string; shot: Pla
           </div>
         )}
       </div>
-      <ShotMargin shot={shot} />
+      <ShotMargin shot={shot} onPrompt={() => onPrompt(shot.id)} />
     </div>
   )
 }
 
-/** Правое поле листа, 132: миниатюра-плейсхолдер 120×68, движение, анимация, SFX, статус */
-function ShotMargin({ shot }: { shot: PlanShot }) {
+/** Правое поле листа, 132: миниатюра-плейсхолдер 120×68, движение с предпросмотром промпта, анимация, SFX, статус */
+function ShotMargin({ shot, onPrompt }: { shot: PlanShot; onPrompt: () => void }) {
   const MotionIcon = MOTION_ICON[shot.motion.type]
   const status = statusOf(shot.status)
   const glyph = <StatusGlyph status={status.status} label={`Статус: ${status.label}`} />
@@ -124,6 +138,17 @@ function ShotMargin({ shot }: { shot: PlanShot }) {
       <div className="flex items-center gap-1.5 text-muted">
         <MotionIcon className="size-icon shrink-0" strokeWidth={1.5} aria-hidden />
         <span className="min-w-0 flex-1 truncate text-11 leading-3.5">{motionLabel(shot.motion)}</span>
+        {/* Не IconButton 24: в поле 132 он съедает подпись движения («отъезд 1.12×») — кнопка размером с иконку,
+            к глифу статуса вплотную (2px) */}
+        <button
+          type="button"
+          title={`Итоговый промпт кадра ${shot.id}`}
+          aria-label={`Итоговый промпт кадра ${shot.id}`}
+          onClick={onPrompt}
+          className="-mr-1 inline-flex shrink-0 rounded-control text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <FileText className="size-icon" strokeWidth={1.5} aria-hidden />
+        </button>
         {shot.status === 'stale' && shot.stale_reasons.length > 0 ? (
           <Tooltip content={shot.stale_reasons.join('; ')}>
             <span tabIndex={0} className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-accent">

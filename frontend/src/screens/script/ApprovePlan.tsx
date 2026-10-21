@@ -1,6 +1,8 @@
 /* «Утвердить план» — подвал правой панели экрана 3, primary экрана (принцип 10; устав M4, решения 7–8). Утверждение
    бесплатно и ничего не ставит в очередь: смета показана выше, генерация — M6. Отказ 409 — сводка и проблемы со
-   ссылками на кадры; успех — тост и стадия «Генерация» на рельсе и доске (кэш выпуска и списков). Строку артборда
+   ссылками на кадры, а проблемы канона (`check: canon`, M5.10) — со ссылками на экран 12: лист — на лист облика,
+   нет версии — на сущность; «ссылка не находит версию» чинит «Перевести на новые версии» в секции канона выше.
+   Успех — тост и стадия «Генерация» на рельсе и доске (кэш выпуска и списков). Строку артборда
    «Утверждение доступно, кадр уйдёт в очередь последним» не повторяем: при проблемах бэкенд отказывает
    (docs/visual_review.md). */
 import { Check } from 'lucide-react'
@@ -10,6 +12,8 @@ import { approvalRefusal } from '../../api/client'
 import { useApprovePlan } from '../../api/queries'
 import { useUiStore } from '../../store/uiStore'
 import { Button } from '../../ui'
+import { CanonLink } from './CanonLink'
+import { problemHref } from './canonLinks'
 
 export interface ApprovePlanProps {
   episodeId: string
@@ -71,6 +75,23 @@ export function ApprovePlan({ episodeId, plan, parts, onShot }: ApprovePlanProps
       {refusal ? (
         <div role="alert" className="flex flex-col gap-1">
           <p className="text-11 leading-3.5 text-failed-text">{refusal.message}</p>
+          {refusal.problems.some((p) => p.canon) && (
+            <ul aria-label="Канон выпуска не готов" className="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
+              {refusal.problems.map(({ canon, message }, i) =>
+                canon ? (
+                  <li key={i} className="text-11 leading-3.5">
+                    {canon.issue === 'unresolved' ? (
+                      <span className="text-muted">{message}</span>
+                    ) : (
+                      <CanonLink href={problemHref(canon)} className="text-accent">
+                        {message}
+                      </CanonLink>
+                    )}
+                  </li>
+                ) : null,
+              )}
+            </ul>
+          )}
           {refusal.problems.some((p) => p.shot_id) && (
             <ul aria-label="Кадры с проблемами" className="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
               {refusal.problems.map((problem, i) =>
