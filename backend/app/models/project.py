@@ -101,12 +101,20 @@ class ShotOverride(StrictModel):
 
 class ShotState(StrictModel):
     status: ShotStatus = "todo"
+    # Выбранная версия картинки — ассет `img-<кадр>-v<N>` (M6.1); поля нет — картинки нет.
+    image_version: int | None = Field(default=None, ge=1, exclude_if=_is_none)
     duration_locked: bool = False
     prompt_locked: bool = False
     # Ручные правки полей кадра поверх плана; импорт новой версии их не затирает.
     user_override: ShotOverride | None = None
-    # Почему кадр `stale`/`removed` — человеческим языком, ставит импорт плана; пусто у остальных.
+    # Почему кадр `stale`/`removed` — человеческим языком, ставит импорт плана. У кадра без
+    # картинки — история изменений плана и канона: устаревать нечему, статус прежний (M6.1).
     stale_reasons: list[str] = []
+
+    @property
+    def has_image(self) -> bool:
+        """Картинка есть — выбрана версия. Одно правило для импорта плана и ручной правки."""
+        return self.image_version is not None
 
 
 class DirectorVersionInfo(StrictModel):
@@ -135,6 +143,19 @@ class Asset(StrictModel):
     # Хэш входов (принцип 8): по нему ищется готовый ассет.
     hash: str
     status: AssetStatus = "ok"
+    # Метаданные отрисовки (M6.1): модель каталога, seed, номер варианта, цена в микродолларах,
+    # когда сделан, из кэша ли. У ассетов без платного вызова и до M6 их нет.
+    model: str | None = Field(default=None, exclude_if=_is_none)
+    seed: int | None = Field(default=None, exclude_if=_is_none)
+    variant: int | None = Field(default=None, ge=1, exclude_if=_is_none)
+    usd_micro: int | None = Field(default=None, ge=0, exclude_if=_is_none)
+    created_at: str | None = Field(default=None, exclude_if=_is_none)
+    cached: bool | None = Field(default=None, exclude_if=_is_none)
+
+
+def image_asset_id(shot_id: str, version: int) -> str:
+    """id ассета версии картинки кадра: `img-s001-v3`."""
+    return f"img-{shot_id}-v{version}"
 
 
 class Timing(StrictModel):
@@ -206,6 +227,22 @@ class Project(StrictModel):
         if problems:
             raise ValueError("; ".join(problems))
         return self
+
+    @model_validator(mode="after")
+    def _chosen_images_exist(self) -> "Project":
+        """Выбранная версия кадра — ассет-картинка этого кадра (M6.1)."""
+        problems = [
+            f"shots: {k} image_version {s.image_version} has no image asset of this shot"
+            for k, s in self.shots.items()
+            if s.image_version is not None and not self._is_image_of(k, s.image_version)
+        ]
+        if problems:
+            raise ValueError("; ".join(problems))
+        return self
+
+    def _is_image_of(self, shot_id: str, version: int) -> bool:
+        asset = self.assets.get(image_asset_id(shot_id, version))
+        return asset is not None and asset.kind == "image" and asset.shot_id == shot_id
 
 
 class ShotPatch(StrictModel):

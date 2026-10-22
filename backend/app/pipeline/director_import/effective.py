@@ -104,10 +104,10 @@ def overridden_fields(override: ShotOverride | None) -> list[OverrideField]:
 def edit_stale(state: ShotState, before: Shot, after: Shot) -> ShotState:
     """Правка поменяла поле, от которого зависит уже нарисованная картинка, — кадр `stale`.
 
-    `before` и `after` — действующий кадр до и после правки. Картинка есть у `done`, у `stale` —
-    возможно; у остальных статусов рисовать ещё нечего, и правка просто войдёт в генерацию.
+    `before` и `after` — действующий кадр до и после правки. Картинка есть у кадра с выбранной
+    версией (`has_image`, M6.1); у остальных рисовать ещё нечего, и правка войдёт в генерацию.
     """
-    if state.status not in ("done", "stale"):
+    if not state.has_image:
         return state
     reasons = [
         MANUAL_STALE_REASONS[change.field]

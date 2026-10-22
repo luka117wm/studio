@@ -114,6 +114,80 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Usd Micro"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "cached": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached"
         }
       },
       "required": [
@@ -663,6 +737,55 @@
       "title": "ShotChange",
       "type": "object"
     },
+    "ShotImages": {
+      "additionalProperties": false,
+      "description": "Версии картинки кадра: новые сверху; `image_version` — выбранная, null — не выбрана.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "queued",
+            "generating",
+            "done",
+            "failed",
+            "stale",
+            "removed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "image_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Image Version"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "title": "Versions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_id",
+        "status",
+        "image_version",
+        "versions"
+      ],
+      "title": "ShotImages",
+      "type": "object"
+    },
     "ShotOverride": {
       "additionalProperties": false,
       "description": "Ручные правки полей кадра поверх плана. `sfx` заменяется целиком.",
@@ -758,6 +881,19 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "image_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Version"
         },
         "duration_locked": {
           "default": false,

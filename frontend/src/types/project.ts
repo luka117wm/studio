@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:4b05e45b411c05c23d07d3623441c9f0e151003eaa51ce4b5216640eb489d79d
+ * @generated sha256:e8dc4bc170b67d60953b6f4e408609eb283b38109b5c3ab8e73e328d95fa1e80
  */
 export interface AnimateOverride {
   recommended?: boolean | null
@@ -18,6 +18,12 @@ export interface Asset {
   path: string
   hash: string
   status: 'ok' | 'stale' | 'failed'
+  model?: string | null
+  seed?: number | null
+  variant?: number | null
+  usd_micro?: number | null
+  created_at?: string | null
+  cached?: boolean | null
 }
 
 /**
@@ -129,6 +135,16 @@ export interface ShotChange {
 }
 
 /**
+ * Версии картинки кадра: новые сверху; `image_version` — выбранная, null — не выбрана.
+ */
+export interface ShotImages {
+  shot_id: string
+  status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
+  image_version: number | null
+  versions: Asset[]
+}
+
+/**
  * Ручные правки полей кадра поверх плана. `sfx` заменяется целиком.
  */
 export interface ShotOverride {
@@ -142,6 +158,7 @@ export interface ShotOverride {
 
 export interface ShotState {
   status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
+  image_version?: number | null
   duration_locked: boolean
   prompt_locked: boolean
   user_override: ShotOverride | null

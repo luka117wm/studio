@@ -4,7 +4,7 @@
 
 import copy
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.models.canon import CanonEntity, Character, Period
 from app.models.director import CanonRef, Director
+from app.models.project import Asset
 from app.pipeline.canon.episode_canon import (
     AnchorSheet,
     CanonPins,
@@ -33,6 +34,8 @@ from app.tools.seed import seed
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EPISODE = "c07-pirate-ship"
+# Фикстура `draw` из conftest.py: версия картинки кадра, первая — выбранная.
+DrawShot = Callable[..., Asset]
 OTHER = "c08-navy"
 CANON_URL = f"/api/projects/{EPISODE}/canon"
 UPDATE_URL = f"{CANON_URL}/update"
@@ -391,10 +394,13 @@ def test_import_without_canon_still_works_and_shows_missing(planned: TestClient)
 # --- «Перевести на новые версии» ------------------------------------------------------------------
 
 
-def test_update_moves_to_latest_and_marks_stale(planned: TestClient, paths: StudioPaths) -> None:
+def test_update_moves_to_latest_and_marks_drawn_shots_stale(
+    planned: TestClient, paths: StudioPaths, draw: DrawShot
+) -> None:
     publish(paths, PERIODS, "caribbean-1716", PERIOD_V1)
     publish(paths, PERIODS, "caribbean-1716", PERIOD_V2)
     set_stage(paths, "generate")
+    draw(EPISODE, "s001")  # картинка есть только у s001
     before = project(paths)
 
     response = planned.post(UPDATE_URL)
@@ -420,9 +426,15 @@ def test_update_moves_to_latest_and_marks_stale(planned: TestClient, paths: Stud
     assert {k: v for k, v in v002.items() if k != "canon_ref"} == {
         k: v for k, v in v001.items() if k != "canon_ref"
     }
+    assert [c["shot_id"] for c in result["changes"] if c["stale"]] == ["s001"]
     after = project(paths)
-    assert {s["status"] for s in after["shots"].values()} == {"stale"}
-    assert after["shots"]["s001"]["stale_reasons"] == [reason]
+    assert (after["shots"]["s001"]["status"], after["shots"]["s001"]["stale_reasons"]) == (
+        "stale",
+        [reason],
+    )
+    # Без картинки устаревать нечему: `todo`, причина — в истории кадра (M6.1).
+    others = [state for shot_id, state in after["shots"].items() if shot_id != "s001"]
+    assert all((s["status"], s["stale_reasons"]) == ("todo", [reason]) for s in others)
     assert (after["assets"], after["timings"]) == (before["assets"], before["timings"])
     assert after["director_versions"]["v002"]["source"] == "manual"
     # Утверждённый выпуск возвращается в «Сценарий» — новую версию утверждают снова (M4.6).
@@ -431,20 +443,29 @@ def test_update_moves_to_latest_and_marks_stale(planned: TestClient, paths: Stud
 
 
 def test_update_touches_only_shots_with_changed_appearance(
-    planned: TestClient, paths: StudioPaths
+    planned: TestClient, paths: StudioPaths, draw: DrawShot
 ) -> None:
     publish(paths, PERIODS, "caribbean-1716", PERIOD_V1)
     publish(paths, CHARACTERS, "you", CHARACTER_V1)
     publish(paths, CHARACTERS, "you", CHARACTER_V2)
+    draw(EPISODE, "s001")
+    draw(EPISODE, "s002")
     result = planned.post(UPDATE_URL).json()
     assert [c["shot_id"] for c in result["changes"]] == POWDER_MONKEY_SHOTS
     shots = project(paths)["shots"]
-    assert [k for k, v in shots.items() if v["status"] == "stale"] == POWDER_MONKEY_SHOTS
-    assert shots["s002"]["stale_reasons"] == [
+    reason = (
         "Облик you@powder-monkey-11: characters/you/v001#powder-monkey-11 →"
         " characters/you/v002#powder-monkey-11"
-    ]
-    assert shots["s001"]["status"] == "queued"
+    )
+    assert [k for k, v in shots.items() if v["status"] == "stale"] == ["s002"]
+    assert shots["s002"]["stale_reasons"] == [reason]
+    assert all(
+        (shots[k]["status"], shots[k]["stale_reasons"]) == ("todo", [reason])
+        for k in POWDER_MONKEY_SHOTS
+        if k != "s002"
+    )
+    # У s001 облика нет — картинка в силе.
+    assert (shots["s001"]["status"], shots["s001"]["stale_reasons"]) == ("done", [])
 
 
 def test_nothing_to_update_keeps_version(planned: TestClient, paths: StudioPaths) -> None:

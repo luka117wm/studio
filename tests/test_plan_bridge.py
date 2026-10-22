@@ -311,7 +311,7 @@ def test_new_version_keeps_pinned_canon_and_new_ids_get_latest(
     }
     # Версии канона не менялись — кадры с прежними эпохой и обликом не устарели.
     shots = client.get(f"/api/projects/{EPISODE}").json()["shots"]
-    assert shots["s002"]["status"] == "queued"
+    assert (shots["s002"]["status"], shots["s002"]["stale_reasons"]) == ("todo", [])
 
 
 def test_first_plan_gets_latest_published_canon(

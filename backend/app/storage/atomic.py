@@ -7,8 +7,14 @@
 import json
 import os
 import tempfile
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+_LOCKS: dict[Path, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
 
 
 def write_json_atomic(path: Path, data: Any) -> None:
@@ -27,7 +33,30 @@ def write_json_new(path: Path, data: Any) -> None:
     файл не тронут. Для неизменяемых версий (канон): temp → fsync → link → unlink temp.
     `os.replace` здесь не годится — он заменяет существующий файл молча."""
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-    tmp = _write_temp(path, text.encode("utf-8"))
+    _write_new(path, text.encode("utf-8"))
+
+
+def write_bytes_new(path: Path, data: bytes) -> None:
+    """Версия медиа (картинка кадра, M6.1) — только новым файлом, как `write_json_new`."""
+    _write_new(path, data)
+
+
+@contextmanager
+def update_lock(path: Path) -> Iterator[None]:
+    """Замок «прочитал — поправил — записал» одного файла состояния (project.json, M6.1).
+
+    Атомарная запись не спасает от потерянного обновления: джобы (потоки воркера) и API пишут
+    project.json в одном процессе. Замок — на процесс; файл на диске он не трогает.
+    """
+    key = path.resolve()
+    with _LOCKS_GUARD:
+        lock = _LOCKS.setdefault(key, threading.Lock())
+    with lock:
+        yield
+
+
+def _write_new(path: Path, data: bytes) -> None:
+    tmp = _write_temp(path, data)
     try:
         os.link(tmp, path)
     finally:

@@ -63,6 +63,7 @@ from app.pipeline.canon.anchors import AnchorSetState
 from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.pipeline.images.prompt_builder import ShotPrompt
+from app.pipeline.images.shot_assets import ShotImages
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
@@ -82,6 +83,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (EpisodeBrief, "serialization"),
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
+        (ShotImages, "serialization"),
     ],
     # Тело PATCH — отдельно: `EpisodeBrief`, `ShotOverride`, `SfxSpec` в двух режимах в одной
     # группе pydantic назвал бы `…-Input`/`…-Output`, и тип ответа сменил бы имя.

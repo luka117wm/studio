@@ -246,9 +246,11 @@ def merge_into_project(
 ) -> tuple[Project, ImportResult]:
     """Новая версия плана поверх project.json: возвращает новый Project и отчёт расхождений.
 
-    Новые кадры → `queued`; отсутствующие в плане → `removed` (ассеты и тайминги на месте);
-    изменённые → `stale` по правилам `stale.decide`, остальные — как были. Кадр, вернувшийся в план
-    после `removed`, снова `queued`. Порядок отчёта: кадры плана по таймлайну, затем убранные.
+    Новые кадры → `todo`; отсутствующие в плане → `removed` (ассеты и тайминги на месте);
+    изменённые с картинкой → `stale` по правилам `stale.decide`, без картинки — статус прежний,
+    причины — в историю `stale_reasons` (M6.1); остальные — как были. Кадр, вернувшийся в план
+    после `removed`, — `todo`, с картинкой — `stale`. Порядок отчёта: кадры плана по таймлайну,
+    затем убранные.
     """
     old_shots = {s.id: s for s in old.shots} if old else {}
     new_ids = {s.id for s in new.shots}
@@ -262,13 +264,21 @@ def merge_into_project(
         if state is None or previous is None or state.status == "removed":
             returned = state is not None and state.status == "removed"
             base = state or ShotState()
-            shots[shot.id] = base.model_copy(update={"status": "queued", "stale_reasons": []})
+            # С чем сравнить картинку вернувшегося кадра, мёрдж не знает: прежней версии кадра
+            # в `old` нет — пусть человек сверит.
+            if base.has_image:
+                reason = f"Кадр снова в плане {version}: картинка — от прежнего кадра, сверьте её"
+                update: dict[str, Any] = {"status": "stale", "stale_reasons": [reason]}
+            else:
+                update = {"status": "todo", "stale_reasons": []}
+            shots[shot.id] = base.model_copy(update=update)
             changes.append(
                 ShotChange(
                     shot_id=shot.id,
                     section=shot.section,
                     kind="added",
                     change="Кадр вернулся в план" if returned else "Новый кадр",
+                    stale=base.has_image,
                 )
             )
             continue
@@ -277,8 +287,13 @@ def merge_into_project(
         if not field_changes and not canon_rs:
             continue
         is_stale, reasons = decide(field_changes, canon_rs, state)
-        if is_stale:
+        if is_stale and state.has_image:
             shots[shot.id] = state.model_copy(update={"status": "stale", "stale_reasons": reasons})
+        elif is_stale:
+            # Без картинки устаревать нечему (M6.1): статус прежний, причины — в историю кадра.
+            history = list(dict.fromkeys([*state.stale_reasons, *reasons]))
+            shots[shot.id] = state.model_copy(update={"stale_reasons": history})
+            is_stale = False
         changes.append(
             ShotChange(
                 shot_id=shot.id,
