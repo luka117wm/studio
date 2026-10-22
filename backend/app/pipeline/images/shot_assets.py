@@ -2,20 +2,31 @@
 
 Каждая отрисовка — новый неизменяемый файл `media/<кадр>/vNNN.<ext>` с миниатюрами webp 160/320
 (принцип 12) и строкой `assets["img-<кадр>-v<N>"]` в project.json: хэш входов, модель, seed,
-вариант, цена, когда нарисована, из кэша ли. Выбранная версия — `ShotState.image_version`:
-первая выбирается сама, следующие — человеком (M6.9). Версии не удаляются и не перезаписываются.
+вариант, цена, когда нарисована, из кэша ли. Выбранная версия — `ShotState.image_version`: новая
+версия выбирается сама, если картинки нет или выбранная устарела (`stale`), иначе ждёт человека
+(M6.9). Версии не удаляются и не перезаписываются.
 
-project.json читается и пишется под `update_lock`: джобы картинок (M6.2) — потоки воркера в том
-же процессе, что и API.
+Статусы кадра на время работы — `queued`, `generating`, `failed` с причиной (M6.2); без работы —
+`settled_status`. project.json читается и пишется под `update_lock`: запись версии идёт из потока,
+API пишет из цикла событий.
 """
 
 import re
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from app.models.director import StrictModel
 from app.models.project import Asset, Project, ShotState, ShotStatus, image_asset_id
 from app.providers.base import image_mime
-from app.storage.atomic import read_json, update_lock, write_bytes_new, write_json_atomic
+from app.storage.atomic import (
+    link_new,
+    read_json,
+    update_lock,
+    write_bytes_new,
+    write_json_atomic,
+)
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 from app.storage.thumbs import ThumbWidth, ensure_thumb, thumb_path
@@ -27,6 +38,22 @@ THUMB_WIDTHS: tuple[ThumbWidth, ...] = (160, 320)
 
 # `v003.png`; temp-файлы записи начинаются с точки и сюда не попадают.
 _VERSION_FILE_RE = re.compile(r"^v(\d{3})\.[a-z0-9]+$")
+# Статусы, которые ставит работа над кадром; остальные выводит `settled_status`.
+WorkStatus = Literal["queued", "generating", "failed"]
+
+
+@dataclass(frozen=True)
+class Drawing:
+    """Что известно об отрисовке версии: хэш входов, модель (ключ каталога и ID), seed, вариант,
+    цена в микродолларах (из кэша — 0), из кэша ли."""
+
+    input_hash: str
+    model: str
+    seed: int
+    variant: int
+    usd_micro: int
+    cached: bool
+    model_id: str | None = None
 
 
 class NotAnImage(ValueError):
@@ -58,20 +85,9 @@ class ShotImages(StrictModel):
 
 
 def add_image_version(
-    paths: StudioPaths,
-    channel: str,
-    episode: str,
-    shot_id: str,
-    data: bytes,
-    *,
-    input_hash: str,
-    model: str,
-    seed: int,
-    variant: int,
-    usd_micro: int,
-    cached: bool,
+    paths: StudioPaths, channel: str, episode: str, shot_id: str, data: bytes, drawing: Drawing
 ) -> Asset:
-    """Новая версия картинки кадра: файл, миниатюры, строка `assets`; без выбранной — выбрана.
+    """Новая версия картинки кадра из байтов: файл, миниатюры, строка `assets`, выбор (см. модуль).
 
     Номер — следующий после последнего и на диске, и в `assets`: файл без строки (сбой между
     записью файла и project.json) свой номер не отдаёт.
@@ -79,12 +95,46 @@ def add_image_version(
     mime = image_mime(data)
     if mime is None:
         raise NotAnImage(f"кадр {shot_id}: ответ модели — не PNG, JPEG или WEBP")
+    return _add(
+        paths,
+        channel,
+        episode,
+        shot_id,
+        IMAGE_EXT[mime],
+        lambda p: write_bytes_new(p, data),
+        drawing,
+    )
+
+
+def add_image_file(
+    paths: StudioPaths, channel: str, episode: str, shot_id: str, source: Path, drawing: Drawing
+) -> Asset:
+    """Новая версия из файла шлюза — оплаченного или из кэша (L-042): жёсткая ссылка, второй копии
+    на диске нет; файл шлюза, как и версия, не меняется."""
+    with source.open("rb") as fh:
+        mime = image_mime(fh.read(16))
+    if mime is None:
+        raise NotAnImage(f"кадр {shot_id}: файл {source.name} — не PNG, JPEG или WEBP")
+    return _add(
+        paths, channel, episode, shot_id, IMAGE_EXT[mime], lambda p: link_new(source, p), drawing
+    )
+
+
+def _add(
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    ext: str,
+    store: Callable[[Path], None],
+    drawing: Drawing,
+) -> Asset:
     project_path = paths.project_path(channel, episode)
     with update_lock(project_path):
         project = Project.model_validate(read_json(project_path))
         version = _next_version(paths.shot_media_dir(channel, episode, shot_id), project, shot_id)
-        path = paths.shot_image_path(channel, episode, shot_id, version, IMAGE_EXT[mime])
-        write_bytes_new(path, data)
+        path = paths.shot_image_path(channel, episode, shot_id, version, ext)
+        store(path)
         for width in THUMB_WIDTHS:
             ensure_thumb(path, _thumb(paths, channel, episode, shot_id, version, width), width)
         asset = Asset(
@@ -93,17 +143,16 @@ def add_image_version(
             kind="image",
             version=version,
             path=path.relative_to(paths.episode_dir(channel, episode)).as_posix(),
-            hash=input_hash,
-            model=model,
-            seed=seed,
-            variant=variant,
-            usd_micro=usd_micro,
+            hash=drawing.input_hash,
+            model=drawing.model,
+            model_id=drawing.model_id,
+            seed=drawing.seed,
+            variant=drawing.variant,
+            usd_micro=drawing.usd_micro,
             created_at=now_iso(),
-            cached=cached,
+            cached=drawing.cached,
         )
-        state = project.shots.get(shot_id, ShotState())
-        if not state.has_image:
-            state = _chosen(state, version)
+        state = _with_new_version(project.shots.get(shot_id, ShotState()), version)
         _write(
             project_path,
             project,
@@ -124,6 +173,67 @@ def choose_image_version(
         find_version(project, shot_id, version)
         state = _chosen(project.shots.get(shot_id, ShotState()), version)
         return _write(project_path, project, shots={**project.shots, shot_id: state})
+
+
+def set_work_status(
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    status: WorkStatus,
+    error: str | None = None,
+) -> None:
+    """Кадр в работе: `queued`, `generating` или `failed` с причиной. Кадр, убранный из плана
+    (импорт, пока джоб ждал или рисовал), остаётся `removed`."""
+    _update_state(
+        paths,
+        channel,
+        episode,
+        shot_id,
+        lambda state: state.model_copy(
+            update={"status": status, "error": error} if status == "failed" else {"status": status}
+        ),
+    )
+
+
+def settle(paths: StudioPaths, channel: str, episode: str, shot_id: str) -> None:
+    """Работа над кадром снята (отмена джоба): статус — по картинке, причинам и сбою."""
+    _update_state(
+        paths,
+        channel,
+        episode,
+        shot_id,
+        lambda state: state.model_copy(update={"status": settled_status(state)}),
+    )
+
+
+def settled_status(state: ShotState) -> ShotStatus:
+    """Статус кадра без идущей работы: убран — `removed`; был сбой — `failed`; есть картинка —
+    `stale`, если есть причины, иначе `done`; картинки нет — `todo`."""
+    if state.status == "removed":
+        return "removed"
+    if state.error is not None:
+        return "failed"
+    if state.has_image:
+        return "stale" if state.stale_reasons else "done"
+    return "todo"
+
+
+def find_image_by_hash(project: Project, shot_id: str, input_hash: str) -> Asset | None:
+    """Версия кадра с тем же хэшем входов: тот же запрос уже нарисован (идемпотентность)."""
+    return next((a for a in image_versions(project, shot_id) if a.hash == input_hash), None)
+
+
+def bind_existing(
+    paths: StudioPaths, channel: str, episode: str, shot_id: str, version: int
+) -> ShotState:
+    """Тот же запрос второй раз: новой версии нет, готовая выбирается по правилу новой версии."""
+    project_path = paths.project_path(channel, episode)
+    with update_lock(project_path):
+        project = Project.model_validate(read_json(project_path))
+        state = _with_new_version(project.shots.get(shot_id, ShotState()), version)
+        _write(project_path, project, shots={**project.shots, shot_id: state})
+    return state
 
 
 def image_versions(project: Project, shot_id: str) -> list[Asset]:
@@ -186,13 +296,38 @@ def _next_version(media: Path, project: Project, shot_id: str) -> int:
     return max([0, *on_disk, *in_assets]) + 1
 
 
+def _with_new_version(state: ShotState, version: int) -> ShotState:
+    """Новая (или найденная по хэшу) версия: выбирается, если картинки нет или выбранная устарела;
+    иначе ждёт выбора человека. Причина сбоя снимается в любом случае."""
+    state = state.model_copy(update={"error": None})
+    if not state.has_image or state.stale_reasons:
+        return _chosen(state, version)
+    return state.model_copy(update={"status": settled_status(state)})
+
+
+def _update_state(
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    change: Callable[[ShotState], ShotState],
+) -> None:
+    project_path = paths.project_path(channel, episode)
+    with update_lock(project_path):
+        project = Project.model_validate(read_json(project_path))
+        state = project.shots.get(shot_id)
+        if state is None or state.status == "removed":
+            return
+        _write(project_path, project, shots={**project.shots, shot_id: change(state)})
+
+
 def _chosen(state: ShotState, version: int) -> ShotState:
-    """Выбранная версия соответствует кадру: `done`, причины `stale` и история — сброшены.
+    """Выбранная версия соответствует кадру: `done`, причины `stale`, история и сбой — сброшены.
     Убранный из плана кадр остаётся `removed` (джоб мог закончиться после импорта)."""
     if state.status == "removed":
         return state.model_copy(update={"image_version": version})
     return state.model_copy(
-        update={"image_version": version, "status": "done", "stale_reasons": []}
+        update={"image_version": version, "status": "done", "stale_reasons": [], "error": None}
     )
 
 

@@ -33,6 +33,8 @@ class CatalogEntry(StrictModel):
     params: dict[str, Any] = Field(default_factory=dict)
     # Референсов за вызов (картинки): лимит модели по документации провайдера; нет — не принимает.
     max_refs: int | None = Field(default=None, ge=1)
+    # Подпись для экрана выбора модели (M6.2): «Nano Banana 2». Нет — показывается ключ каталога.
+    label: str | None = Field(default=None, min_length=1)
 
 
 class StageConfig(StrictModel):

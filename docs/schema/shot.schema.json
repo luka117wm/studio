@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/shot",
+  "title": "shot",
+  "description": "Модели API Studio, группа «shot». Сгенерировано из Pydantic.",
+  "$defs": {
+    "ShotGenerate": {
+      "additionalProperties": false,
+      "description": "Тело `POST …/generate`: модель — ключ каталога `images` или ID модели из него; нет —\nпрофиль качества по умолчанию.",
+      "properties": {
+        "model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        }
+      },
+      "title": "ShotGenerate",
+      "type": "object"
+    }
+  }
+}

@@ -110,6 +110,8 @@ class ShotState(StrictModel):
     # Почему кадр `stale`/`removed` — человеческим языком, ставит импорт плана. У кадра без
     # картинки — история изменений плана и канона: устаревать нечему, статус прежний (M6.1).
     stale_reasons: list[str] = []
+    # Почему кадр `failed`: одна строка — что случилось и что сделать (M6.2); снимает новая версия.
+    error: str | None = Field(default=None, exclude_if=_is_none)
 
     @property
     def has_image(self) -> bool:
@@ -146,6 +148,8 @@ class Asset(StrictModel):
     # Метаданные отрисовки (M6.1): модель каталога, seed, номер варианта, цена в микродолларах,
     # когда сделан, из кэша ли. У ассетов без платного вызова и до M6 их нет.
     model: str | None = Field(default=None, exclude_if=_is_none)
+    # ID модели провайдера на момент вызова: ключ каталога может позже вести к другой модели.
+    model_id: str | None = Field(default=None, exclude_if=_is_none)
     seed: int | None = Field(default=None, exclude_if=_is_none)
     variant: int | None = Field(default=None, ge=1, exclude_if=_is_none)
     usd_micro: int | None = Field(default=None, ge=0, exclude_if=_is_none)

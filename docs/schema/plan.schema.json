@@ -1855,6 +1855,52 @@
       "title": "ShotPrompt",
       "type": "object"
     },
+    "ShotRefusal": {
+      "description": "Тело 409 «кадр не поставлен»: что случилось и что сделать. У `shot_problems` — проблемы\nсборщика с адресатами канона, у `shot_busy` — джоб, который уже рисует кадр.",
+      "properties": {
+        "code": {
+          "enum": [
+            "plan_not_approved",
+            "shot_problems",
+            "shot_busy"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "problems": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PromptProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "problems",
+        "job_id"
+      ],
+      "title": "ShotRefusal",
+      "type": "object"
+    },
     "Similarity": {
       "description": "Сходство VO плана с текстом референса (принцип 11): доля n-грамм плана, найденных в\nсубтитрах.",
       "properties": {

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.models.project import Asset, Project
-from app.pipeline.images.shot_assets import NotAnImage, add_image_version
+from app.pipeline.images.shot_assets import Drawing, NotAnImage, add_image_version
 from app.settings import Settings
 from app.storage.atomic import read_json, write_bytes_new
 from app.storage.db import connect
@@ -165,12 +165,14 @@ def test_not_an_image_writes_nothing(planned: TestClient, paths: StudioPaths) ->
             EPISODE,
             "s004",
             b"<html>quota exceeded</html>",
-            input_hash="sha256:x",
-            model="nb2",
-            seed=1,
-            variant=1,
-            usd_micro=67_000,
-            cached=False,
+            Drawing(
+                input_hash="sha256:x",
+                model="nb2",
+                seed=1,
+                variant=1,
+                usd_micro=67_000,
+                cached=False,
+            ),
         )
     assert project(paths) == before
     assert not paths.shot_media_dir("cursus", EPISODE, "s004").exists()
@@ -216,25 +218,29 @@ def test_chosen_version_must_be_an_image_of_this_shot() -> None:
 # --- выбор и статус -------------------------------------------------------------------------------
 
 
-def test_later_versions_wait_for_choice_and_choice_clears_stale(
+def test_new_version_waits_for_choice_unless_chosen_one_is_stale(
     planned: TestClient, paths: StudioPaths, draw: DrawShot
 ) -> None:
     draw(EPISODE, "s002")
-    # v2 плана меняет промпт s002: кадр с картинкой — `stale`.
+    draw(EPISODE, "s002", variant=2)
+    state = project(paths)["shots"]["s002"]
+    # У готового кадра новая версия — вариант на выбор: решает человек (M6.9).
+    assert (state["status"], state["image_version"]) == ("done", 1)
+    planned.post(f"{SHOTS_URL}/s002/images/2/choose")
+    state = project(paths)["shots"]["s002"]
+    assert (state["status"], state["image_version"], state["stale_reasons"]) == ("done", 2, [])
+
+    # v2 плана меняет промпт s002: выбранная картинка устарела — новая версия выбирается сама
+    # (M6.2, решение пользователя): иначе пачка «все stale» рисовала бы кадр снова.
     imported = planned.post(
         f"/api/projects/{EPISODE}/director", json=load("director_pirate_v2.json")
     )
     assert imported.status_code == 200, imported.text
     state = project(paths)["shots"]["s002"]
-    assert (state["status"], state["image_version"]) == ("stale", 1)
-
-    draw(EPISODE, "s002", variant=2)
+    assert (state["status"], state["image_version"]) == ("stale", 2)
+    draw(EPISODE, "s002", variant=3)
     state = project(paths)["shots"]["s002"]
-    assert (state["status"], state["image_version"]) == ("stale", 1)  # решает человек (M6.9)
-
-    planned.post(f"{SHOTS_URL}/s002/images/2/choose")
-    state = project(paths)["shots"]["s002"]
-    assert (state["status"], state["image_version"], state["stale_reasons"]) == ("done", 2, [])
+    assert (state["status"], state["image_version"], state["stale_reasons"]) == ("done", 3, [])
 
 
 def test_first_version_clears_history_of_shot_without_image(

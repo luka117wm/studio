@@ -111,7 +111,7 @@ from app.pipeline.script.plan_bridge import (
     prepare_part,
     voice_for,
 )
-from app.storage.atomic import read_json, write_json_atomic
+from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
@@ -582,31 +582,36 @@ async def approve_plan(
     """
     episode = require_episode(db, episode_id)
     path = paths.project_path(episode.channel, episode.id)
-    project = Project.model_validate(read_json(path))
-    director = read_version(paths, episode, project.director_version)
-    staged = [] if director is not None else staged_parts(paths, episode)
-    canon = None
-    if director is not None and project.director_version is not None:
-        canon = load_episode_canon(paths, episode.channel, director, project.director_version)
-    subject = ApprovalSubject(
-        stage=episode.stage,
-        plan=None if director is None else effective_plan(director, project),
-        staged_parts=[part.meta.part for part in staged],
-        parts_total=staged[0].meta.parts_total if staged else 0,
-        reference=_reference_check(db, project, config),
-        canon=canon,
-    )
-    problems = approval_problems(subject)
-    if problems:
-        raise HTTPException(status_code=409, detail=refusal(problems).model_dump(mode="json"))
-    if project.approved_version == project.director_version and episode.stage == "generate":
-        return episode_item(db, paths, episode.id)
+    with update_lock(path):  # джоб кадра пишет project.json из потока (L-049)
+        project = Project.model_validate(read_json(path))
+        director = read_version(paths, episode, project.director_version)
+        staged = [] if director is not None else staged_parts(paths, episode)
+        canon = None
+        if director is not None and project.director_version is not None:
+            canon = load_episode_canon(paths, episode.channel, director, project.director_version)
+        subject = ApprovalSubject(
+            stage=episode.stage,
+            plan=None if director is None else effective_plan(director, project),
+            staged_parts=[part.meta.part for part in staged],
+            parts_total=staged[0].meta.parts_total if staged else 0,
+            reference=_reference_check(db, project, config),
+            canon=canon,
+        )
+        problems = approval_problems(subject)
+        if problems:
+            raise HTTPException(status_code=409, detail=refusal(problems).model_dump(mode="json"))
+        if project.approved_version == project.director_version and episode.stage == "generate":
+            return episode_item(db, paths, episode.id)
 
-    now = now_iso()
-    approved = project.model_copy(
-        update={"approved_version": project.director_version, "approved_at": now, "updated_at": now}
-    )
-    write_json_atomic(path, approved.model_dump(mode="json"))
+        now = now_iso()
+        approved = project.model_copy(
+            update={
+                "approved_version": project.director_version,
+                "approved_at": now,
+                "updated_at": now,
+            }
+        )
+        write_json_atomic(path, approved.model_dump(mode="json"))
     mark_plan_approved(db, episode.id)
     return episode_item(db, paths, episode.id)
 

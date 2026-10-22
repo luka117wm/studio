@@ -127,6 +127,18 @@
           "default": null,
           "title": "Model"
         },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
         "seed": {
           "anyOf": [
             {
@@ -923,6 +935,18 @@
           },
           "title": "Stale Reasons",
           "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
         }
       },
       "required": [

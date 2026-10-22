@@ -41,6 +41,21 @@ def write_bytes_new(path: Path, data: bytes) -> None:
     _write_new(path, data)
 
 
+def link_new(source: Path, path: Path) -> None:
+    """Готовый неизменяемый файл ещё под одним именем (версия кадра из файла шлюза, M6.2):
+    жёсткая ссылка без второй копии на диске; `path` уже есть — FileExistsError. Ссылку не
+    сделать (другая ФС) — копия через `write_bytes_new`."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source, path)
+    except FileExistsError:
+        raise
+    except OSError:
+        write_bytes_new(path, source.read_bytes())
+        return
+    _fsync_dir(path.parent)
+
+
 @contextmanager
 def update_lock(path: Path) -> Iterator[None]:
     """Замок «прочитал — поправил — записал» одного файла состояния (project.json, M6.1).

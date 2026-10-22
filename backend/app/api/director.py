@@ -38,7 +38,7 @@ from app.pipeline.director_import import (
 )
 from app.pipeline.director_import.merge import director_to_json
 from app.pipeline.script.plan_bridge import fill_canon_ref
-from app.storage.atomic import read_json, write_json_atomic
+from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
@@ -107,37 +107,39 @@ def import_plan(
         director = collected
 
     project_path = paths.project_path(episode.channel, episode.id)
-    project = Project.model_validate(read_json(project_path))
-    digest = canonical_hash(director)
-    known = next((v for v in project.director_versions.values() if v.hash == digest), None)
+    # Запись версий кадра идёт из потока джоба — «прочитал — поправил — записал» под замком (L-049).
+    with update_lock(project_path):
+        project = Project.model_validate(read_json(project_path))
+        digest = canonical_hash(director)
+        known = next((v for v in project.director_versions.values() if v.hash == digest), None)
 
-    if known is not None and known.version == project.director_version:
-        mark_plan_imported(db, episode.id, new_version=False)
-        return ImportResult(
-            version=known.version, created=False, added=0, changed=0, removed=0, changes=[]
-        )
-    if known is not None:
-        version, created = known.version, False
-    else:
-        version = _next_version(paths, episode, project)
-        write_json_atomic(
-            paths.director_version_path(episode.channel, episode.id, int(version[1:])),
-            director_to_json(director),
-        )
-        created = True
+        if known is not None and known.version == project.director_version:
+            mark_plan_imported(db, episode.id, new_version=False)
+            return ImportResult(
+                version=known.version, created=False, added=0, changed=0, removed=0, changes=[]
+            )
+        if known is not None:
+            version, created = known.version, False
+        else:
+            version = _next_version(paths, episode, project)
+            write_json_atomic(
+                paths.director_version_path(episode.channel, episode.id, int(version[1:])),
+                director_to_json(director),
+            )
+            created = True
 
-    previous = read_version(paths, episode, project.director_version)
-    merged, result = merge_into_project(
-        project,
-        previous,
-        director,
-        version,
-        parts=parts,
-        created=created,
-        now=now_iso(),
-        source=source,
-    )
-    write_json_atomic(project_path, merged.model_dump(mode="json"))
+        previous = read_version(paths, episode, project.director_version)
+        merged, result = merge_into_project(
+            project,
+            previous,
+            director,
+            version,
+            parts=parts,
+            created=created,
+            now=now_iso(),
+            source=source,
+        )
+        write_json_atomic(project_path, merged.model_dump(mode="json"))
     _clear_parts(paths, episode)
     mark_plan_imported(db, episode.id, new_version=version != project.director_version)
     log.info(

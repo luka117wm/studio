@@ -36,6 +36,7 @@ from app.storage.db import connect
 if TYPE_CHECKING:
     from app.providers.base import Cost
     from app.providers.gateway import Gateway
+    from app.storage.paths import StudioPaths
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +103,9 @@ class HandlerSpec:
     # Платный вид (M2.6): оценка по payload. `POST /api/jobs` проверяет по ней бюджет до
     # постановки (409 при превышении) и держит её в `jobs.cost_usd_micro`, пока джоб в очереди.
     estimate: "Callable[[Gateway, Any], Cost] | None" = None
+    # Отмена джоба, который ещё не стартовал (M6.2): обработчик его не увидит — вернуть то, что
+    # пометили при постановке (статус кадра `queued`). Запущенный джоб видит `cancelled()` сам.
+    on_cancel: "Callable[[StudioPaths, Job], None] | None" = None
 
 
 class JobContext:

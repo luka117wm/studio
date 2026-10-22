@@ -16,11 +16,16 @@ import uuid
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.cost.pricing import format_usd
 from app.providers.base import Cost
 from app.storage.db import now_iso
+
+
+def _is_none(value: object) -> bool:
+    return value is None
+
 
 LedgerStatus = Literal["estimated", "charged", "cached", "refused", "failed"]
 SPENT_STATUSES: tuple[LedgerStatus, ...] = ("estimated", "charged")
@@ -29,13 +34,14 @@ _ZERO_STATUSES: frozenset[LedgerStatus] = frozenset({"cached", "failed"})
 
 @dataclass(frozen=True)
 class LedgerContext:
-    """Чей вызов: канал, выпуск, этап, джоб, хэш входов — одинаково для всех строк вызова."""
+    """Чей вызов: канал, выпуск, этап, джоб, хэш входов, кадр — одинаково для всех строк вызова."""
 
     channel: str
     episode_id: str | None
     stage: str
     job_id: str | None = None
     input_hash: str | None = None
+    shot_id: str | None = None  # кадр выпуска (M6.2); у вызовов без кадра — пусто
 
 
 class LedgerRow(BaseModel):
@@ -55,6 +61,7 @@ class LedgerRow(BaseModel):
     status: LedgerStatus
     call_id: str | None
     input_hash: str | None
+    shot_id: str | None = Field(default=None, exclude_if=_is_none)  # M6.2; раньше колонки не было
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "LedgerRow":
@@ -80,8 +87,8 @@ def record(
     for line in cost.lines:
         conn.execute(
             "INSERT INTO cost_ledger (ts, channel, episode_id, stage, job_id, provider, model,"
-            " unit, quantity, variant, cost_micro_usd, status, call_id, input_hash)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " unit, quantity, variant, cost_micro_usd, status, call_id, input_hash, shot_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 ts,
                 ctx.channel,
@@ -97,6 +104,7 @@ def record(
                 status,
                 call_id,
                 ctx.input_hash,
+                ctx.shot_id,
             ),
         )
 
@@ -122,6 +130,7 @@ def settle_charged(conn: sqlite3.Connection, call_id: str, actual: Cost) -> None
                 first["stage"],
                 first["job_id"],
                 first["input_hash"],
+                first["shot_id"],
             )
             record(conn, ctx, actual.model_copy(update={"lines": [line]}), "charged", call_id)
             continue

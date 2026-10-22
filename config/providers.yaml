@@ -37,14 +37,34 @@ stages:
 
   # Кадры (M6). `size` выбирает цену: 1K, 2K, 4K. `max_refs` — референсов за вызов: у моделей
   # Gemini 3 до 14 (ai.google.dev, «Image generation»; разбивка по видам — docs/providers.md).
+  # `label` — подпись в выборе модели на экране «Генерация» (M6.2).
   images:
     kind: image
     catalog:
       nb2-lite:
-        {provider: gemini, model: gemini-3.1-flash-lite-image, params: {size: 1K}, max_refs: 14}
-      nb2: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 1K}, max_refs: 14}
-      nb2-2k: {provider: gemini, model: gemini-3.1-flash-image, params: {size: 2K}, max_refs: 14}
-      nb-pro: {provider: gemini, model: gemini-3-pro-image, params: {size: 2K}, max_refs: 14}
+        provider: gemini
+        model: gemini-3.1-flash-lite-image
+        params: {size: 1K}
+        max_refs: 14
+        label: Nano Banana 2 Lite
+      nb2:
+        provider: gemini
+        model: gemini-3.1-flash-image
+        params: {size: 1K}
+        max_refs: 14
+        label: Nano Banana 2
+      nb2-2k:
+        provider: gemini
+        model: gemini-3.1-flash-image
+        params: {size: 2K}
+        max_refs: 14
+        label: Nano Banana 2 · 2K
+      nb-pro:
+        provider: gemini
+        model: gemini-3-pro-image
+        params: {size: 2K}
+        max_refs: 14
+        label: Nano Banana Pro
     profiles: {economy: nb2-lite, standard: nb2, premium: nb-pro}
 
   # Листы опорных портретов и кадры стиля (M5.4): эталон внешности делается один раз — одна модель

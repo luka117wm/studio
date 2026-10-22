@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:e8dc4bc170b67d60953b6f4e408609eb283b38109b5c3ab8e73e328d95fa1e80
+ * @generated sha256:71ac1ea9a7e2410116d9741eb91653b545ba1171cccdf76eefdbe7cc2322f8ef
  */
 export interface AnimateOverride {
   recommended?: boolean | null
@@ -19,6 +19,7 @@ export interface Asset {
   hash: string
   status: 'ok' | 'stale' | 'failed'
   model?: string | null
+  model_id?: string | null
   seed?: number | null
   variant?: number | null
   usd_micro?: number | null
@@ -163,6 +164,7 @@ export interface ShotState {
   prompt_locked: boolean
   user_override: ShotOverride | null
   stale_reasons: string[]
+  error?: string | null
 }
 
 export interface Source {

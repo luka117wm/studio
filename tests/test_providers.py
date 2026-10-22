@@ -391,6 +391,44 @@ def test_network_error_names_the_exception_when_its_text_is_empty() -> None:
             " детали.",
         ),
         (
+            # Категория фильтра, если модель её назвала (`safetyRatings` с `blocked`, M6.2):
+            # что смягчить в действии кадра. Незаблокированные категории не называются.
+            candidate(
+                finish="IMAGE_SAFETY",
+                safetyRatings=[
+                    {
+                        "category": "HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT",
+                        "probability": "HIGH",
+                        "blocked": True,
+                    },
+                    {"category": "HARM_CATEGORY_HARASSMENT", "probability": "NEGLIGIBLE"},
+                ],
+            ),
+            "Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности: насилие и"
+            " опасные действия — смягчите действие кадра.",
+        ),
+        (
+            {
+                "promptFeedback": {
+                    "blockReason": "SAFETY",
+                    "safetyRatings": [
+                        {
+                            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            "probability": "MEDIUM",
+                            "blocked": True,
+                        },
+                        {
+                            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                            "probability": "HIGH",
+                            "blocked": True,
+                        },
+                    ],
+                }
+            },
+            "Gemini не нарисовал картинку (SAFETY) — сработал фильтр безопасности: откровенное"
+            " содержание, насилие и опасные действия — смягчите действие кадра.",
+        ),
+        (
             {"promptFeedback": {"blockReason": "PROHIBITED_CONTENT"}},
             "Gemini не нарисовал картинку (PROHIBITED_CONTENT) — запрещённое содержание —"
             " перепишите промпт кадра.",

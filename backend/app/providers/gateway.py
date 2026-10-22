@@ -165,7 +165,9 @@ class Gateway:
         try:
             channel = self._call_channel(conn, ctx.episode_id, ctx.channel)
             asset_dir = self._asset_dir(channel, ctx, route)
-            entry = LedgerContext(channel, ctx.episode_id, ctx.stage, ctx.job_id, digest)
+            # Кадр — только у вызова выпуска: у листов портретов `shot_id` — имя файла кандидата.
+            shot = ctx.shot_id if ctx.episode_id is not None else None
+            entry = LedgerContext(channel, ctx.episode_id, ctx.stage, ctx.job_id, digest, shot)
             cached = self._cached_asset(conn, route.stage, digest)
             if cached is not None:
                 with conn:

@@ -4,6 +4,47 @@
   "title": "provider",
   "description": "Модели API Studio, группа «provider». Сгенерировано из Pydantic.",
   "$defs": {
+    "CatalogModel": {
+      "description": "Модель каталога этапа: ключ — то, что уходит в `model` заказа; цена — одной единицы.",
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "image",
+            "char",
+            "second",
+            "token_in",
+            "token_out",
+            "search"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "price": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "model",
+        "unit",
+        "price"
+      ],
+      "title": "CatalogModel",
+      "type": "object"
+    },
     "CharQuota": {
       "description": "Пакет символов ElevenLabs — один на аккаунт и общий для голоса и видео.",
       "properties": {
@@ -93,6 +134,63 @@
         "quota"
       ],
       "title": "KeyStatus",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "StageCatalog": {
+      "description": "Каталог этапа для выбора модели (полоса выбора экрана «Генерация», M6.8).",
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "image",
+            "speech",
+            "video"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "default": {
+          "type": "string",
+          "title": "Default"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/CatalogModel"
+          },
+          "title": "Models",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stage",
+        "kind",
+        "default",
+        "models"
+      ],
+      "title": "StageCatalog",
       "type": "object"
     }
   }

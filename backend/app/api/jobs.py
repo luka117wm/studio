@@ -127,8 +127,10 @@ async def get_job(job_id: str, db: DbDep) -> Job:
 
 
 @router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str, db: DbDep, jobs: JobsDep) -> Job:
-    """`queued` → `cancelled` сразу; у `running` — флаг, джоб остановится на следующем шаге."""
+async def cancel_job(job_id: str, db: DbDep, jobs: JobsDep, paths: PathsDep) -> Job:
+    """`queued` → `cancelled` сразу; у `running` — флаг, джоб остановится на следующем шаге.
+    Не стартовавший джоб снимает свои пометки через `HandlerSpec.on_cancel` (кадр `queued`)."""
+    before = queue.get_job(db, job_id)
     job = queue.request_cancel(db, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Джоб «{job_id}» не найден.")
@@ -137,6 +139,10 @@ async def cancel_job(job_id: str, db: DbDep, jobs: JobsDep) -> Job:
             status_code=409,
             detail=f"Джоб «{job_id}» уже завершён со статусом «{job.status}», отменять нечего.",
         )
+    spec = jobs.handlers.get(job.kind)
+    if before is not None and before.status == "queued" and job.status == "cancelled":
+        if spec is not None and spec.on_cancel is not None:
+            spec.on_cancel(paths, job)
     jobs.kick()
     return job
 

@@ -49,7 +49,7 @@ queued ──cancel──▶ cancelled
 | `POST /api/jobs` `{kind, payload, idempotency_key?, episode_id?, batch_id?}` | 201 — новый джоб; 200 — джоб с этим ключом уже есть, возвращается он (в любом статусе); 422 — неизвестный `kind`, невалидный `payload`, платный джоб без `episode_id`; 404 — нет выпуска; 409 — платный джоб не влезает в бюджет, джоб не создан (тело — `docs/providers.md`, «Бюджеты») |
 | `GET /api/jobs?batch=&episode=&status=&kind=&limit=200` | `{items, summary, last_event_id}`: последние `limit` джобов по фильтру в порядке постановки, `summary` — счётчики по статусам по всему фильтру (сводка пачки), `last_event_id` — курсор журнала для подписки |
 | `GET /api/jobs/{id}` | джоб или 404 |
-| `POST /api/jobs/{id}/cancel` | `queued` → `cancelled` сразу; `running` → флаг, ответ со `status: running, cancel_requested: true`; повтор для `cancelled` — 200; `done`/`failed` — 409 |
+| `POST /api/jobs/{id}/cancel` | `queued` → `cancelled` сразу, затем `HandlerSpec.on_cancel` вида, если он есть (ниже); `running` → флаг, ответ со `status: running, cancel_requested: true`; повтор для `cancelled` — 200; `done`/`failed` — 409 |
 | `GET /api/events` | поток SSE, ниже |
 
 Пайплайн ставит джобы из Python напрямую: `queue.enqueue` / `queue.enqueue_many` (одна транзакция на пачку), затем
@@ -88,6 +88,10 @@ def sleep_job(ctx: JobContext, payload: SleepPayload) -> dict[str, int]:
   заметив отмены, джоб получает статус `done`.
 - `ctx.attempt` — номер текущей попытки с учётом прошлых стартов.
 - В БД обработчик сам не пишет: переходы статусов делает только пул.
+- `on_cancel(paths, job)` (M6.2) — для вида, который при постановке что-то помечает вне очереди (кадр `queued` в
+  project.json). Отменённый до старта джоб обработчик не увидит, поэтому пометку снимает этот колбэк — его зовёт
+  `POST /api/jobs/{id}/cancel`, когда отмена перевела `queued` в `cancelled`. Запущенный джоб видит отмену в
+  `ctx.cancelled()` и снимает пометку сам.
 
 **Платный обработчик** (M2.6) объявляет оценку и ходит к провайдеру только через `ctx.gateway`:
 
@@ -147,6 +151,27 @@ async def image_job(ctx: JobContext, payload: ImagePayload) -> dict[str, Any]:
 - **Прогресс** — по кандидатам: «Кандидат 3 из 12 · Три четверти, 1», в конце «Готово 12 из 12: сбоев 0». Отмена —
   между кандидатами; сделанное остаётся в наборе.
 - `result`: `{target, done, charged, cached, failed, spent_usd_micro}`.
+
+## Джоб кадра (M6.2)
+
+`shot_image` — одна картинка кадра выпуска, один вариант: платный джоб выпуска (`episode_id`, оценка этапа `images`).
+Ставит его `POST /api/projects/{id}/shots/{shot_id}/generate {model?}` (пачка — M6.3), а не `POST /api/jobs`: заказ
+собирается кодом при постановке. Код — `pipeline/images/shot_job.py`, спека — `jobs/handlers/shots.py`; контракт
+целиком — `docs/generation.md`, «Джоб кадра».
+
+- **Payload — заказ целиком** (`ShotOrder`): выпуск, канал, кадр, вариант, ключ и ID модели, хэш входов и
+  `ImageRequest` от сборщика M5.5 (промпт, negative, референсы, seed). Перезапуск после аварии рисует то же.
+- **До очереди**: план утверждён, кадр в действующем плане, у сборщика нет проблем, модель из каталога, у кадра нет
+  незаконченного джоба `shot_image`, бюджет выпуска и месяца. Отказ — 409 (`ShotRefusal` или `BudgetRefusal`), 404,
+  422, джоб не создаётся. Ключа идемпотентности нет: повтор того же заказа после `done` ставит новый джоб, и тот
+  находит готовую версию с тем же хэшем без вызова.
+- **Статус кадра** в project.json: постановка — `queued`, старт — `generating`, итог — по версии (`done`, `stale`),
+  сбой — `failed` с причиной в `ShotState.error`. Отмена до старта — `on_cancel` возвращает кадру прежний статус.
+- **Ошибки**: `ProviderError` (отказ фильтра, 4xx), `RouteError` (референс изменился), `BudgetExceeded` в момент
+  вызова — кадр `failed`, джоб `failed` без повтора. `TransientError` и сеть — кадр `failed` с текстом, очередь
+  повторяет по правилам ниже, попытка снова ставит `generating`.
+- **Прогресс** — «Кадр s047 · рисуется», в конце «Кадр s047 · готово: версия 3» или «Кадр s047 · версия 1 уже
+  нарисована». `result`: `{shot_id, version, status: charged | cached | exists | cancelled, usd_micro}`.
 
 ## Ретраи
 

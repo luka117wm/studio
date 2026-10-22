@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.models.project import Asset
-from app.pipeline.images.shot_assets import add_image_version
+from app.pipeline.images.shot_assets import Drawing, add_image_version
 from app.pipeline.script import approve
 from app.settings import Settings
 from app.storage.paths import StudioPaths
@@ -62,12 +62,7 @@ def draw(settings: Settings) -> DrawShot:
             ok, encoded = cv2.imencode(".png", np.full((36, 64, 3), 128, dtype=np.uint8))
             assert ok
             data = encoded.tobytes()
-        return add_image_version(
-            paths,
-            channel,
-            episode,
-            shot_id,
-            data,
+        drawing = Drawing(
             input_hash=f"sha256:{shot_id}-{variant}",
             model="nb2",
             seed=1000 + variant,
@@ -75,5 +70,6 @@ def draw(settings: Settings) -> DrawShot:
             usd_micro=0 if cached else 67_000,
             cached=cached,
         )
+        return add_image_version(paths, channel, episode, shot_id, data, drawing)
 
     return _draw

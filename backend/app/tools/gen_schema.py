@@ -33,12 +33,14 @@ from app.api.formats import FormatPreview
 from app.api.ideas import IdeasAnswerBody, IdeasAnswerResult, IdeasPrompt, IdeasPromptBody
 from app.api.jobs import JobCreate, JobList
 from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
+from app.api.providers import StageCatalog
 from app.api.references import (
     ReferenceAnswer,
     ReferenceCreate,
     ReferenceEpisodeCreate,
     ReferencePrompt,
 )
+from app.api.shots import ShotGenerate
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.handlers.anchors import AnchorsEstimate
@@ -64,6 +66,7 @@ from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.pipeline.images.prompt_builder import ShotPrompt
 from app.pipeline.images.shot_assets import ShotImages
+from app.pipeline.images.shot_job import ShotRefusal
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
@@ -113,7 +116,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (Cost, "serialization"),
         (BudgetRefusal, "serialization"),
     ],
-    "provider": [(KeyStatus, "serialization")],
+    "provider": [(KeyStatus, "serialization"), (StageCatalog, "serialization")],
     "bridge": [
         (BridgeSettings, "serialization"),
         (BridgeRun, "serialization"),
@@ -140,7 +143,10 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (SimilarityReport, "serialization"),
         (EpisodeCanon, "serialization"),
         (ShotPrompt, "serialization"),
+        (ShotRefusal, "serialization"),
     ],
+    # Тело `POST …/shots/{id}/generate` (M6.2) — своя группа, как тела других запросов (L-031).
+    "shot": [(ShotGenerate, "validation")],
     "reference": [
         (ReferenceVideo, "serialization"),
         (ReferencePrompt, "serialization"),

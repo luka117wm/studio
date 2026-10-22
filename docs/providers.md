@@ -26,10 +26,13 @@
 
 - `kind` — вид запроса: `text | image | speech | video`. Он задаёт единицы учёта и модель запроса
   (`TextRequest`, `ImageRequest`, `SpeechRequest`, `VideoRequest` в `providers/base.py`).
-- `catalog` — **разрешённые** модели: ключ → `{provider, model, params, max_refs}`. В `params` лежит то, что меняет
-  цену и результат: `size` картинки (1K, 2K, 4K), `resolution` видео (720p, 1080p, 4K). `max_refs` — сколько
+- `catalog` — **разрешённые** модели: ключ → `{provider, model, params, max_refs, label}`. В `params` лежит то, что
+  меняет цену и результат: `size` картинки (1K, 2K, 4K), `resolution` видео (720p, 1080p, 4K). `max_refs` — сколько
   референсов модель принимает за вызов (только этапы `image`; нет поля — референсы не принимаются). Его читает
-  шлюз (отказ до вызова) и сборщик промпта (M5.5).
+  шлюз (отказ до вызова) и сборщик промпта (M5.5). `label` (M6.2) — подпись в выборе модели на экране: «Nano Banana
+  2», «Nano Banana 2 Lite», «Nano Banana 2 · 2K», «Nano Banana Pro». Она нужна у этапов, где модель выбирает человек
+  (сейчас `images`); нет — экран показывает ключ. Подпись — имя модели для человека, без цены: цена приходит из
+  `pricing.yaml` (`GET /api/providers/catalog/{stage}`, ниже).
 - `profiles` — ключ каталога для каждого профиля качества `economy`, `standard`, `premium`. Все три обязательны.
 
 `default_profile` — профиль по умолчанию. Профиль меняет только выбор модели; код от него не зависит.
@@ -60,6 +63,13 @@ M4 пути через API нет вовсе, он подключается от
 
 Где хранится выбор пользователя (настройки канала на экране 9, пачка на экране 4, кадр на экране 6), решают модули
 этих экранов (M6–M8). Сюда он приходит как `override`.
+
+**Модель кадра** (M6.2). Заказ кадра (`POST /api/projects/{id}/shots/{shot_id}/generate {model?}`,
+`docs/generation.md`) передаёт `model` — ключ каталога `images` или ID модели из него — в сборщик и шлюз как
+`override`. Модель меняет маршрут, а с ним хэш входов, лимит референсов и цену. Нет `model` — профиль качества по
+умолчанию (`default_profile`; своего профиля качества у канала пока нет, настройка — M11). Модель не из каталога —
+422 со списком доступных, джоб не ставится. Версия кадра помнит ключ (`model`) и ID модели (`model_id`) на момент
+вызова: ключ каталога позже может вести к другой модели.
 
 **Модель голоса** (решение M2.6; код — в M7). Порядок выбора такой:
 
@@ -226,13 +236,21 @@ anthropic:
   картинок (обычно 1).
 - **Формат файла выбирает модель.** `image_config.output_mime_type` в Gemini Developer API нет: SDK отказывает
   «only supported in Gemini Enterprise Agent Platform mode». `gemini-3-pro-image` по ключу API отдаёт JPEG с
-  метаданными C2PA (вживую 2026-10-16: 1K ≈ 470 КБ), файл ложится как `.jpg`. В PNG не перекодируем: качество
+  метаданными C2PA (вживую 2026-10-16: 1K ≈ 470 КБ), файл ложится как `.jpg`; `gemini-3.1-flash-image` — тоже JPEG
+  (кадр выпуска вживую 2026-10-22, M6.2). В PNG не перекодируем: качество
   это не вернёт. Референсами шлюз принимает PNG, JPEG и WEBP (`image_mime`), так что такой файл годится в лист.
 - **Отказ по содержанию** — нет картинки в ответе: `promptFeedback.blockReason` или `finishReason` (`IMAGE_SAFETY`,
   `IMAGE_PROHIBITED_CONTENT`, `IMAGE_RECITATION`, `NO_IMAGE`, …). Это `ProviderError` без статуса — очередь его не
   повторяет, журнал — `failed` ($0): «Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности —
   уберите из промпта насилие, кровь и другие острые детали.» `finishMessage` SDK для Gemini Developer API при
   разборе отбрасывает — в тексте только код; `blockReasonMessage` доходит.
+- **Категория фильтра** (M6.2) — если модель её назвала (`safetyRatings` с `blocked: true` у кандидата или у
+  `promptFeedback`), отказ фильтра безопасности говорит, что смягчить: «Gemini не нарисовал картинку (IMAGE_SAFETY) —
+  сработал фильтр безопасности: насилие и опасные действия — смягчите действие кадра.» Категории по-русски
+  (`gemini.py → _CATEGORIES`): опасное содержание — «насилие и опасные действия», травля — «травля и унижение»,
+  вражда — «вражда к группам людей», откровенное — «откровенное содержание», выборы — «выборы и политика»; у
+  обычных и `IMAGE_*` категорий текст один, повторы убираются. Незаблокированные категории не называются, без
+  категории — прежний текст. Отказ кадра (`docs/generation.md`, «Джоб кадра») — этот текст в `ShotState.error`.
 - **Ошибки API** — `status_error()` с текстом из тела ответа (L-018): 400 — «запрос отклонён (400): <сообщение>»,
   429 — `RateLimited` с `Retry-After`, 5xx и сеть — `TransientError`.
 - Видео Veo — M8 (`NotImplementedError`).
@@ -245,6 +263,7 @@ anthropic:
 |---|---|
 | `ts` | ISO 8601 UTC |
 | `channel`, `episode_id`, `stage`, `job_id` | чей вызов |
+| `shot_id` | кадр выпуска (M6.2, миграция `011`): у строк этапа `images` — кадр; у вызова без кадра и у вызова уровня канала — пусто (там `CallContext.shot_id` — имя файла кандидата, а не кадр); в ответе API поля нет, если пусто |
 | `provider`, `model` | куда |
 | `unit`, `quantity`, `variant` | единица, количество, вариант цены (разрешение) |
 | `cost_micro_usd` | целые микродоллары, см. статус |
@@ -281,8 +300,9 @@ anthropic:
 
 Бюджет проверяется дважды:
 
-1. **До постановки** — `POST /api/jobs` для платного вида (у `HandlerSpec` есть `estimate`). Превышение даёт 409,
-   джоб не создаётся, в журнал пишется строка `refused`.
+1. **До постановки** — `POST /api/jobs` для платного вида (у `HandlerSpec` есть `estimate`) и свои постановки
+   пайплайна (листы портретов, кадр — `POST …/shots/{id}/generate`, M6.2). Превышение даёт 409, джоб не создаётся,
+   в журнал пишется строка `refused`.
 2. **В момент вызова** — `Gateway.call`, на случай если лимит заняли, пока джоб ждал. Превышение даёт
    `BudgetExceeded`, джоб становится `failed` без повтора.
 
@@ -316,6 +336,7 @@ anthropic:
 | `GET /api/cost/summary?channel=` | `{channel, month: "2026-09", budget, by_stage: [{stage, spent}], stale_pricing: [{provider, model, checked_at, age_days}]}`; 404 — канала нет |
 | `GET /api/providers/status?refresh=` | `[KeyStatus]` по провайдерам конфига: `configured`, `ok`, `message`, `missing_models`, `quota` (остаток символов ElevenLabs для шапки). Бесплатные запросы, ответ держится 60 с; `refresh=true` — проверить заново |
 | `GET /api/cost/ledger?episode=&channel=&limit=500` | `{items: [строки журнала + usd], episode_budget, animation_budget}` (лимиты — только с `episode`); 422 без `episode` и `channel` |
+| `GET /api/providers/catalog/{stage}` | `StageCatalog {stage, kind, default, models: [{key, label, model, unit, price}]}` (M6.2): модели каталога этапа по порядку из `providers.yaml`, `default` — ключ профиля по умолчанию, `price` — цена одной единицы первой единицы вида (картинка; у голоса — символ, у видео — секунда, у текста — входной токен) по `pricing.yaml` той же функцией `Pricing.cost`, что смета; `label` — подпись или ключ; 404 — этапа нет |
 
 `budget` = `{limit, charged, reserved, queued, remaining}`, где `remaining = max(limit − занятое, 0)`.
 

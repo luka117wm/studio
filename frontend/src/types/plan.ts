@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:cd30801d66e472a5aa78a230178ddd900ed79b33c8cd05d2d00af85770eead41
+ * @generated sha256:edb039e213378924f5314413c2ea68b803b9f543d307994ea11deeacb8d1c991
  */
 /**
  * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
@@ -399,6 +399,17 @@ export interface ShotPrompt {
   input_hash: string | null
   problems: PromptProblem[]
   warnings: string[]
+}
+
+/**
+ * Тело 409 «кадр не поставлен»: что случилось и что сделать. У `shot_problems` — проблемы
+ * сборщика с адресатами канона, у `shot_busy` — джоб, который уже рисует кадр.
+ */
+export interface ShotRefusal {
+  code: 'plan_not_approved' | 'shot_problems' | 'shot_busy'
+  message: string
+  problems: PromptProblem[]
+  job_id: string | null
 }
 
 /**

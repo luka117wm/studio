@@ -1,4 +1,5 @@
-"""Версии картинки кадра (M6.1): список, выбор, миниатюра и файл. Контракт — `docs/generation.md`.
+"""Картинка кадра: версии (M6.1) — список, выбор, миниатюра и файл; отрисовка одного кадра
+джобом `shot_image` (M6.2). Контракт — `docs/generation.md`.
 
 Кадр — из текущего плана: в project.json у каждого кадра плана есть состояние, убранные —
 `removed` (M2.4). Версия — только своего кадра. Файлы версий неизменяемы, поэтому отдаются с
@@ -11,30 +12,85 @@ from typing import cast, get_args
 from fastapi import APIRouter, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
+from pydantic import Field
 
-from app.api.deps import DbDep, PathsDep
+from app.api.deps import CanonConfigDep, DbDep, GatewayDep, JobsDep, PathsDep
+from app.api.director import read_version
 from app.api.episodes import Episode, require_episode
+from app.cost.budget import BudgetExceeded
+from app.jobs.queue import Job
+from app.models.director import StrictModel
 from app.models.project import Asset, Project
-from app.pipeline.images import shot_assets
+from app.pipeline.images import shot_assets, shot_job
 from app.pipeline.images.shot_assets import ShotImages, VersionNotFound
+from app.pipeline.images.shot_job import OrderRefused, ShotNotInPlan
+from app.providers.base import RouteError
 from app.storage.atomic import read_json
 from app.storage.paths import StudioPaths
 from app.storage.thumbs import ThumbWidth
 
-router = APIRouter(prefix="/projects/{episode_id}/shots/{shot_id}/images", tags=["shots"])
+router = APIRouter(prefix="/projects/{episode_id}/shots/{shot_id}", tags=["shots"])
 
 IMMUTABLE = "public, max-age=31536000, immutable"  # файл версии пишется один раз
 THUMB_WIDTHS: tuple[int, ...] = get_args(ThumbWidth)
 
 
-@router.get("")
+class ShotGenerate(StrictModel):
+    """Тело `POST …/generate`: модель — ключ каталога `images` или ID модели из него; нет —
+    профиль качества по умолчанию."""
+
+    model: str | None = Field(default=None, min_length=1)
+
+
+@router.post("/generate", status_code=201)
+async def generate_shot(
+    episode_id: str,
+    shot_id: str,
+    body: ShotGenerate,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+    jobs: JobsDep,
+) -> Job:
+    """Один кадр — джоб `shot_image`, вариант 1 (пачка — M6.3, перерисовка — M6.4). Отказы до
+    очереди: план не утверждён, проблемы сборщика, кадр уже рисуется, бюджет — 409; кадра нет в
+    действующем плане — 404; модель не из каталога — 422."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    try:
+        order = shot_job.shot_order(
+            paths,
+            gateway,
+            config,
+            channel=episode.channel,
+            project=project,
+            director=director,
+            shot_id=shot_id,
+            model=body.model,
+        )
+        job = shot_job.enqueue_shot(db, gateway, paths, order)
+    except ShotNotInPlan as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RouteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OrderRefused as exc:
+        raise HTTPException(status_code=409, detail=exc.refusal.model_dump(mode="json")) from exc
+    except BudgetExceeded as exc:
+        raise HTTPException(status_code=409, detail=exc.detail()) from exc
+    jobs.kick()
+    return job
+
+
+@router.get("/images")
 async def get_shot_images(episode_id: str, shot_id: str, paths: PathsDep, db: DbDep) -> ShotImages:
     """Версии картинки кадра с метаданными, новые сверху, и выбранная версия."""
     _, project = _shot_of_plan(paths, db, episode_id, shot_id)
     return shot_assets.shot_images(project, shot_id)
 
 
-@router.post("/{version}/choose")
+@router.post("/images/{version}/choose")
 async def choose_shot_image(
     episode_id: str, shot_id: str, version: int, paths: PathsDep, db: DbDep
 ) -> ShotImages:
@@ -49,7 +105,7 @@ async def choose_shot_image(
     return shot_assets.shot_images(project, shot_id)
 
 
-@router.get("/{version}/thumb")
+@router.get("/images/{version}/thumb")
 async def get_shot_image_thumb(
     episode_id: str, shot_id: str, version: int, paths: PathsDep, db: DbDep, w: int = 320
 ) -> FileResponse:
@@ -70,7 +126,7 @@ async def get_shot_image_thumb(
     return FileResponse(path, media_type="image/webp", headers={"Cache-Control": IMMUTABLE})
 
 
-@router.get("/{version}/file")
+@router.get("/images/{version}/file")
 async def get_shot_image_file(
     episode_id: str, shot_id: str, version: int, paths: PathsDep, db: DbDep
 ) -> FileResponse:

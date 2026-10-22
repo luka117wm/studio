@@ -59,6 +59,19 @@ _REFUSALS: dict[str, str] = {
     "IMAGE_RECITATION": _RECITATION,
 }
 _NO_IMAGE = "модель не вернула картинку — повторите или упростите промпт"
+# Категория фильтра (`safetyRatings` с `blocked`), если модель её назвала: что смягчить в кадре.
+_SAFETY_WITH_CATEGORY = "сработал фильтр безопасности: {category} — смягчите действие кадра"
+_CATEGORIES: dict[str, str] = {
+    "HARM_CATEGORY_DANGEROUS_CONTENT": "насилие и опасные действия",
+    "HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT": "насилие и опасные действия",
+    "HARM_CATEGORY_HARASSMENT": "травля и унижение",
+    "HARM_CATEGORY_IMAGE_HARASSMENT": "травля и унижение",
+    "HARM_CATEGORY_HATE_SPEECH": "вражда к группам людей",
+    "HARM_CATEGORY_IMAGE_HATE": "вражда к группам людей",
+    "HARM_CATEGORY_SEXUALLY_EXPLICIT": "откровенное содержание",
+    "HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT": "откровенное содержание",
+    "HARM_CATEGORY_CIVIC_INTEGRITY": "выборы и политика",
+}
 
 
 class GeminiProvider:
@@ -169,7 +182,11 @@ def _final_images(response: types.GenerateContentResponse) -> list[tuple[bytes, 
     с причиной из ответа."""
     feedback = response.prompt_feedback
     if feedback is not None and feedback.block_reason is not None:
-        raise _refusal(_name(feedback.block_reason), feedback.block_reason_message)
+        raise _refusal(
+            _name(feedback.block_reason),
+            feedback.block_reason_message,
+            _blocked_categories(feedback.safety_ratings),
+        )
     candidate = response.candidates[0] if response.candidates else None
     parts = candidate.content.parts if candidate and candidate.content else None
     images = [
@@ -180,15 +197,31 @@ def _final_images(response: types.GenerateContentResponse) -> list[tuple[bytes, 
     if images:
         return [(data, mime or "application/octet-stream") for data, mime in images]
     reason = _name(candidate.finish_reason) if candidate and candidate.finish_reason else None
-    raise _refusal(reason, candidate.finish_message if candidate else None)
+    raise _refusal(
+        reason,
+        candidate.finish_message if candidate else None,
+        _blocked_categories(candidate.safety_ratings if candidate else None),
+    )
 
 
 def _name(value: object) -> str:
     return str(getattr(value, "value", value))
 
 
-def _refusal(reason: str | None, detail: str | None) -> ProviderError:
+def _blocked_categories(ratings: list[types.SafetyRating] | None) -> list[str]:
+    """Категории, по которым фильтр заблокировал ответ, — по-русски, без повторов."""
+    names = [
+        _CATEGORIES.get(_name(rating.category), "")
+        for rating in ratings or []
+        if rating.blocked and rating.category is not None
+    ]
+    return list(dict.fromkeys(name for name in names if name))
+
+
+def _refusal(reason: str | None, detail: str | None, categories: list[str]) -> ProviderError:
     hint = _REFUSALS.get(reason or "", _NO_IMAGE)
+    if categories and hint == _SAFETY:
+        hint = _SAFETY_WITH_CATEGORY.format(category=", ".join(categories))
     code = f" ({reason})" if reason else ""
     extra = f": {detail.strip().rstrip('.')}" if detail and detail.strip() else ""
     return ProviderError(f"{TITLE} не нарисовал картинку{code}{extra} — {hint}.")
