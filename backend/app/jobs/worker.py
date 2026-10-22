@@ -106,6 +106,12 @@ class HandlerSpec:
     # Отмена джоба, который ещё не стартовал (M6.2): обработчик его не увидит — вернуть то, что
     # пометили при постановке (статус кадра `queued`). Запущенный джоб видит `cancelled()` сам.
     on_cancel: "Callable[[StudioPaths, Job], None] | None" = None
+    # Лимит одновременных джобов вида (M6.3): пул берёт не больше стольких, общий пул не растёт и
+    # делится с другими видами. None — без своего лимита.
+    max_parallel: int | None = None
+    # После конечного перехода джоба (`done`, `failed`, `cancelled` воркером), в потоке loop:
+    # пересчитать то, что зависит от итога (статус выпуска, M6.3). Сбой колбэка — в лог.
+    on_finish: "Callable[[StudioPaths, Job], None] | None" = None
 
 
 class JobContext:
@@ -199,6 +205,7 @@ class JobPool:
         self._retry_wait_s = retry_wait_s
         self._gateway = gateway
         self._render_running = 0
+        self._running_by_kind: dict[str, int] = {}  # идущие джобы видов с `max_parallel`
         self._stopping = False
         self._shutdown = threading.Event()
         self._wake: asyncio.Event | None = None
@@ -263,12 +270,20 @@ class JobPool:
         return self._conn
 
     def _paused_kinds(self) -> list[str]:
-        if not (self.gpu_paused or self._render_running):
-            return []
-        return [kind for kind, spec in self.handlers.items() if spec.resource == "gpu"]
+        """Виды, которые сейчас не берутся: gpu на время рендера и виды на своём лимите."""
+        kinds = [
+            kind
+            for kind, spec in self.handlers.items()
+            if spec.max_parallel is not None
+            and self._running_by_kind.get(kind, 0) >= spec.max_parallel
+        ]
+        if self.gpu_paused or self._render_running:
+            kinds += [kind for kind, spec in self.handlers.items() if spec.resource == "gpu"]
+        return kinds
 
     def _claim(self) -> Job | None:
-        """Без await внутри: взятие и учёт рендера атомарны относительно других воркеров."""
+        """Без await внутри: взятие, учёт рендера и лимита вида атомарны относительно других
+        воркеров."""
         job = queue.claim(self._db(), self._paused_kinds())
         if job is None:
             return None
@@ -276,6 +291,8 @@ class JobPool:
         spec = self.handlers.get(job.kind)
         if spec is not None and spec.resource == "render":
             self._render_running += 1
+        if spec is not None and spec.max_parallel is not None:
+            self._running_by_kind[job.kind] = self._running_by_kind.get(job.kind, 0) + 1
         return job
 
     async def _worker(self) -> None:
@@ -339,6 +356,9 @@ class JobPool:
             if spec is not None and spec.resource == "render":
                 self._render_running -= 1
                 self.kick()  # gpu-джобы ждали конца рендера
+            if spec is not None and spec.max_parallel is not None:
+                self._running_by_kind[job.kind] -= 1
+                self.kick()  # джобы вида ждали свободного места
 
     async def _with_retries(
         self, job: Job, spec: HandlerSpec, ctx: JobContext, payload: BaseModel
@@ -415,7 +435,7 @@ class JobPool:
         result: JobResult = None,
         error: str | None = None,
     ) -> None:
-        queue.finish(
+        job = queue.finish(
             self._db(),
             job_id,
             status,
@@ -425,3 +445,10 @@ class JobPool:
             error=error,
         )
         self.bus.notify()
+        spec = self.handlers.get(job.kind) if job is not None else None
+        if job is None or spec is None or spec.on_finish is None or self._gateway is None:
+            return
+        try:
+            spec.on_finish(self._gateway.paths, job)
+        except Exception:
+            log.exception("job %s (%s): on_finish failed", job.id, job.kind)

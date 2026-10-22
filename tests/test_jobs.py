@@ -5,6 +5,7 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -22,6 +23,8 @@ from app.main import create_app
 from app.models.director import StrictModel
 from app.settings import REPO_ROOT, Settings
 from app.storage.db import connect, migrate
+from app.storage.paths import StudioPaths
+from app.tools.seed import seed
 
 TERMINAL = ("done", "failed", "cancelled")
 
@@ -65,11 +68,28 @@ def hold_job(ctx: JobContext, payload: HoldPayload) -> dict[str, bool]:
     return {"stopped": False}
 
 
+_ACTIVE_LOCK = threading.Lock()
+_ACTIVE = {"now": 0, "max": 0}
+
+
+def counted_job(ctx: JobContext, payload: HoldPayload) -> dict[str, bool]:
+    """Держит слот `seconds` и считает, сколько таких идёт одновременно."""
+    with _ACTIVE_LOCK:
+        _ACTIVE["now"] += 1
+        _ACTIVE["max"] = max(_ACTIVE["max"], _ACTIVE["now"])
+    try:
+        return hold_job(ctx, payload)
+    finally:
+        with _ACTIVE_LOCK:
+            _ACTIVE["now"] -= 1
+
+
 def make_handlers() -> dict[str, HandlerSpec]:
     handlers = builtin_handlers()
     handlers["flaky_job"] = HandlerSpec("flaky_job", flaky_job, FlakyPayload)
     handlers["render_job"] = HandlerSpec("render_job", hold_job, HoldPayload, resource="render")
     handlers["gpu_job"] = HandlerSpec("gpu_job", hold_job, HoldPayload, resource="gpu")
+    handlers["limited_job"] = HandlerSpec("limited_job", counted_job, HoldPayload, max_parallel=3)
     return handlers
 
 
@@ -359,6 +379,66 @@ def test_manual_gpu_pause(jobs_client: TestClient) -> None:
     assert jobs_client.get(f"/api/jobs/{gpu['id']}").json()["status"] == "queued"
     pool.gpu_paused = False
     assert wait_job(jobs_client, gpu["id"], timeout=3)["status"] == "done"  # опрос раз в секунду
+
+
+def test_kind_limit_caps_parallel_jobs_and_shares_the_pool(tmp_path: Path) -> None:
+    """M6.3: 10 джобов вида с лимитом 3 при четырёх воркерах — одновременно не больше трёх, а
+    четвёртый воркер берёт другие виды: общий пул не растёт и делится."""
+    _ACTIVE.update(now=0, max=0)
+    app = create_app(job_settings(tmp_path, job_workers=4), make_handlers())
+    with TestClient(app) as client:
+        limited = [post_job(client, "limited_job", {"seconds": 0.15}) for _ in range(10)]
+        other = post_job(client, "sleep_job", {"steps": 1, "step_s": 0})
+        assert wait_job(client, other["id"])["status"] == "done"
+        still = [client.get(f"/api/jobs/{j['id']}").json()["status"] for j in limited]
+        assert "queued" in still  # другой вид не ждал конца лимитированных
+        for job in limited:
+            assert wait_job(client, job["id"], timeout=10)["status"] == "done"
+    assert _ACTIVE["max"] == 3
+
+
+def test_claim_skips_jobs_of_paused_batch(db: sqlite3.Connection, tmp_path: Path) -> None:
+    """M6.3: пауза — флаг пачки в БД; `claim` её `queued` не берёт, остальные — как обычно."""
+    seed(StudioPaths(tmp_path / "data"), db)
+    db.execute(
+        "INSERT INTO episodes (id, channel, title, created_at, updated_at)"
+        " VALUES ('e1', 'cursus', 'E', 't', 't')"
+    )
+    db.commit()
+    db.execute("BEGIN IMMEDIATE")
+    summary, jobs = queue.insert_batch(
+        db,
+        queue.NewBatch(
+            id="b1",
+            episode_id="e1",
+            kind="sleep_job",
+            model="m",
+            estimate_usd_micro=0,
+            parallel=1,
+        ),
+        [NewJob("sleep_job", episode_id="e1"), NewJob("sleep_job", episode_id="e1")],
+    )
+    db.commit()
+    assert (summary.jobs.total, summary.jobs.queued, summary.paused) == (2, 2, False)
+    loose, _ = queue.enqueue(db, NewJob("sleep_job"))
+
+    paused = queue.set_batch_paused(db, "b1", True)
+    assert paused is not None and paused.paused
+    claimed = queue.claim(db)
+    assert claimed is not None and claimed.id == loose.id
+    assert queue.claim(db) is None
+
+    queue.set_batch_paused(db, "b1", False)
+    claimed = queue.claim(db)
+    assert claimed is not None and claimed.id == jobs[0].id
+    after = queue.batch_summary(db, "b1")
+    assert after is not None and (after.jobs.running, after.jobs.queued) == (1, 1)
+    types = [
+        row["type"]
+        for row in db.execute("SELECT type FROM job_events ORDER BY id").fetchall()
+        if row["type"] == "batch.updated"
+    ]
+    assert len(types) == 4  # постановка, пауза, продолжение, старт джоба пачки
 
 
 # --- перезапуски ---------------------------------------------------------------------------------

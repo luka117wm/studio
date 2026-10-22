@@ -15,6 +15,12 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
+# Деньги для ответов живут в `money.py` (без зависимостей, M6.3); здесь — прежние имена.
+from app.cost.money import MICRO
+from app.cost.money import Money as Money
+from app.cost.money import format_unit_usd as format_unit_usd
+from app.cost.money import format_usd as format_usd
+from app.cost.money import money as money
 from app.models.director import StrictModel
 from app.providers.base import (
     UNITS_BY_KIND,
@@ -28,8 +34,6 @@ from app.providers.base import (
 )
 
 log = logging.getLogger(__name__)
-
-MICRO = Decimal(1_000_000)
 
 
 def _decimal_from_text(value: Any) -> Any:
@@ -88,39 +92,6 @@ def usd_to_micro(value: Decimal | float | int) -> int:
 
 def _round_micro(value: Decimal) -> int:
     return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
-
-
-def format_usd(micro: int) -> str:
-    """Микродоллары → «$151.20», «$150»; только для ответов API, в журнале — микродоллары."""
-    sign = "-" if micro < 0 else ""
-    cents = (Decimal(abs(micro)) / MICRO).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    if micro and not cents:
-        return f"{sign}<$0.01"
-    if cents == cents.to_integral_value():
-        return f"{sign}${int(cents)}"
-    return f"{sign}${cents}"
-
-
-def format_unit_usd(micro: int) -> str:
-    """Цена одного вызова в подписи сметы: «$0.067», «$0.32» — до десятых цента, где они есть;
-    дешевле — «<$0.001». Суммы показывает `format_usd`."""
-    mills = (Decimal(micro) / MICRO).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
-    if micro and not mills:
-        return "<$0.001"
-    if mills == mills.quantize(Decimal("0.01")):
-        return format_usd(micro)
-    return f"${mills}"
-
-
-class Money(BaseModel):
-    """Деньги в ответе API: по `usd_micro` считать, `usd` показывать."""
-
-    usd_micro: int
-    usd: str
-
-
-def money(micro: int) -> Money:
-    return Money(usd_micro=micro, usd=format_usd(micro))
 
 
 def today_utc() -> date:

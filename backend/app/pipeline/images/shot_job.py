@@ -24,17 +24,18 @@ from app.models.canon_config import CanonConfig
 from app.models.director import EPISODE_ID_PATTERN, SHOT_ID_PATTERN, Channel, Director, StrictModel
 from app.models.project import Project
 from app.pipeline.canon.episode_canon import plan_canon_ref
-from app.pipeline.director_import import effective_plan
+from app.pipeline.director_import import PlanShot, effective_plan
 from app.pipeline.images import shot_assets
 from app.pipeline.images.prompt_builder import IMAGES_STAGE, PromptProblem, build_shot_request
 from app.pipeline.images.shot_assets import Drawing
+from app.pipeline.images.status import refresh_episode_status
 from app.pipeline.script.plan_bridge import plural
 from app.providers.base import Cost, ImageRequest, ProviderError, RouteError
 from app.providers.gateway import CallContext, Gateway
 from app.storage.atomic import read_json
 from app.storage.paths import StudioPaths
 
-SHOT_KIND = "shot_image"
+SHOT_KIND = "shot_image"  # = `status.SHOT_KIND`
 _ON_SCRIPT = " на экране «Сценарий»"
 
 RefusalCode = Literal["plan_not_approved", "shot_problems", "shot_busy"]
@@ -51,6 +52,9 @@ class ShotOrder(StrictModel):
     model_id: str  # ID модели маршрута на момент заказа
     input_hash: str  # ключ кэша кадра, как у предпросмотра
     request: ImageRequest
+    # Версия плана заказа (M6.3): сменилась, пока джоб ждал или рисовал, — версия кадра сама не
+    # выбирается. У заказов до M6.3 поля нет — без проверки.
+    plan_version: str | None = None
 
 
 class ShotRefusal(BaseModel):
@@ -90,6 +94,25 @@ def shot_order(
 ) -> ShotOrder:
     """Заказ кадра действующего плана. Не утверждён план или есть проблемы — `OrderRefused`;
     кадра нет — `ShotNotInPlan`; модель не из каталога — `RouteError`. Ничего не пишет."""
+    approved = check_approved(project, director)
+    shot = next((s for s in effective_plan(approved, project).shots if s.id == shot_id), None)
+    if shot is None or shot.status == "removed":
+        raise ShotNotInPlan(f"Кадра {shot_id} в действующем плане выпуска нет.")
+    return order_for(
+        paths,
+        gateway,
+        config,
+        channel=channel,
+        project=project,
+        director=approved,
+        shot=shot,
+        variant=variant,
+        model=model,
+    )
+
+
+def check_approved(project: Project, director: Director | None) -> Director:
+    """План есть и утверждена текущая версия (принцип 10); иначе `OrderRefused`."""
     current = project.director_version
     if director is None or current is None:
         _refuse(
@@ -110,9 +133,23 @@ def shot_order(
             f"Утверждена версия {project.approved_version}, а текущая — {current}: утвердите план"
             f" снова{_ON_SCRIPT}.",
         )
-    shot = next((s for s in effective_plan(director, project).shots if s.id == shot_id), None)
-    if shot is None or shot.status == "removed":
-        raise ShotNotInPlan(f"Кадра {shot_id} в действующем плане выпуска нет.")
+    return director
+
+
+def order_for(
+    paths: StudioPaths,
+    gateway: Gateway,
+    config: CanonConfig,
+    *,
+    channel: Channel,
+    project: Project,
+    director: Director,
+    shot: PlanShot,
+    variant: int = 1,
+    model: str | None = None,
+) -> ShotOrder:
+    """Заказ по кадру действующего плана (утверждение проверено вызывающим): проблемы сборщика —
+    `OrderRefused` со списком, модель не из каталога — `RouteError`."""
     built = build_shot_request(
         paths,
         gateway,
@@ -129,7 +166,7 @@ def shot_order(
         raise OrderRefused(
             ShotRefusal(
                 code="shot_problems",
-                message=f"Кадр {shot_id} нельзя рисовать: {n}"
+                message=f"Кадр {shot.id} нельзя рисовать: {n}"
                 f" {plural(n, 'проблема', 'проблемы', 'проблем')} — исправьте и поставьте снова.",
                 problems=built.prompt.problems,
             )
@@ -137,12 +174,13 @@ def shot_order(
     return ShotOrder(
         episode_id=project.episode_id,
         channel=channel,
-        shot_id=shot_id,
+        shot_id=shot.id,
         variant=variant,
         model=built.route.key,
         model_id=built.route.model,
         input_hash=built.prompt.input_hash,
         request=built.request,
+        plan_version=project.director_version,
     )
 
 
@@ -191,9 +229,17 @@ def enqueue_shot(
 
 
 def cancel_shot(paths: StudioPaths, job: Job) -> None:
-    """Джоб снят до старта (`HandlerSpec.on_cancel`): кадр возвращается к своему статусу."""
+    """Джоб снят до старта (`HandlerSpec.on_cancel`): кадр возвращается к своему статусу, статус
+    выпуска пересчитывается."""
     order = ShotOrder.model_validate(job.payload)
-    shot_assets.settle(paths, order.channel, order.episode_id, order.shot_id)
+    shot_assets.settle(paths, order.channel, order.episode_id, [order.shot_id])
+    refresh_episode_status(paths, order.episode_id)
+
+
+def finish_shot(paths: StudioPaths, job: Job) -> None:
+    """Конечный переход джоба (`HandlerSpec.on_finish`): статус выпуска по итогу (M6.3)."""
+    if job.episode_id is not None:
+        refresh_episode_status(paths, job.episode_id)
 
 
 # --- джоб ----------------------------------------------------------------------------------------
@@ -205,7 +251,7 @@ async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
     paths = gateway.paths
     where = (paths, order.channel, order.episode_id, order.shot_id)
     if ctx.cancelled():
-        shot_assets.settle(*where)
+        shot_assets.settle(paths, order.channel, order.episode_id, [order.shot_id])
         return _result(order, None, "cancelled", 0)
     shot_assets.set_work_status(*where, "generating")
     ctx.progress(0.0, f"Кадр {order.shot_id} · рисуется")
@@ -213,7 +259,9 @@ async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
     project = Project.model_validate(read_json(paths.project_path(order.channel, order.episode_id)))
     known = shot_assets.find_image_by_hash(project, order.shot_id, order.input_hash)
     if known is not None:
-        await asyncio.to_thread(shot_assets.bind_existing, *where, known.version)
+        await asyncio.to_thread(
+            shot_assets.bind_existing, *where, known.version, order.plan_version
+        )
         ctx.progress(1.0, f"Кадр {order.shot_id} · версия {known.version} уже нарисована")
         return _result(order, known.version, "exists", 0)
 
@@ -239,6 +287,7 @@ async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
             variant=order.variant,
             usd_micro=charged,
             cached=outcome.status == "cached",
+            plan_version=order.plan_version,
         )
         asset = await asyncio.to_thread(
             shot_assets.add_image_file, *where, outcome.asset_path, drawing

@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
+from app.api.batches import BatchCreate, RetryFailed
 from app.api.bridge import BridgeSettings
 from app.api.canon import (
     AppearanceCopy,
@@ -44,7 +45,7 @@ from app.api.shots import ShotGenerate
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.handlers.anchors import AnchorsEstimate
-from app.jobs.queue import Job, JobEventData, JobSummary
+from app.jobs.queue import BatchSummary, Job, JobEventData, JobSummary
 from app.log import configure_logging
 from app.models.canon import (
     CanonSummary,
@@ -64,6 +65,7 @@ from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.canon.anchors import AnchorSetState
 from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.images.batch import BatchEstimate, BatchRefusal, BatchResult
 from app.pipeline.images.prompt_builder import ShotPrompt
 from app.pipeline.images.shot_assets import ShotImages
 from app.pipeline.images.shot_job import ShotRefusal
@@ -147,6 +149,14 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
     ],
     # Тело `POST …/shots/{id}/generate` (M6.2) — своя группа, как тела других запросов (L-031).
     "shot": [(ShotGenerate, "validation")],
+    # Пачка кадров (M6.3): ответы; тела — отдельно (L-031).
+    "batch": [
+        (BatchSummary, "serialization"),
+        (BatchResult, "serialization"),
+        (BatchEstimate, "serialization"),
+        (BatchRefusal, "serialization"),
+    ],
+    "batch_request": [(BatchCreate, "validation"), (RetryFailed, "validation")],
     "reference": [
         (ReferenceVideo, "serialization"),
         (ReferencePrompt, "serialization"),

@@ -44,7 +44,8 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-mypy_path = "backend"
+# `tests` — общие модули тестов (`episode_env.py`, M6.3): импортируются как модули верхнего уровня.
+mypy_path = "backend:tests"
 explicit_package_bases = true
 # Плагин знает конструкторы моделей и служебные аргументы BaseSettings (`_env_file`) — иначе
 # `mypy tests` падает на каждом `Settings(_env_file=None)`.

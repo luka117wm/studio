@@ -12,7 +12,7 @@ API пишет из цикла событий.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -54,6 +54,9 @@ class Drawing:
     usd_micro: int
     cached: bool
     model_id: str | None = None
+    # Версия плана, по которой собран заказ (M6.3): к записи версии текущая уже другая — версия
+    # нарисована по прежнему плану и сама не выбирается. None — без проверки.
+    plan_version: str | None = None
 
 
 class NotAnImage(ValueError):
@@ -152,7 +155,11 @@ def _add(
             created_at=now_iso(),
             cached=drawing.cached,
         )
-        state = _with_new_version(project.shots.get(shot_id, ShotState()), version)
+        state = _with_new_version(
+            project.shots.get(shot_id, ShotState()),
+            version,
+            may_choose=_plan_is_current(project, drawing.plan_version),
+        )
         _write(
             project_path,
             project,
@@ -185,24 +192,29 @@ def set_work_status(
 ) -> None:
     """Кадр в работе: `queued`, `generating` или `failed` с причиной. Кадр, убранный из плана
     (импорт, пока джоб ждал или рисовал), остаётся `removed`."""
-    _update_state(
+    set_work_statuses(paths, channel, episode, [shot_id], status, error)
+
+
+def set_work_statuses(
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_ids: Sequence[str],
+    status: WorkStatus,
+    error: str | None = None,
+) -> None:
+    """То же для многих кадров одной записью project.json (пачка, M6.3)."""
+    update = {"status": status, "error": error} if status == "failed" else {"status": status}
+    _update_states(paths, channel, episode, shot_ids, lambda state: state.model_copy(update=update))
+
+
+def settle(paths: StudioPaths, channel: str, episode: str, shot_ids: Sequence[str]) -> None:
+    """Работа над кадрами снята (отмена джобов): статус — по картинке, причинам и сбою."""
+    _update_states(
         paths,
         channel,
         episode,
-        shot_id,
-        lambda state: state.model_copy(
-            update={"status": status, "error": error} if status == "failed" else {"status": status}
-        ),
-    )
-
-
-def settle(paths: StudioPaths, channel: str, episode: str, shot_id: str) -> None:
-    """Работа над кадром снята (отмена джоба): статус — по картинке, причинам и сбою."""
-    _update_state(
-        paths,
-        channel,
-        episode,
-        shot_id,
+        shot_ids,
         lambda state: state.model_copy(update={"status": settled_status(state)}),
     )
 
@@ -225,13 +237,22 @@ def find_image_by_hash(project: Project, shot_id: str, input_hash: str) -> Asset
 
 
 def bind_existing(
-    paths: StudioPaths, channel: str, episode: str, shot_id: str, version: int
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    version: int,
+    plan_version: str | None = None,
 ) -> ShotState:
     """Тот же запрос второй раз: новой версии нет, готовая выбирается по правилу новой версии."""
     project_path = paths.project_path(channel, episode)
     with update_lock(project_path):
         project = Project.model_validate(read_json(project_path))
-        state = _with_new_version(project.shots.get(shot_id, ShotState()), version)
+        state = _with_new_version(
+            project.shots.get(shot_id, ShotState()),
+            version,
+            may_choose=_plan_is_current(project, plan_version),
+        )
         _write(project_path, project, shots={**project.shots, shot_id: state})
     return state
 
@@ -296,29 +317,40 @@ def _next_version(media: Path, project: Project, shot_id: str) -> int:
     return max([0, *on_disk, *in_assets]) + 1
 
 
-def _with_new_version(state: ShotState, version: int) -> ShotState:
-    """Новая (или найденная по хэшу) версия: выбирается, если картинки нет или выбранная устарела;
-    иначе ждёт выбора человека. Причина сбоя снимается в любом случае."""
+def _with_new_version(state: ShotState, version: int, *, may_choose: bool = True) -> ShotState:
+    """Новая (или найденная по хэшу) версия: выбирается, если картинки нет или выбранная устарела
+    и версия нарисована по текущему плану; иначе ждёт выбора человека. Сбой снимается всегда."""
     state = state.model_copy(update={"error": None})
-    if not state.has_image or state.stale_reasons:
+    if may_choose and (not state.has_image or state.stale_reasons):
         return _chosen(state, version)
     return state.model_copy(update={"status": settled_status(state)})
 
 
-def _update_state(
+def _plan_is_current(project: Project, plan_version: str | None) -> bool:
+    return plan_version is None or plan_version == project.director_version
+
+
+def _update_states(
     paths: StudioPaths,
     channel: str,
     episode: str,
-    shot_id: str,
+    shot_ids: Sequence[str],
     change: Callable[[ShotState], ShotState],
 ) -> None:
+    """Состояния кадров одной записью; кадр без состояния или `removed` не трогается."""
     project_path = paths.project_path(channel, episode)
     with update_lock(project_path):
         project = Project.model_validate(read_json(project_path))
-        state = project.shots.get(shot_id)
-        if state is None or state.status == "removed":
-            return
-        _write(project_path, project, shots={**project.shots, shot_id: change(state)})
+        shots = dict(project.shots)
+        changed = False
+        for shot_id in shot_ids:
+            state = shots.get(shot_id)
+            if state is None or state.status == "removed":
+                continue
+            shots[shot_id] = change(state)
+            changed = True
+        if changed:
+            _write(project_path, project, shots=shots)
 
 
 def _chosen(state: ShotState, version: int) -> ShotState:

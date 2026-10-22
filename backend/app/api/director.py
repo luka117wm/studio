@@ -37,6 +37,7 @@ from app.pipeline.director_import import (
     merge_into_project,
 )
 from app.pipeline.director_import.merge import director_to_json
+from app.pipeline.images.batch import cancel_for_new_plan
 from app.pipeline.script.plan_bridge import fill_canon_ref
 from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
@@ -141,6 +142,10 @@ def import_plan(
         )
         write_json_atomic(project_path, merged.model_dump(mode="json"))
     _clear_parts(paths, episode)
+    if version != project.director_version:
+        # Новая текущая версия снимает план с утверждения (принцип 10): кадры в очереди по
+        # прежнему плану не рисуются (M6.3). После замка: снятие пишет project.json само.
+        cancel_for_new_plan(db, paths, episode.id)
     mark_plan_imported(db, episode.id, new_version=version != project.director_version)
     log.info(
         "director import %s/%s: %s from %s (+%d ~%d -%d)",

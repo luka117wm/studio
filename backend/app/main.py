@@ -74,7 +74,7 @@ def create_app(
     app.state.bus = EventBus()
     app.state.jobs = JobPool(
         app.state.paths.db_path,
-        builtin_handlers() if handlers is None else handlers,
+        builtin_handlers(settings) if handlers is None else handlers,
         app.state.bus,
         workers=settings.job_workers,
         max_attempts=settings.job_max_attempts,
