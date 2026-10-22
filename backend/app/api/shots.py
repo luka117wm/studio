@@ -1,5 +1,6 @@
 """Картинка кадра: версии (M6.1) — список, выбор, миниатюра и файл; отрисовка одного кадра
-джобом `shot_image` (M6.2). Контракт — `docs/generation.md`.
+джобом `shot_image` (M6.2); перерисовка новым вариантом и «С правкой…» (M6.4). Контракт —
+`docs/generation.md`.
 
 Кадр — из текущего плана: в project.json у каждого кадра плана есть состояние, убранные —
 `removed` (M2.4). Версия — только своего кадра. Файлы версий неизменяемы, поэтому отдаются с
@@ -12,12 +13,14 @@ from typing import cast, get_args
 from fastapi import APIRouter, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.api.deps import CanonConfigDep, DbDep, GatewayDep, JobsDep, PathsDep
 from app.api.director import read_version
 from app.api.episodes import Episode, require_episode
+from app.api.projects import patched_project
 from app.cost.budget import BudgetExceeded
+from app.cost.money import Money, format_unit_usd
 from app.jobs.queue import Job
 from app.models.director import StrictModel
 from app.models.project import Asset, Project
@@ -25,7 +28,7 @@ from app.pipeline.images import shot_assets, shot_job
 from app.pipeline.images.shot_assets import ShotImages, VersionNotFound
 from app.pipeline.images.shot_job import OrderRefused, ShotNotInPlan
 from app.providers.base import RouteError
-from app.storage.atomic import read_json
+from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.paths import StudioPaths
 from app.storage.thumbs import ThumbWidth
 
@@ -40,6 +43,120 @@ class ShotGenerate(StrictModel):
     профиль качества по умолчанию."""
 
     model: str | None = Field(default=None, min_length=1)
+
+
+class RedrawBody(StrictModel):
+    """Тело `POST …/redraw`: модель (как у заказа кадра) и, у «С правкой…», новое действие кадра —
+    оно пишется в `user_override.image.prompt` и проверяется стоп-листом, как правка на листе."""
+
+    model: str | None = Field(default=None, min_length=1)
+    prompt: str | None = None
+
+
+class RedrawEstimate(BaseModel):
+    """Цена перерисовки до клика: «Перерисовать (~$0.07)», «Добавить версию (~$0.07)»."""
+
+    shot_id: str
+    variant: int  # какой вариант нарисуется
+    model: str  # ключ каталога `images`
+    model_id: str
+    usd: Money  # цена кадра, кэш не вычтен
+
+
+@router.post("/redraw", status_code=201)
+async def redraw_shot(
+    episode_id: str,
+    shot_id: str,
+    body: RedrawBody,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+    jobs: JobsDep,
+) -> Job:
+    """«Перерисовать», «Добавить версию», «С правкой…»: джоб `shot_image` следующим свободным
+    вариантом, в том числе при незаконченном джобе того же кадра. Новая версия выбирается сама,
+    только если картинки нет или выбранная устарела. С `prompt` — сначала правка действия; отказ
+    (стилевой токен, пустое действие — 422; проблемы — 409; бюджет — 409) правку не пишет."""
+    episode = require_episode(db, episode_id)
+    path = paths.project_path(episode.channel, episode.id)
+    try:
+        with update_lock(path):
+            current = read_json(path)
+            project = Project.model_validate(current)
+            director = read_version(paths, episode, project.director_version)
+            if body.prompt is not None:
+                shot_job.plan_shot(project, director, shot_id)  # кадра нет — 404, не 422 правки
+                edit = {"user_override": {"image": {"prompt": body.prompt}}}
+                project = patched_project(paths, episode, current, {"shots": {shot_id: edit}})
+            order = shot_job.redraw_order(
+                db,
+                paths,
+                gateway,
+                config,
+                channel=episode.channel,
+                project=project,
+                director=director,
+                shot_id=shot_id,
+                model=body.model,
+            )
+            # Бюджет — до записи правки: отказ не оставляет на диске ничего.
+            gateway.check_budget(db, shot_job.order_cost(gateway, order), episode_id=episode.id)
+            if body.prompt is not None:
+                write_json_atomic(path, project.model_dump(mode="json"))
+        job = shot_job.enqueue_shot(db, gateway, paths, order, allow_busy=True)
+    except ShotNotInPlan as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RouteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OrderRefused as exc:
+        raise HTTPException(status_code=409, detail=exc.refusal.model_dump(mode="json")) from exc
+    except BudgetExceeded as exc:
+        raise HTTPException(status_code=409, detail=exc.detail()) from exc
+    jobs.kick()
+    return job
+
+
+@router.get("/redraw/estimate")
+async def redraw_estimate(
+    episode_id: str,
+    shot_id: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+    model: str | None = None,
+) -> RedrawEstimate:
+    """Какой вариант и почём нарисует `POST …/redraw` с этой моделью. Ничего не пишет."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    try:
+        order = shot_job.redraw_order(
+            db,
+            paths,
+            gateway,
+            config,
+            channel=episode.channel,
+            project=project,
+            director=director,
+            shot_id=shot_id,
+            model=model,
+        )
+    except ShotNotInPlan as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RouteError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OrderRefused as exc:
+        raise HTTPException(status_code=409, detail=exc.refusal.model_dump(mode="json")) from exc
+    cost = shot_job.order_cost(gateway, order)
+    return RedrawEstimate(
+        shot_id=shot_id,
+        variant=order.variant,
+        model=order.model,
+        model_id=order.model_id,
+        usd=Money(usd_micro=cost.usd_micro, usd=format_unit_usd(cost.usd_micro)),
+    )
 
 
 @router.post("/generate", status_code=201)

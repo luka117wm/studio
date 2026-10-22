@@ -192,6 +192,7 @@ def test_two_batches_race_for_the_budget(idle: Env) -> None:
                 )
             )
             selection = batch.select_shots(
+                conn,
                 idle.paths,
                 idle.gateway,
                 idle.config,

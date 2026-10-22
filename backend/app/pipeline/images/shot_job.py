@@ -94,10 +94,7 @@ def shot_order(
 ) -> ShotOrder:
     """Заказ кадра действующего плана. Не утверждён план или есть проблемы — `OrderRefused`;
     кадра нет — `ShotNotInPlan`; модель не из каталога — `RouteError`. Ничего не пишет."""
-    approved = check_approved(project, director)
-    shot = next((s for s in effective_plan(approved, project).shots if s.id == shot_id), None)
-    if shot is None or shot.status == "removed":
-        raise ShotNotInPlan(f"Кадра {shot_id} в действующем плане выпуска нет.")
+    approved, shot = plan_shot(project, director, shot_id)
     return order_for(
         paths,
         gateway,
@@ -109,6 +106,61 @@ def shot_order(
         variant=variant,
         model=model,
     )
+
+
+def redraw_order(
+    conn: sqlite3.Connection,
+    paths: StudioPaths,
+    gateway: Gateway,
+    config: CanonConfig,
+    *,
+    channel: Channel,
+    project: Project,
+    director: Director | None,
+    shot_id: str,
+    model: str | None = None,
+) -> ShotOrder:
+    """«Перерисовать», «Добавить версию», «С правкой…» (M6.4): заказ кадра следующим свободным
+    вариантом — после вариантов его версий и незаконченных джобов. Проверки — как у заказа."""
+    approved, shot = plan_shot(project, director, shot_id)
+    return order_for(
+        paths,
+        gateway,
+        config,
+        channel=channel,
+        project=project,
+        director=approved,
+        shot=shot,
+        variant=next_variant(conn, project, shot_id),
+        model=model,
+    )
+
+
+def next_variant(conn: sqlite3.Connection, project: Project, shot_id: str) -> int:
+    """Следующий свободный вариант кадра: после последнего среди его версий и его `queued` и
+    `running` джобов — два «Перерисовать» подряд дают 2 и 3, а не дважды 2."""
+    drawn = [a.variant or 1 for a in shot_assets.image_versions(project, shot_id)]
+    pending = [
+        int(row[0])
+        for row in conn.execute(
+            "SELECT json_extract(payload, '$.variant') FROM jobs WHERE episode_id = ? AND kind = ?"
+            " AND status IN ('queued', 'running') AND json_extract(payload, '$.shot_id') = ?",
+            (project.episode_id, SHOT_KIND, shot_id),
+        ).fetchall()
+        if row[0] is not None
+    ]
+    return max([*drawn, *pending], default=0) + 1
+
+
+def plan_shot(
+    project: Project, director: Director | None, shot_id: str
+) -> tuple[Director, PlanShot]:
+    """Утверждённый план и кадр его действующей версии; иначе `OrderRefused` или `ShotNotInPlan`."""
+    approved = check_approved(project, director)
+    shot = next((s for s in effective_plan(approved, project).shots if s.id == shot_id), None)
+    if shot is None or shot.status == "removed":
+        raise ShotNotInPlan(f"Кадра {shot_id} в действующем плане выпуска нет.")
+    return approved, shot
 
 
 def check_approved(project: Project, director: Director | None) -> Director:
@@ -200,11 +252,17 @@ def active_shot_job(conn: sqlite3.Connection, episode_id: str, shot_id: str) -> 
 
 
 def enqueue_shot(
-    conn: sqlite3.Connection, gateway: Gateway, paths: StudioPaths, order: ShotOrder
+    conn: sqlite3.Connection,
+    gateway: Gateway,
+    paths: StudioPaths,
+    order: ShotOrder,
+    *,
+    allow_busy: bool = False,
 ) -> Job:
     """Постановка: кадр не занят, бюджет выпуска и месяца — до очереди (`BudgetExceeded`, джоба
-    нет), оценка держит бюджет, пока джоб ждёт. Кадр — `queued`."""
-    busy = active_shot_job(conn, order.episode_id, order.shot_id)
+    нет), оценка держит бюджет, пока джоб ждёт. Кадр — `queued`. Перерисовка (`allow_busy`, M6.4)
+    ставит новый вариант и при незаконченном джобе того же кадра: варианты разные."""
+    busy = None if allow_busy else active_shot_job(conn, order.episode_id, order.shot_id)
     if busy is not None:
         _refuse(
             "shot_busy",

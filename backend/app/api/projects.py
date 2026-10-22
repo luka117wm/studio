@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.api.deps import DbDep, PathsDep
 from app.api.director import read_version
-from app.api.episodes import require_episode
+from app.api.episodes import Episode, require_episode
 from app.models.director import Director
 from app.models.project import Project, ProjectPatch, ShotPatch, ShotState, merge_patch
 from app.models.validators import (
@@ -28,6 +28,7 @@ from app.pipeline.director_import import apply_override, edit_stale, prune_overr
 from app.pipeline.director_import.effective import OVERRIDE_FIELDS, overridden_fields
 from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
+from app.storage.paths import StudioPaths
 
 router = APIRouter(tags=["projects"])
 
@@ -148,36 +149,45 @@ async def patch_project(
     episode = require_episode(db, episode_id)
     path = paths.project_path(episode.channel, episode.id)
     with update_lock(path):  # джоб кадра пишет project.json из потока (L-049)
-        current = read_json(path)
-        try:
-            ProjectPatch.model_validate(body)
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=patch_errors(exc)) from exc
-
-        before = Project.model_validate(current)
-        shot_patches: dict[str, dict[str, Any]] = body.get("shots", {})
-        director = read_version(paths, episode, before.director_version)
-        _check_shot_ids(shot_patches, before, director)
-
-        merged = merge_patch(current, body)
-        edited = [shot_id for shot_id, patch in shot_patches.items() if "user_override" in patch]
-        for shot_id in edited:
-            state = merged["shots"][shot_id]
-            override = state.get("user_override")
-            merged["shots"][shot_id] = {
-                **state,
-                "user_override": prune_override(override) if isinstance(override, dict) else None,
-            }
-        merged["updated_at"] = now_iso()
-        try:
-            project = Project.model_validate(merged)
-        except ValidationError as exc:
-            raise HTTPException(status_code=422, detail=readable_errors(exc)) from exc
-
-        if edited:
-            assert director is not None  # `_check_shot_ids` не пропускает правки без плана
-            project = _apply_edits(project, before, director, edited)
+        project = patched_project(paths, episode, read_json(path), body)
         write_json_atomic(path, project.model_dump(mode="json"))
+    return project
+
+
+def patched_project(
+    paths: StudioPaths, episode: Episode, current: dict[str, Any], body: dict[str, Any]
+) -> Project:
+    """project.json после правки `body` (`ProjectPatch`) — без записи: проверки, мёрдж, ручной
+    `stale`. Ошибка — `HTTPException` 422 в форме PATCH. Её же зовёт «С правкой…» (M6.4) до
+    перерисовки, чтобы отказ ничего не оставлял на диске."""
+    try:
+        ProjectPatch.model_validate(body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=patch_errors(exc)) from exc
+
+    before = Project.model_validate(current)
+    shot_patches: dict[str, dict[str, Any]] = body.get("shots", {})
+    director = read_version(paths, episode, before.director_version)
+    _check_shot_ids(shot_patches, before, director)
+
+    merged = merge_patch(current, body)
+    edited = [shot_id for shot_id, patch in shot_patches.items() if "user_override" in patch]
+    for shot_id in edited:
+        state = merged["shots"][shot_id]
+        override = state.get("user_override")
+        merged["shots"][shot_id] = {
+            **state,
+            "user_override": prune_override(override) if isinstance(override, dict) else None,
+        }
+    merged["updated_at"] = now_iso()
+    try:
+        project = Project.model_validate(merged)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=readable_errors(exc)) from exc
+
+    if edited:
+        assert director is not None  # `_check_shot_ids` не пропускает правки без плана
+        project = _apply_edits(project, before, director, edited)
     return project
 
 

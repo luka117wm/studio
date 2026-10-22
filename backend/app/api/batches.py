@@ -58,6 +58,7 @@ async def generate(
     director = read_version(paths, episode, project.director_version)
     try:
         selection = batch.select_shots(
+            db,
             paths,
             gateway,
             config,
@@ -106,6 +107,7 @@ async def generate_estimate(
     wanted = [s.strip() for s in shots.split(",") if s.strip()] if shots else None
     try:
         selection = batch.select_shots(
+            db,
             paths,
             gateway,
             config,

@@ -30,6 +30,7 @@ from app.pipeline.images.shot_job import (
     OrderRefused,
     ShotOrder,
     check_approved,
+    next_variant,
     order_cost,
     order_for,
 )
@@ -108,6 +109,7 @@ class Selection:
 
 
 def select_shots(
+    conn: sqlite3.Connection,
     paths: StudioPaths,
     gateway: Gateway,
     config: CanonConfig,
@@ -120,8 +122,9 @@ def select_shots(
     redraw: bool = False,
 ) -> Selection:
     """Кадры пачки и их заказы. Без `shots` — кадры без выбранной картинки и `stale`; с `shots`
-    — названные. `redraw` — следующий свободный вариант и у готовых. Убранные, неизвестные и с
-    проблемами сборщика — в `skipped`. Модель не из каталога — `RouteError`."""
+    — названные. `redraw` — следующий свободный вариант и у готовых (`shot_job.next_variant`).
+    Убранные, неизвестные и с проблемами сборщика — в `skipped`. Модель не из каталога —
+    `RouteError`."""
     route = gateway.resolve(IMAGES_STAGE, override=model)
     approved = _approved(project, director)
     plan = effective_plan(approved, project).shots
@@ -139,7 +142,7 @@ def select_shots(
                 targets.append(shot)
     orders: list[ShotOrder] = []
     for shot in targets:
-        variant = next_variant(project, shot.id) if redraw else 1
+        variant = next_variant(conn, project, shot.id) if redraw else 1
         try:
             orders.append(
                 order_for(
@@ -161,12 +164,6 @@ def select_shots(
                 )
             )
     return Selection(route, orders, skipped)
-
-
-def next_variant(project: Project, shot_id: str) -> int:
-    """Следующий свободный вариант кадра: после последнего среди его версий."""
-    variants = [a.variant or 1 for a in shot_assets.image_versions(project, shot_id)]
-    return max(variants, default=0) + 1
 
 
 def estimate(gateway: Gateway, selection: Selection) -> BatchEstimate:

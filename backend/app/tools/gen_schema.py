@@ -41,7 +41,7 @@ from app.api.references import (
     ReferenceEpisodeCreate,
     ReferencePrompt,
 )
-from app.api.shots import ShotGenerate
+from app.api.shots import RedrawBody, RedrawEstimate, ShotGenerate
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.handlers.anchors import AnchorsEstimate
@@ -148,7 +148,9 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (ShotRefusal, "serialization"),
     ],
     # Тело `POST …/shots/{id}/generate` (M6.2) — своя группа, как тела других запросов (L-031).
-    "shot": [(ShotGenerate, "validation")],
+    "shot": [(ShotGenerate, "validation"), (RedrawBody, "validation")],
+    # Цена перерисовки (M6.4) — ответ, своя группа: тела `shot` — в режиме validation (L-031).
+    "shot_redraw": [(RedrawEstimate, "serialization")],
     # Пачка кадров (M6.3): ответы; тела — отдельно (L-031).
     "batch": [
         (BatchSummary, "serialization"),
