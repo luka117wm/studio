@@ -167,7 +167,8 @@
             "text",
             "image",
             "speech",
-            "video"
+            "video",
+            "vision"
           ],
           "title": "Kind",
           "type": "string"

@@ -340,9 +340,11 @@ def test_low_version_is_still_chosen_and_nothing_is_blocked(env: Env, faces: Fak
     assert env.get(f"/api/episodes/{EPISODE}")["stage"] == "generate"
 
 
-def test_shot_without_appearances_gets_no_checks(env: Env, faces: FakeFaces) -> None:
+def test_shot_without_appearances_gets_no_face_check(env: Env, faces: FakeFaces) -> None:
     assert env.draw("s001")["status"] == "done"
-    assert "checks" not in env.project()["assets"]["img-s001-v1"]
+    checks = env.project()["assets"]["img-s001-v1"]["checks"]
+    # Лица нет; анахронизмы в окружении выключены — `off` (M6.6).
+    assert ("face" in checks, checks["anachronism"]["status"]) == (False, "off")
     assert faces.detected == []
 
 
@@ -369,8 +371,10 @@ def test_low_mark_on_chosen_version_makes_episode_warning(env: Env, faces: FakeF
     assert (job["kind"], job["episode_id"], job["cost_usd_micro"]) == ("shot_check", EPISODE, None)
     done = env.wait(job["id"])
     assert done["status"] == "done", done
-    assert done["result"] == {"shot_id": "s002", "version": 1, "face": "low"}
-    assert done["message"] == "Кадр s002 · версия 1 · не похож на фас — посмотрите кадр"
+    assert done["result"] == {"shot_id": "s002", "version": 1, "face": "low", "anachronism": "off"}
+    assert done["message"] == (
+        "Кадр s002 · версия 1 · не похож на фас — посмотрите кадр; проверка анахронизмов выключена"
+    )
     wait_until(lambda: episode_status(env) == "warning")
     assert env.shot("s002")["status"] == "done"
 
@@ -411,7 +415,8 @@ def test_check_errors(env: Env, faces: FakeFaces) -> None:
     response = env.client.post(f"{BASE}/shots/s001/check")
     assert (response.status_code, response.json()["detail"]) == (
         409,
-        "В кадре s001 нет персонажей — сравнивать лицо не с чем.",
+        "В кадре s001 нет персонажей, а проверка анахронизмов выключена в профиле канала —"
+        " проверять нечего.",
     )
     response = env.client.post(f"{BASE}/shots/s099/check")
     assert response.status_code == 404
@@ -452,7 +457,7 @@ def weights_config(*, urls: list[str] | None = None) -> ChecksConfig:
         "detector": weight("det.onnx", DETECTOR),
         "recognizer": weight("rec.onnx", RECOGNIZER),
     }
-    return ChecksConfig(face=FaceCheckConfig.model_validate(face))
+    return ChecksConfig(face=FaceCheckConfig.model_validate(face), anachronism=CONFIG.anachronism)
 
 
 def serving(files: dict[str, bytes]) -> tuple[httpx.Client, list[str]]:

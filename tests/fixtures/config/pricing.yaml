@@ -23,6 +23,12 @@ fake:
     source: tests
     prices:
       char: {usd: "0.10", per: 1000}
+  fake-vlm:
+    checked_at: 2026-10-25
+    source: tests
+    prices:
+      token_in: {usd: "0.30", per: 1000000}
+      token_out: {usd: "2.50", per: 1000000}
   fake-video:
     checked_at: 2026-09-25
     source: tests

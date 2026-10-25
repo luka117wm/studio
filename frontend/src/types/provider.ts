@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/provider.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:ff95a98516cffdac4942455b336047c67a9730ac038138bc32f9f4b9fc13885e
+ * @generated sha256:712a44a39d006f480ae2c42e54a4df571fea0f8ee5f01338cf6a1b5b6e1588f3
  */
 /**
  * Модель каталога этапа: ключ — то, что уходит в `model` заказа; цена — одной единицы.
@@ -46,7 +46,7 @@ export interface Money {
  */
 export interface StageCatalog {
   stage: string
-  kind: 'text' | 'image' | 'speech' | 'video'
+  kind: 'text' | 'image' | 'speech' | 'video' | 'vision'
   default: string
   models: CatalogModel[]
 }

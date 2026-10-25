@@ -1,6 +1,8 @@
-"""Настройки проверок консистентности готовых кадров (`config/checks.yaml`, M6.5): веса проверки
-лица — откуда, хэш, лицензия; порог сходства, размер лица. Ошибка файла — `ConfigError`: бэкенд
-не стартует. Контракт — `docs/generation.md`, «Проверка лица».
+"""Настройки проверок консистентности готовых кадров (`config/checks.yaml`): веса проверки лица —
+откуда, хэш, лицензия; порог сходства, размер лица (M6.5); сверка ответа VLM со списком
+`forbidden` (M6.6). Ошибка файла — `ConfigError`: бэкенд не стартует. Контракт —
+`docs/generation.md`, «Проверка лица» и «Проверка анахронизмов». Модель VLM — не здесь, а в
+`config/providers.yaml` (этап `check`, принцип 5).
 """
 
 from pathlib import Path
@@ -42,8 +44,15 @@ class FaceCheckConfig(StrictModel):
     min_face_px: int = Field(ge=16)
 
 
+class AnachronismConfig(StrictModel):
+    # Найденное VLM засчитывается, если похоже на пункт `forbidden` не меньше этого (rapidfuzz
+    # WRatio, 0…100); иначе отбрасывается: модель не придумывает новые запреты.
+    match_score: float = Field(gt=0, le=100)
+
+
 class ChecksConfig(StrictModel):
     face: FaceCheckConfig
+    anachronism: AnachronismConfig
 
 
 def load_checks_config(path: Path) -> ChecksConfig:

@@ -32,21 +32,66 @@
       "title": "Budgets",
       "type": "object"
     },
-    "ChannelPatch": {
+    "ChannelChecks-Input": {
       "additionalProperties": false,
-      "description": "Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.",
+      "description": "Проверки готовых кадров канала (устав M6, решение 7). Лицо — локально и бесплатно, всегда;\nанахронизмы — платный вопрос к VLM, его можно выключить: выключенная не платит и не помечает.",
       "properties": {
-        "seeds": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Seeds",
-          "type": "array"
+        "anachronism": {
+          "default": true,
+          "title": "Anachronism",
+          "type": "boolean"
+        }
+      },
+      "title": "ChannelChecks",
+      "type": "object"
+    },
+    "ChannelChecks-Output": {
+      "additionalProperties": false,
+      "description": "Проверки готовых кадров канала (устав M6, решение 7). Лицо — локально и бесплатно, всегда;\nанахронизмы — платный вопрос к VLM, его можно выключить: выключенная не платит и не помечает.",
+      "properties": {
+        "anachronism": {
+          "default": true,
+          "title": "Anachronism",
+          "type": "boolean"
         }
       },
       "required": [
-        "seeds"
+        "anachronism"
       ],
+      "title": "ChannelChecks",
+      "type": "object"
+    },
+    "ChannelPatch": {
+      "additionalProperties": false,
+      "description": "Тело `PATCH /api/channels/{id}`: семена ниши (M4.8), проверки кадров (M6.6). Поле не\nприслано — не меняется; профиль пишется атомарно.",
+      "properties": {
+        "seeds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seeds"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChannelChecks-Input"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
       "title": "ChannelPatch",
       "type": "object"
     },
@@ -93,6 +138,17 @@
           },
           "title": "Seeds",
           "type": "array"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChannelChecks-Output"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

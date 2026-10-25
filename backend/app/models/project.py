@@ -160,10 +160,27 @@ class FaceCheck(StrictModel):
     checked_at: str
 
 
+# Проверка анахронизмов (M6.6): `suspect` — VLM увидела предметы из `forbidden` эпохи, пометка
+# `anachronism_suspect`, не блокировка; `failed` — проверка не удалась (ответ, сеть, бюджет),
+# кадр не помечается; `off` — проверка выключена в профиле канала, вызова не было.
+AnachronismStatus = Literal["ok", "suspect", "failed", "off"]
+
+
+class AnachronismCheck(StrictModel):
+    status: AnachronismStatus
+    # Найденное — формулировками `forbidden` эпохи, а не ответа модели; чужое отброшено.
+    found: list[str] = []
+    period: str | None = Field(default=None, exclude_if=_is_none)  # `periods/<эпоха>/vNNN`
+    usd_micro: int | None = Field(default=None, ge=0, exclude_if=_is_none)  # из кэша — 0
+    reason: str | None = Field(default=None, exclude_if=_is_none)  # почему `failed`
+    checked_at: str
+
+
 class AssetChecks(StrictModel):
-    """Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6."""
+    """Проверки консистентности версии (устав M6, решение 7): лицо (M6.5), анахронизмы (M6.6)."""
 
     face: FaceCheck | None = Field(default=None, exclude_if=_is_none)
+    anachronism: AnachronismCheck | None = Field(default=None, exclude_if=_is_none)
 
 
 class Asset(StrictModel):

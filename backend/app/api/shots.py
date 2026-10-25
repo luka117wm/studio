@@ -1,6 +1,6 @@
 """Картинка кадра: версии (M6.1) — список, выбор, миниатюра и файл; отрисовка одного кадра
 джобом `shot_image` (M6.2); перерисовка новым вариантом и «С правкой…» (M6.4); перепроверка
-выбранной версии джобом `shot_check` (M6.5). Контракт — `docs/generation.md`.
+выбранной версии джобом `shot_check` (M6.5–M6.6). Контракт — `docs/generation.md`.
 
 Кадр — из текущего плана: в project.json у каждого кадра плана есть состояние, убранные —
 `removed` (M2.4). Версия — только своего кадра. Файлы версий неизменяемы, поэтому отдаются с
@@ -29,6 +29,7 @@ from app.pipeline.checks.shot_check import NoChosenImage, NothingToCheck
 from app.pipeline.images import shot_assets, shot_job
 from app.pipeline.images.shot_assets import ShotImages, VersionNotFound
 from app.pipeline.images.shot_job import OrderRefused, ShotNotInPlan
+from app.pipeline.images.status import refresh_episode_status
 from app.providers.base import RouteError
 from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.paths import StudioPaths
@@ -204,20 +205,26 @@ async def generate_shot(
 
 @router.post("/check", status_code=201)
 async def check_shot(
-    episode_id: str, shot_id: str, paths: PathsDep, db: DbDep, jobs: JobsDep
+    episode_id: str, shot_id: str, paths: PathsDep, db: DbDep, gateway: GatewayDep, jobs: JobsDep
 ) -> Job:
-    """Перепроверка выбранной версии — джоб `shot_check`, бесплатный: лицо против фасов обликов
-    кадра действующего плана. Нет выбранной картинки — 404; в кадре нет персонажей — 409."""
+    """Перепроверка выбранной версии — джоб `shot_check`: лицо против фасов обликов кадра
+    действующего плана (бесплатно) и анахронизмы по `forbidden` его эпохи, если проверка включена
+    в профиле (платно, бюджет — до очереди). Нет выбранной картинки — 404; персонажей нет и
+    проверка анахронизмов выключена — 409; бюджет — 409 `BudgetRefusal`."""
     episode, project = _shot_of_plan(paths, db, episode_id, shot_id)
     director = read_version(paths, episode, project.director_version)
     assert director is not None  # план импортирован — проверено `_shot_of_plan`
     try:
-        order = shot_check.check_order(project, director, channel=episode.channel, shot_id=shot_id)
+        order = shot_check.check_order(
+            paths, project, director, channel=episode.channel, shot_id=shot_id
+        )
+        job = shot_check.enqueue_check(db, gateway, order)
     except NoChosenImage as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except NothingToCheck as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    job = shot_check.enqueue_check(db, order)
+    except BudgetExceeded as exc:
+        raise HTTPException(status_code=409, detail=exc.detail()) from exc
     jobs.kick()
     return job
 
@@ -233,7 +240,8 @@ async def get_shot_images(episode_id: str, shot_id: str, paths: PathsDep, db: Db
 async def choose_shot_image(
     episode_id: str, shot_id: str, version: int, paths: PathsDep, db: DbDep
 ) -> ShotImages:
-    """Выбранная версия идёт в монтаж; кадр — `done`."""
+    """Выбранная версия идёт в монтаж; кадр — `done`. Статус выпуска — заново: пометки проверок
+    выбранной версии (M6.5–M6.6) его меняют."""
     episode, _ = _shot_of_plan(paths, db, episode_id, shot_id)
     try:
         project = shot_assets.choose_image_version(
@@ -241,6 +249,7 @@ async def choose_shot_image(
         )
     except VersionNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    refresh_episode_status(paths, episode.id)
     return shot_assets.shot_images(project, shot_id)
 
 

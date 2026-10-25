@@ -4,6 +4,77 @@
   "title": "project",
   "description": "Модели API Studio, группа «project». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnachronismCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "suspect",
+            "failed",
+            "off"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "found": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Found",
+          "type": "array"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period"
+        },
+        "usd_micro": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Usd Micro"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "checked_at": {
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "found",
+        "checked_at"
+      ],
+      "title": "AnachronismCheck",
+      "type": "object"
+    },
     "AnimateOverride": {
       "additionalProperties": false,
       "properties": {
@@ -227,12 +298,23 @@
     },
     "AssetChecks": {
       "additionalProperties": false,
-      "description": "Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6.",
+      "description": "Проверки консистентности версии (устав M6, решение 7): лицо (M6.5), анахронизмы (M6.6).",
       "properties": {
         "face": {
           "anyOf": [
             {
               "$ref": "#/$defs/FaceCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "anachronism": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnachronismCheck"
             },
             {
               "type": "null"

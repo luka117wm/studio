@@ -75,6 +75,21 @@ stages:
       nb-pro-1k: {provider: gemini, model: gemini-3-pro-image, params: {size: 1K}, max_refs: 14}
     profiles: {economy: nb-pro-1k, standard: nb-pro-1k, premium: nb-pro-1k}
 
+  # Проверка анахронизмов на готовых кадрах (M6.6; устав M6, решение 7): вопрос о картинке —
+  # миниатюра версии и список `forbidden` эпохи, ответ строго JSON. Дешёвая модель, одна во всех
+  # профилях: проверка дешевле кадра в десятки раз. Параметры меняют цену и результат:
+  # `media_resolution: low` — 280 токенов на картинку, `thinking_level: minimal` — рассуждение на
+  # минимуме, `max_output_tokens` — лимит ответа (короткий JSON) и по нему оценка сверху: ~$0.0009
+  # за кадр, по факту ~$0.0004. Обрезанный ответ не разбирается — проверка `failed`.
+  check:
+    kind: vision
+    catalog:
+      flash-lite:
+        provider: gemini
+        model: gemini-3.5-flash-lite
+        params: {media_resolution: low, thinking_level: minimal, max_output_tokens: 256}
+    profiles: {economy: flash-lite, standard: flash-lite, premium: flash-lite}
+
   # Голос (M7). Порядок выбора модели голоса — docs/providers.md.
   voice:
     kind: speech

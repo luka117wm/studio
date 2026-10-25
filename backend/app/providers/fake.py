@@ -20,7 +20,9 @@ from app.providers.base import (
     request_usage,
 )
 
-_EXT = {"text": "txt", "image": "png", "speech": "mp3", "video": "mp4"}
+_EXT = {"text": "txt", "image": "png", "speech": "mp3", "video": "mp4", "vision": "json"}
+# Ответ на вопрос о картинке по умолчанию (M6.6): ничего из списка не видно.
+NOTHING_FOUND = '{"found": []}'
 # Картинка-ответ: настоящий PNG 16:9 (по нему строятся миниатюры версии кадра, M6.2).
 IMAGE_SIZE = (64, 36)
 
@@ -32,6 +34,8 @@ class FakeProvider:
         self.calls: list[tuple[Route, AnyRequest]] = []
         self.refs: list[list[RefImage]] = []  # байты референсов каждого вызова
         self.errors: list[Exception] = []  # следующий вызов бросит первое из них
+        # Ответы на вопросы о картинке (M6.6) по очереди; кончились — `NOTHING_FOUND`.
+        self.answers: list[str] = []
 
     def usage(self, route: Route, request: AnyRequest) -> list[Usage]:
         return request_usage(request)
@@ -45,7 +49,9 @@ class FakeProvider:
             raise self.errors.pop(0)
         seed = f"{route.model}\n{request.model_dump_json()}".encode()
         data = hashlib.sha256(seed).digest() * 4
-        if request.kind == "image":
+        if request.kind == "vision":
+            data = (self.answers.pop(0) if self.answers else NOTHING_FOUND).encode("utf-8")
+        elif request.kind == "image":
             # Настоящий PNG: его шлюз примет референсом (фас листа, M5.4), а версия кадра
             # построит миниатюры (M6.2). Пиксели — от входов: другой запрос — другие байты.
             data = _png(data)

@@ -20,14 +20,20 @@
 | `anchors` | image | gemini | gemini-3-pro-image 1K | gemini-3-pro-image 1K | gemini-3-pro-image 1K |
 | `voice` | speech | elevenlabs | eleven_flash_v2_5 | eleven_multilingual_v2 | eleven_v3 |
 | `animate` | video | gemini (Veo) | veo-3.1-lite 720p | veo-3.1-lite 720p | veo-3.1-fast 720p |
+| `check` | vision | gemini | gemini-3.5-flash-lite | gemini-3.5-flash-lite | gemini-3.5-flash-lite |
 
-Таблица — снимок на 2026-10-15, источник правды — сам YAML. `anchors` (M5.3, устав M5, решение 5) — листы опорных
-портретов и кадры стиля: эталон внешности делается один раз, поэтому во всех профилях одна модель Pro. У этапа есть:
+Таблица — снимок на 2026-10-25, источник правды — сам YAML. `anchors` (M5.3, устав M5, решение 5) — листы опорных
+портретов и кадры стиля: эталон внешности делается один раз, поэтому во всех профилях одна модель Pro. `check`
+(M6.6, устав M6, решение 7) — проверка анахронизмов на готовых кадрах: дешёвая модель, одна во всех профилях,
+вопрос дешевле кадра в десятки раз (`docs/generation.md`, «Проверка анахронизмов»). У этапа есть:
 
-- `kind` — вид запроса: `text | image | speech | video`. Он задаёт единицы учёта и модель запроса
-  (`TextRequest`, `ImageRequest`, `SpeechRequest`, `VideoRequest` в `providers/base.py`).
+- `kind` — вид запроса: `text | image | speech | video | vision`. Он задаёт единицы учёта и модель запроса
+  (`TextRequest`, `ImageRequest`, `SpeechRequest`, `VideoRequest`, `VisionRequest` в `providers/base.py`).
+  `vision` (M6.6) — вопрос о картинке: текст, одна картинка (`ImageRef`), JSON Schema ответа и `max_output_tokens`;
+  ответ — текст JSON, шлюз кладёт его файлом.
 - `catalog` — **разрешённые** модели: ключ → `{provider, model, params, max_refs, label}`. В `params` лежит то, что
-  меняет цену и результат: `size` картинки (1K, 2K, 4K), `resolution` видео (720p, 1080p, 4K). `max_refs` — сколько
+  меняет цену и результат: `size` картинки (1K, 2K, 4K), `resolution` видео (720p, 1080p, 4K); у `vision` —
+  `media_resolution` картинки (`low` — 280 токенов у Gemini 3), `thinking_level` и `max_output_tokens`. `max_refs` — сколько
   референсов модель принимает за вызов (только этапы `image`; нет поля — референсы не принимаются). Его читает
   шлюз (отказ до вызова) и сборщик промпта (M5.5). `label` (M6.2) — подпись в выборе модели на экране: «Nano Banana
   2», «Nano Banana 2 Lite», «Nano Banana 2 · 2K», «Nano Banana Pro». Она нужна у этапов, где модель выбирает человек
@@ -87,6 +93,7 @@ M4 пути через API нет вовсе, он подключается от
 |---|---|---|
 | `token_in` | входные токены LLM | `ceil(символы / 3)`: ≈ 4 символа на токен, новый токенизатор Claude даёт на ~30 % больше |
 | `token_out` | выходные токены LLM | `max_output_tokens` — верхняя граница |
+| `token_in` у `vision` | текст вопроса, схема ответа и картинка | `ceil(символы / 3)` + токены картинки: у Gemini — по `media_resolution` маршрута (280 / 560 / 1120), без него — 1120 |
 | `search` | веб-поиск LLM | `max_searches` |
 | `image` | картинка | 1 за вызов; вариант цены — `params.size` |
 | `char` | символ текста голоса | `len(text)` |
@@ -198,6 +205,14 @@ anthropic:
 файл на месте, пишется строка `cached` с $0 и возвращается путь. Файл пропал — вызов идёт платно. Кэш текстов LLM
 появится в M4.
 
+### Картинка вопроса `vision` (M6.6)
+
+`VisionRequest.image` — `ImageRef {path, sha256}`, как у референса. В хэш входов идёт только sha256: та же картинка
+тем же вопросом той же модели — `cached`, $0 (перепроверка версии кадра не платит). Перед вызовом шлюз пускает
+только файл **своего выпуска** (`projects/<канал>/<выпуск>/…` — версия кадра или её миниатюра), не канон и не чужой
+выпуск: вызов без выпуска — `RouteError`; дальше — те же проверки, что у референса (файл на месте, хэш совпал,
+PNG / JPEG / WEBP). Ответ ложится в `media/check/<кадр>-<хэш16>.json` и строку `assets` — индекс кэша.
+
 ### Референсы картинки (M5.3)
 
 `ImageRequest.refs` — список `ImageRef {path, sha256}`: путь относительно `data/` и хэш содержимого. Создаёт его
@@ -254,6 +269,21 @@ anthropic:
 - **Ошибки API** — `status_error()` с текстом из тела ответа (L-018): 400 — «запрос отклонён (400): <сообщение>»,
   429 — `RateLimited` с `Retry-After`, 5xx и сеть — `TransientError`.
 - Видео Veo — M8 (`NotImplementedError`).
+
+### Вопрос о картинке Gemini (M6.6)
+
+- Вызов — тот же `models.generate_content`: части — текст вопроса, затем картинка (`Part.from_bytes`). Конфиг:
+  `response_mime_type: application/json`, `response_json_schema` — схема из запроса, `max_output_tokens`,
+  `media_resolution` и `thinking_config.thinking_level` — из параметров маршрута (`MEDIA_RESOLUTION_LOW`,
+  `MINIMAL`). Без собственных повторов.
+- **Ответ** — итоговый текст без частей размышления, кладётся файлом `.json`; расход — по `usage_metadata`:
+  `token_in` = `prompt_token_count`, `token_out` = `candidates_token_count` + `thoughts_token_count` (размышление
+  оплачивается как выход). Нет `usage_metadata` — по оценке, сверху. Вживую 2026-10-25: картинка 320 px и вопрос со
+  списком из трёх пунктов — 400 токенов входа, 17 выхода, $0.000163.
+- **Нет текста** (`blockReason`, пустой ответ) — `ProviderError` без повтора: «Gemini не ответил на вопрос о
+  картинке (SAFETY) — перепроверьте кадр позже.» Ошибки API и сети — как у картинок.
+- SDK 2.25 пишет вложенные поля конфига в snake_case (`thinking_level`, `mime_type` у картинки) — API принимает
+  оба написания.
 
 ## Журнал расходов (`cost_ledger`)
 

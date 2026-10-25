@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/channel.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:75fee57aaad63694660301830250ff5481ce4aa4210f5dd658645ddf6984784f
+ * @generated sha256:b4f0bf22c28018b19a2e0c19e2933513c0388f3d0a787d306b6c61fc32e760a2
  */
 /**
  * Лимиты в USD: конфигурация, не накопление (накопление — в микродолларах, L-001).
@@ -13,10 +13,28 @@ export interface Budgets {
 }
 
 /**
- * Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно.
+ * Проверки готовых кадров канала (устав M6, решение 7). Лицо — локально и бесплатно, всегда;
+ * анахронизмы — платный вопрос к VLM, его можно выключить: выключенная не платит и не помечает.
+ */
+export interface ChannelChecksInput {
+  anachronism?: boolean
+}
+
+/**
+ * Проверки готовых кадров канала (устав M6, решение 7). Лицо — локально и бесплатно, всегда;
+ * анахронизмы — платный вопрос к VLM, его можно выключить: выключенная не платит и не помечает.
+ */
+export interface ChannelChecksOutput {
+  anachronism: boolean
+}
+
+/**
+ * Тело `PATCH /api/channels/{id}`: семена ниши (M4.8), проверки кадров (M6.6). Поле не
+ * прислано — не меняется; профиль пишется атомарно.
  */
 export interface ChannelPatch {
-  seeds: string[]
+  seeds?: string[] | null
+  checks?: ChannelChecksInput | null
 }
 
 export interface ChannelProfile {
@@ -27,6 +45,7 @@ export interface ChannelProfile {
   voice_quota: VoiceQuota
   voice: ChannelVoice
   seeds: string[]
+  checks?: ChannelChecksOutput | null
 }
 
 /**

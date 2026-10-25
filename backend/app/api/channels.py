@@ -42,8 +42,11 @@ async def get_channel(channel_id: str, paths: PathsDep, db: DbDep) -> ChannelPro
 async def patch_channel(
     channel_id: str, body: ChannelPatch, paths: PathsDep, db: DbDep
 ) -> ChannelProfile:
-    """Семена ниши (M4.8). Остальной профиль не меняется; запись — temp → rename (L-003)."""
+    """Семена ниши (M4.8) и проверки кадров (M6.6): присланные поля, остальной профиль не
+    меняется; запись — temp → rename (L-003)."""
     require_channel(db, channel_id)
-    profile = read_profile(paths, channel_id).model_copy(update={"seeds": body.seeds})
+    update = body.model_dump(exclude_none=True, exclude_unset=True)
+    profile = read_profile(paths, channel_id)
+    profile = ChannelProfile.model_validate({**profile.model_dump(), **update})
     write_json_atomic(paths.profile_path(channel_id), profile.model_dump(mode="json"))
     return profile

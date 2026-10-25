@@ -1,13 +1,18 @@
-"""Джобы кадра: `shot_image` (M6.2) — один кадр выпуска, один вариант, с проверкой лица новой
-версии (M6.5); `shot_check` (M6.5) — перепроверка выбранной версии. Заказ, отрисовка и версия —
-`pipeline/images/shot_job.py`; пачка — `pipeline/images/batch.py`; перепроверка —
-`pipeline/checks/shot_check.py`; контракт — `docs/generation.md`."""
+"""Джобы кадра: `shot_image` (M6.2) — один кадр выпуска, один вариант, с проверками новой версии
+(лицо — M6.5, анахронизмы — M6.6); `shot_check` (M6.5) — перепроверка выбранной версии. Заказ,
+отрисовка и версия — `pipeline/images/shot_job.py`; пачка — `pipeline/images/batch.py`;
+перепроверка — `pipeline/checks/shot_check.py`; контракт — `docs/generation.md`."""
 
 from functools import partial
 
 from app.jobs.worker import HandlerSpec
-from app.pipeline.checks.face import FaceChecker
-from app.pipeline.checks.shot_check import CHECK_KIND, ShotCheckOrder, finish_check, run_check
+from app.pipeline.checks.shot_check import (
+    CHECK_KIND,
+    ShotCheckOrder,
+    ShotChecks,
+    finish_check,
+    run_check,
+)
 from app.pipeline.images.shot_job import (
     SHOT_KIND,
     ShotOrder,
@@ -18,13 +23,14 @@ from app.pipeline.images.shot_job import (
 )
 
 
-def specs(images_parallel: int, checker: FaceChecker) -> list[HandlerSpec]:
+def specs(images_parallel: int, checks: ShotChecks) -> list[HandlerSpec]:
     """Спеки видов: `shot_image` — не больше `images_parallel` одновременных из общего пула
-    (M6.3); `shot_check` — по одному: модель лица одна на процесс, вызовы и так по очереди."""
+    (M6.3); `shot_check` — по одному: модель лица одна на процесс, вызовы и так по очереди. Цену
+    перепроверки (вопрос к VLM) и бюджет считает постановка (`shot_check.enqueue_check`)."""
     return [
         HandlerSpec(
             SHOT_KIND,
-            partial(draw_shot, checker=checker),
+            partial(draw_shot, checks=checks),
             ShotOrder,
             estimate=order_cost,
             on_cancel=cancel_shot,
@@ -33,7 +39,7 @@ def specs(images_parallel: int, checker: FaceChecker) -> list[HandlerSpec]:
         ),
         HandlerSpec(
             CHECK_KIND,
-            partial(run_check, checker=checker),
+            partial(run_check, checks=checks),
             ShotCheckOrder,
             max_parallel=1,
             on_finish=finish_check,

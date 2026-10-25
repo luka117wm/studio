@@ -1,8 +1,17 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:70b0b7b6e204adaf92fdbab912d91268cb7f6d04adff60496a54b99b5db60f47
+ * @generated sha256:2702a74d827f30d3bb5b68e29c70904a71badfd539c3605447e72d1474ff5634
  */
+export interface AnachronismCheck {
+  status: 'ok' | 'suspect' | 'failed' | 'off'
+  found: string[]
+  period?: string | null
+  usd_micro?: number | null
+  reason?: string | null
+  checked_at: string
+}
+
 export interface AnimateOverride {
   recommended?: boolean | null
   reason?: string | null
@@ -29,10 +38,11 @@ export interface Asset {
 }
 
 /**
- * Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6.
+ * Проверки консистентности версии (устав M6, решение 7): лицо (M6.5), анахронизмы (M6.6).
  */
 export interface AssetChecks {
   face?: FaceCheck | null
+  anachronism?: AnachronismCheck | null
 }
 
 /**

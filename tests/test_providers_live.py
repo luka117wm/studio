@@ -8,7 +8,9 @@ Gemini заодно проверяется, что модели из config/prov
 - `-k anchors` (M5.3): одна картинка этапа `anchors` (Pro 1K, ~$0.13) с одним референсом и повтор
   из кэша за $0;
 - `-k shot_image` (M6.2): один кадр выпуска джобом `shot_image` (профиль по умолчанию, ~$0.07) по
-  канону фикстуры с листом облика из однотонных картинок; повтор заказа — без вызова и денег.
+  канону фикстуры с листом облика из однотонных картинок; повтор заказа — без вызова и денег;
+- `-k vision_check` (M6.6): один вопрос этапа `check` (Flash-Lite, меньше $0.001) о картинке
+  орудийной палубы со списком «cannon, smartphone, plastic bottle»: в ответе — `cannon`.
 """
 
 import asyncio
@@ -28,7 +30,9 @@ from app.models.canon import Character, Period, Style
 from app.models.canon_config import ANGLES, load_canon_config
 from app.pipeline.canon import anchors
 from app.pipeline.canon.anchors import CandidateRecord
-from app.providers.base import ImageRequest, image_mime
+from app.pipeline.checks import anachronism
+from app.pipeline.checks.anachronism import AnachronismOrder, match_forbidden, parse_answer
+from app.providers.base import ImageRef, ImageRequest, RefImage, image_mime
 from app.providers.gateway import CallContext, Gateway, build_gateway
 from app.settings import REPO_ROOT, Settings
 from app.storage import canon_store
@@ -244,3 +248,34 @@ def test_shot_image_is_paid_once_then_not_again(tmp_path: Path) -> None:
         ("charged", episode, "s002", first["id"])
     ]
     assert rows[0].usd_micro > 0
+
+
+def test_vision_check_finds_an_item_from_the_list(gateway: Gateway) -> None:
+    """Настоящая модель этапа `check`: формат ответа строгий, предмет из списка найден, чужого
+    нет; расход — по факту, меньше десятой цента. Провайдер напрямую: журнал — в тестах шлюза."""
+    key = asyncio.run(
+        gateway.registry.provider("gemini").check(gateway.registry.models_of("gemini"))
+    )
+    if not key.configured:
+        pytest.skip(key.message)
+    route = gateway.resolve("check")
+    image = (REPO_ROOT / "tests" / "fixtures" / "faces" / "no_face.jpg").read_bytes()
+    forbidden = ["cannon", "smartphone", "plastic bottle"]
+    order = AnachronismOrder(
+        period="periods/test/v001", setting="Caribbean Sea, 1716", forbidden=forbidden
+    )
+    request = anachronism.vision_request(gateway, order, ImageRef(path="x", sha256="0" * 64))
+    result = asyncio.run(
+        gateway.registry.provider(route.provider).call(
+            route, request, [RefImage(data=image, mime_type="image/jpeg")]
+        )
+    )
+    assert result.data is not None
+    answer = result.data.decode("utf-8")
+    cost = gateway.pricing.cost(route, result.usage)
+    usage = [(u.unit, u.quantity) for u in result.usage]
+    print(f"{route.model}: {answer} · {usage} · {cost.usd_micro} µ$")  # видно с `-rP`
+    found = parse_answer(answer)
+    matched, dropped = match_forbidden(found, forbidden, 70)
+    assert "cannon" in matched and "smartphone" not in matched, (found, dropped)
+    assert 0 < cost.usd_micro < 1_000

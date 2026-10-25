@@ -2,10 +2,10 @@
 
 Идёт работа над кадрами (джоб `shot_image` в очереди или рисует, в том числе пачка на паузе) —
 `generating`. Работы нет: у всех кадров плана выбрана картинка, она в силе (`done`) и без пометок
-проверки — `ready`, иначе (сбой, `stale`, нет картинки, лицо не похоже на фас — M6.5) — `warning`:
-есть что проверить руками. Пометка только подсвечивает: ничего не блокирует. `no_face` и `skipped`
-— не пометки. Стадию не меняет; на другой стадии статус не трогается. Контракт —
-`docs/episodes.md`, «Стадия и статус».
+проверки — `ready`, иначе (сбой, `stale`, нет картинки, лицо не похоже на фас — M6.5, похоже на
+анахронизм — M6.6) — `warning`: есть что проверить руками. Пометка только подсвечивает: ничего не
+блокирует. `no_face`, `skipped`, `failed` и `off` — не пометки. Стадию не меняет; на другой
+стадии статус не трогается. Контракт — `docs/episodes.md`, «Стадия и статус».
 """
 
 from typing import Literal
@@ -56,9 +56,14 @@ def refresh_episode_status(paths: StudioPaths, episode_id: str) -> GenerateStatu
 
 
 def marked(project: Project, shot_id: str, state: ShotState) -> bool:
-    """У выбранной версии кадра есть пометка проверки: лицо не похоже на фас (`low`)."""
+    """У выбранной версии кадра есть пометка проверки: лицо не похоже на фас (`low`) или в кадре
+    похоже на анахронизм (`suspect`)."""
     if state.image_version is None:
         return False
     asset = project.assets.get(image_asset_id(shot_id, state.image_version))
-    face = None if asset is None or asset.checks is None else asset.checks.face
-    return face is not None and face.status == "low"
+    checks = None if asset is None else asset.checks
+    if checks is None:
+        return False
+    face = checks.face is not None and checks.face.status == "low"
+    found = checks.anachronism is not None and checks.anachronism.status == "suspect"
+    return face or found

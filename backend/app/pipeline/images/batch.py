@@ -35,8 +35,7 @@ from app.pipeline.images.shot_job import (
     order_for,
 )
 from app.pipeline.images.status import refresh_episode_status
-from app.pipeline.script.estimate import stage_cost
-from app.providers.base import ImageRequest, Route, RouteError
+from app.providers.base import Cost, CostLine, ImageRequest, Route, RouteError
 from app.providers.gateway import Gateway
 from app.storage.paths import StudioPaths
 
@@ -167,8 +166,14 @@ def select_shots(
 
 
 def estimate(gateway: Gateway, selection: Selection) -> BatchEstimate:
-    unit = gateway.estimate(IMAGES_STAGE, _probe(selection), override=selection.route.key)
     costs = [order_cost(gateway, order) for order in selection.orders]
+    # Цена кадра — картинка и, если включена, проверка анахронизмов (M6.6); пустой выбор —
+    # цена картинки выбранной модели.
+    unit = (
+        costs[0]
+        if costs
+        else gateway.estimate(IMAGES_STAGE, _probe(selection), override=selection.route.key)
+    )
     return BatchEstimate(
         model=selection.route.key,
         model_id=selection.route.model,
@@ -216,8 +221,7 @@ def create_batch(
             BatchRefusal(code="nothing_to_draw", message=message, skipped=selection.skipped)
         )
     costs = [order_cost(gateway, order) for order in selection.orders]
-    # У картинки цена от запроса не зависит: сумма — цена кадра × число кадров.
-    total = stage_cost(costs[0], len(costs))
+    total = sum_costs(costs)
     batch_id = uuid.uuid4().hex
     jobs = [
         NewJob(
@@ -447,6 +451,34 @@ def _require_free(conn: sqlite3.Connection, episode_id: str, shot_ids: Sequence[
             shots=shots,
             batch_id=batch_id,
         )
+    )
+
+
+def sum_costs(costs: Sequence[Cost]) -> Cost:
+    """Сумма цен кадров пачки одной строкой бюджета: строки — по единице и варианту, у каждого
+    кадра своё округление, как в журнале. Цена кадра включает вопрос об анахронизмах (M6.6), а он
+    зависит от списка эпохи — поэтому сумма, а не «цена кадра × число кадров»."""
+    lines: dict[tuple[str, str | None], CostLine] = {}
+    for cost in costs:
+        for line in cost.lines:
+            key = (line.unit, line.variant)
+            seen = lines.get(key)
+            lines[key] = (
+                line
+                if seen is None
+                else seen.model_copy(
+                    update={
+                        "quantity": seen.quantity + line.quantity,
+                        "usd_micro": seen.usd_micro + line.usd_micro,
+                    }
+                )
+            )
+    return costs[0].model_copy(
+        update={
+            "lines": list(lines.values()),
+            "usd_micro": sum(cost.usd_micro for cost in costs),
+            "stale_pricing": any(cost.stale_pricing for cost in costs),
+        }
     )
 
 

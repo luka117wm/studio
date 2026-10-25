@@ -42,3 +42,15 @@ face:
   detect_max_side: 1280
   # SFace выравнивает лицо в 112×112: лицо меньше ~48 px даёт шумный эмбеддинг — не проверяем.
   min_face_px: 48
+
+# Проверка анахронизмов (M6.6): вопрос к VLM — миниатюра версии и `forbidden` эпохи кадра. Модель и
+# её параметры (разрешение картинки, рассуждение, лимит ответа) — config/providers.yaml, этап
+# `check`; цена — config/pricing.yaml.
+anachronism:
+  # Найденное засчитывается, если похоже на пункт `forbidden` по rapidfuzz WRatio не меньше этого,
+  # и пишется формулировкой канона; ниже — отброшено и записано в журнал. Замер 2026-10-25 на
+  # списке эпохи фикстуры: перефразы модели — 74…97 («electric lamp» / «electric light» 74,
+  # «eyeglasses with metal frames» / «modern metal-framed eyeglasses» 75, «Wristwatch» /
+  # «wristwatches» 91); чужое — не выше 50 («smartphone», «musket», «rope»). 70 — середина зазора.
+  # token_set и partial-варианты дают 100 на любое общее слово — не берём.
+  match_score: 70

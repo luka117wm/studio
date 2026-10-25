@@ -1,6 +1,8 @@
 """Окружение выпуска для тестов генерации (M6.2–M6.3): канон фикстуры опубликован, листы обоих
 обликов 6/6 (записи M5.4, без вызовов модели), план из 20 кадров импортирован и утверждён через
-API; провайдер — фейковый. Общий модуль тестов джоба кадра и пачки, не тест."""
+API; провайдер — фейковый. Проверка анахронизмов (M6.6) по умолчанию выключена в профиле: цена
+кадра в тестах картинок — ровно цена картинки; её тесты включают проверку сами. Общий модуль
+тестов джоба кадра и пачки, не тест."""
 
 import asyncio
 import json
@@ -171,6 +173,13 @@ class Env:
         )
 
 
+def set_anachronism(paths: StudioPaths, enabled: bool) -> None:
+    """Выключатель проверки анахронизмов в профиле канала (M6.6), как его ставит PATCH."""
+    profile = read_json(paths.profile_path("cursus"))
+    profile["checks"] = {"anachronism": enabled}
+    write_json_atomic(paths.profile_path("cursus"), profile)
+
+
 def set_budgets(paths: StudioPaths, **budgets: float) -> None:
     profile = read_json(paths.profile_path("cursus"))
     profile["budgets"].update(budgets)
@@ -194,7 +203,12 @@ def env_settings(tmp_path: Path, *, workers: int = 1, **overrides: Any) -> Setti
 
 @contextmanager
 def make_env(
-    tmp_path: Path, *, workers: int = 1, approve: bool = True, **overrides: Any
+    tmp_path: Path,
+    *,
+    workers: int = 1,
+    approve: bool = True,
+    anachronism: bool = False,
+    **overrides: Any,
 ) -> Iterator[Env]:
     """Окружение выпуска; `overrides` — поля `Settings` (например, `images_parallel`)."""
     settings = env_settings(tmp_path, workers=workers, **overrides)
@@ -210,6 +224,7 @@ def make_env(
             seed(paths, conn)
         finally:
             conn.close()
+        set_anachronism(paths, anachronism)
         publish(paths, STYLE, None, Style.model_validate(canon_json("style_cursus.json")))
         publish(
             paths,

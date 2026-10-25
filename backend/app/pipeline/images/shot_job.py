@@ -6,9 +6,11 @@ Payload — заказ целиком (`ShotOrder`): перезапуск пос
 
 Джоб: тот же хэш уже среди версий кадра — та же версия, без вызова и денег; иначе шлюз отдаёт
 `cached` (готовый файл, $0) или `charged`, и файл становится новой версией кадра (L-042) — вместе
-с проверкой лица против фасов обликов кадра (M6.5), она ничего не блокирует. Отказ модели, ошибка
-запроса и бюджет в момент вызова — кадр `failed` с причиной, без повтора; сеть и 5xx — кадр
-`failed`, пока очередь не повторит. Контракт — `docs/generation.md`, «Джоб кадра».
+с проверкой лица против фасов обликов кадра (M6.5); затем вопрос к VLM об анахронизмах по
+миниатюре версии (M6.6), если он в заказе и включён в профиле. Проверки ничего не блокируют, их
+сбой джоб не роняет. Отказ модели, ошибка запроса и бюджет в момент вызова картинки — кадр
+`failed` с причиной, без повтора; сеть и 5xx — кадр `failed`, пока очередь не повторит. Контракт —
+`docs/generation.md`, «Джоб кадра».
 """
 
 import asyncio
@@ -23,9 +25,11 @@ from app.jobs.queue import Job, NewJob
 from app.jobs.worker import JobContext, TransientError
 from app.models.canon_config import CanonConfig
 from app.models.director import EPISODE_ID_PATTERN, SHOT_ID_PATTERN, Channel, Director, StrictModel
-from app.models.project import AssetChecks, Project
+from app.models.project import AnachronismCheck, AssetChecks, FaceCheck, Project
 from app.pipeline.canon.episode_canon import plan_canon_ref
-from app.pipeline.checks.face import FaceChecker
+from app.pipeline.checks import anachronism
+from app.pipeline.checks.anachronism import AnachronismOrder
+from app.pipeline.checks.shot_check import ShotChecks, check_anachronism
 from app.pipeline.director_import import PlanShot, effective_plan
 from app.pipeline.images import shot_assets
 from app.pipeline.images.prompt_builder import IMAGES_STAGE, PromptProblem, build_shot_request
@@ -35,6 +39,7 @@ from app.pipeline.script.plan_bridge import plural
 from app.providers.base import Cost, ImageRequest, ProviderError, RouteError
 from app.providers.gateway import CallContext, Gateway
 from app.storage.atomic import read_json
+from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
 SHOT_KIND = "shot_image"  # = `status.SHOT_KIND`
@@ -59,6 +64,9 @@ class ShotOrder(StrictModel):
     plan_version: str | None = None
     # Облики кадра (M6.5): с чьими фасами сверять лицо новой версии. Нет — проверки лица нет.
     appearances: list[str] = []
+    # Вопрос об анахронизмах (M6.6): эпоха кадра по прибитой версии и её `forbidden`; нет —
+    # проверка выключена в профиле при постановке, версия получит `off`. Цена — в оценке кадра.
+    check: AnachronismOrder | None = None
 
 
 class ShotRefusal(BaseModel):
@@ -238,12 +246,24 @@ def order_for(
         request=built.request,
         plan_version=project.director_version,
         appearances=list(shot.image.appearances),
+        check=anachronism.order_for(paths, channel, plan_canon_ref(director), shot.image.period),
     )
 
 
 def order_cost(gateway: Gateway, order: ShotOrder) -> Cost:
-    """Цена кадра по маршруту выбранной модели; кэш не вычитается — оценка сверху."""
-    return gateway.estimate(IMAGES_STAGE, order.request, override=order.model)
+    """Цена кадра по маршруту выбранной модели и, если в заказе, вопроса об анахронизмах (M6.6)
+    — одной суммой на кадр: бюджет до очереди держит обе. Кэш не вычитается — оценка сверху."""
+    image = gateway.estimate(IMAGES_STAGE, order.request, override=order.model)
+    if order.check is None:
+        return image
+    check = anachronism.estimate(gateway, order.check)
+    return image.model_copy(
+        update={
+            "lines": [*image.lines, *check.lines],
+            "usd_micro": image.usd_micro + check.usd_micro,
+            "stale_pricing": image.stale_pricing or check.stale_pricing,
+        }
+    )
 
 
 def active_shot_job(conn: sqlite3.Connection, episode_id: str, shot_id: str) -> Job | None:
@@ -309,10 +329,11 @@ def finish_shot(paths: StudioPaths, job: Job) -> None:
 
 
 async def draw_shot(
-    ctx: JobContext, order: ShotOrder, checker: FaceChecker | None = None
+    ctx: JobContext, order: ShotOrder, checks: ShotChecks | None = None
 ) -> dict[str, Any]:
     """Один кадр, один вариант: готовая версия с тем же хэшем, иначе шлюз и новая версия с
-    проверкой лица (`checker`; None — без проверки). Проверка не бросает: сбой — `skipped`."""
+    проверками (`checks`; None — без проверок): лицо — вместе с версией, анахронизмы — после
+    неё, по её миниатюре. Проверки не бросают: сбой — `skipped` / `failed` у проверки."""
     gateway = ctx.gateway
     paths = gateway.paths
     where = (paths, order.channel, order.episode_id, order.shot_id)
@@ -346,10 +367,10 @@ async def draw_shot(
             raise ProviderError(f"Модель {order.model_id} не вернула файл — поставьте кадр снова.")
         charged = outcome.cost.usd_micro if outcome.status == "charged" else 0
         face = None
-        if checker is not None and order.appearances:
+        if checks is not None and order.appearances:
             ctx.progress(0.9, f"Кадр {order.shot_id} · проверка лица")
             face = await asyncio.to_thread(
-                checker.check_shot, paths, order.channel, order.appearances, outcome.asset_path
+                checks.face.check_shot, paths, order.channel, order.appearances, outcome.asset_path
             )
         drawing = Drawing(
             input_hash=outcome.input_hash,
@@ -360,7 +381,7 @@ async def draw_shot(
             usd_micro=charged,
             cached=outcome.status == "cached",
             plan_version=order.plan_version,
-            checks=None if face is None else AssetChecks(face=face),
+            checks=_first_checks(checks, order, face),
         )
         asset = await asyncio.to_thread(
             shot_assets.add_image_file, *where, outcome.asset_path, drawing
@@ -368,8 +389,32 @@ async def draw_shot(
     except Exception as exc:
         shot_assets.set_work_status(*where, "failed", shot_error(exc))
         raise
+    if checks is not None and order.check is not None:
+        ctx.progress(0.95, f"Кадр {order.shot_id} · проверка анахронизмов")
+        await check_anachronism(
+            checks,
+            ctx,
+            channel=order.channel,
+            episode_id=order.episode_id,
+            shot_id=order.shot_id,
+            asset=asset,
+            order=order.check,
+        )
     ctx.progress(1.0, f"Кадр {order.shot_id} · готово: версия {asset.version}")
     return _result(order, asset.version, outcome.status, charged)
+
+
+def _first_checks(
+    checks: ShotChecks | None, order: ShotOrder, face: FaceCheck | None
+) -> AssetChecks | None:
+    """Проверки, которые пишутся вместе с версией: лицо и, если вопроса об анахронизмах в заказе
+    нет (выключено при постановке), сразу `off` — без миниатюры и второй записи."""
+    off = None
+    if checks is not None and order.check is None:
+        off = AnachronismCheck(status="off", checked_at=now_iso())
+    if face is None and off is None:
+        return None
+    return AssetChecks(face=face, anachronism=off)
 
 
 def shot_error(exc: Exception) -> str:
