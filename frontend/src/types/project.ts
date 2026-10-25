@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:71ac1ea9a7e2410116d9741eb91653b545ba1171cccdf76eefdbe7cc2322f8ef
+ * @generated sha256:70b0b7b6e204adaf92fdbab912d91268cb7f6d04adff60496a54b99b5db60f47
  */
 export interface AnimateOverride {
   recommended?: boolean | null
@@ -25,6 +25,14 @@ export interface Asset {
   usd_micro?: number | null
   created_at?: string | null
   cached?: boolean | null
+  checks?: AssetChecks | null
+}
+
+/**
+ * Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6.
+ */
+export interface AssetChecks {
+  face?: FaceCheck | null
 }
 
 /**
@@ -55,6 +63,26 @@ export interface EpisodeBrief {
   idea_id: string | null
   reference_id: string | null
   reference_mode: 'none' | 'structure_clone' | 'own_version'
+}
+
+export interface FaceCheck {
+  status: 'ok' | 'low' | 'no_face' | 'skipped'
+  appearances: FaceMatch[]
+  faces: number
+  threshold?: number | null
+  reason?: string | null
+  checked_at: string
+}
+
+/**
+ * Облик кадра против выбранного фаса его листа: лучшее сходство среди лиц кадра.
+ */
+export interface FaceMatch {
+  id: string
+  status: 'ok' | 'low' | 'no_face' | 'skipped'
+  score?: number | null
+  front?: string | null
+  reason?: string | null
 }
 
 export interface ImageOverride {

@@ -135,6 +135,37 @@ class DirectorVersionInfo(StrictModel):
     removed: int = Field(ge=0)
 
 
+# Проверка лица версии кадра (M6.5): `low` — пометка `consistency_low`, не блокировка; `no_face` —
+# лиц в кадре нет, «не проверено»; `skipped` — проверить нельзя (нет весов, фаса), причина рядом.
+FaceStatus = Literal["ok", "low", "no_face", "skipped"]
+
+
+class FaceMatch(StrictModel):
+    """Облик кадра против выбранного фаса его листа: лучшее сходство среди лиц кадра."""
+
+    id: str  # облик, `you@powder-monkey-11`
+    status: FaceStatus
+    # Косинусное сходство эмбеддингов SFace, −1…1; нет — сравнивать было не с чем.
+    score: float | None = Field(default=None, exclude_if=_is_none)
+    front: str | None = Field(default=None, exclude_if=_is_none)  # кандидат фаса листа
+    reason: str | None = Field(default=None, exclude_if=_is_none)
+
+
+class FaceCheck(StrictModel):
+    status: FaceStatus
+    appearances: list[FaceMatch] = []
+    faces: int = Field(default=0, ge=0)  # сколько лиц нашлось в кадре
+    threshold: float | None = Field(default=None, exclude_if=_is_none)  # порог на момент проверки
+    reason: str | None = Field(default=None, exclude_if=_is_none)  # почему `skipped`
+    checked_at: str
+
+
+class AssetChecks(StrictModel):
+    """Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6."""
+
+    face: FaceCheck | None = Field(default=None, exclude_if=_is_none)
+
+
 class Asset(StrictModel):
     id: str
     shot_id: str | None = Field(default=None, pattern=SHOT_ID_PATTERN)
@@ -155,6 +186,8 @@ class Asset(StrictModel):
     usd_micro: int | None = Field(default=None, ge=0, exclude_if=_is_none)
     created_at: str | None = Field(default=None, exclude_if=_is_none)
     cached: bool | None = Field(default=None, exclude_if=_is_none)
+    # Проверки консистентности (M6.5–M6.6); у кадра без обликов и до M6.5 — нет.
+    checks: AssetChecks | None = Field(default=None, exclude_if=_is_none)
 
 
 def image_asset_id(shot_id: str, version: int) -> str:

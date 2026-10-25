@@ -1,6 +1,6 @@
 """Картинка кадра: версии (M6.1) — список, выбор, миниатюра и файл; отрисовка одного кадра
-джобом `shot_image` (M6.2); перерисовка новым вариантом и «С правкой…» (M6.4). Контракт —
-`docs/generation.md`.
+джобом `shot_image` (M6.2); перерисовка новым вариантом и «С правкой…» (M6.4); перепроверка
+выбранной версии джобом `shot_check` (M6.5). Контракт — `docs/generation.md`.
 
 Кадр — из текущего плана: в project.json у каждого кадра плана есть состояние, убранные —
 `removed` (M2.4). Версия — только своего кадра. Файлы версий неизменяемы, поэтому отдаются с
@@ -24,6 +24,8 @@ from app.cost.money import Money, format_unit_usd
 from app.jobs.queue import Job
 from app.models.director import StrictModel
 from app.models.project import Asset, Project
+from app.pipeline.checks import shot_check
+from app.pipeline.checks.shot_check import NoChosenImage, NothingToCheck
 from app.pipeline.images import shot_assets, shot_job
 from app.pipeline.images.shot_assets import ShotImages, VersionNotFound
 from app.pipeline.images.shot_job import OrderRefused, ShotNotInPlan
@@ -196,6 +198,26 @@ async def generate_shot(
         raise HTTPException(status_code=409, detail=exc.refusal.model_dump(mode="json")) from exc
     except BudgetExceeded as exc:
         raise HTTPException(status_code=409, detail=exc.detail()) from exc
+    jobs.kick()
+    return job
+
+
+@router.post("/check", status_code=201)
+async def check_shot(
+    episode_id: str, shot_id: str, paths: PathsDep, db: DbDep, jobs: JobsDep
+) -> Job:
+    """Перепроверка выбранной версии — джоб `shot_check`, бесплатный: лицо против фасов обликов
+    кадра действующего плана. Нет выбранной картинки — 404; в кадре нет персонажей — 409."""
+    episode, project = _shot_of_plan(paths, db, episode_id, shot_id)
+    director = read_version(paths, episode, project.director_version)
+    assert director is not None  # план импортирован — проверено `_shot_of_plan`
+    try:
+        order = shot_check.check_order(project, director, channel=episode.channel, shot_id=shot_id)
+    except NoChosenImage as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except NothingToCheck as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    job = shot_check.enqueue_check(db, order)
     jobs.kick()
     return job
 

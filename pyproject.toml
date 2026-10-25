@@ -56,9 +56,11 @@ testpaths = ["tests"]
 pythonpath = ["backend"]
 asyncio_mode = "auto"
 # Живые вызовы провайдеров стоят денег — запускаются только вручную: `uv run pytest -m live`.
-addopts = "-m 'not live'"
+# Тесты на настоящих весах локальных моделей — вручную после fetch_models: `uv run pytest -m models`.
+addopts = "-m 'not live and not models'"
 markers = [
     "live: real provider calls (cost cents); run manually with -m live",
+    "models: real local model weights in data/models; run manually after fetch_models with -m models",
 ]
 filterwarnings = [
     # starlette.testclient ссылается на устаревший alias anyio; не наш код, уйдёт с обновлением starlette

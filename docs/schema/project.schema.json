@@ -200,6 +200,17 @@
           ],
           "default": null,
           "title": "Cached"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetChecks"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -212,6 +223,25 @@
         "status"
       ],
       "title": "Asset",
+      "type": "object"
+    },
+    "AssetChecks": {
+      "additionalProperties": false,
+      "description": "Проверки консистентности версии (устав M6, решение 7); анахронизмы — M6.6.",
+      "properties": {
+        "face": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FaceCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "AssetChecks",
       "type": "object"
     },
     "DirectorVersionInfo": {
@@ -359,6 +389,133 @@
         "reference_mode"
       ],
       "title": "EpisodeBrief",
+      "type": "object"
+    },
+    "FaceCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "low",
+            "no_face",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FaceMatch"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "faces": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Faces",
+          "type": "integer"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "checked_at": {
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "appearances",
+        "faces",
+        "checked_at"
+      ],
+      "title": "FaceCheck",
+      "type": "object"
+    },
+    "FaceMatch": {
+      "additionalProperties": false,
+      "description": "Облик кадра против выбранного фаса его листа: лучшее сходство среди лиц кадра.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "low",
+            "no_face",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "front": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Front"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "title": "FaceMatch",
       "type": "object"
     },
     "ImageOverride": {

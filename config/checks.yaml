@@ -1,0 +1,44 @@
+# Проверки консистентности готовых кадров (M6.5; устав M6, решение 7). Только пометки, без
+# блокировки. Контракт — docs/generation.md, «Проверка лица».
+#
+# Веса — ONNX из opencv_zoo, лицензии допускают коммерческое использование (CLAUDE.md, «Чего не
+# делать»). В git не кладутся: `PYTHONPATH=backend uv run python -m app.tools.fetch_models`
+# качает их в data/models/ и сверяет sha256. sha256 сверены по двум источникам: файл из
+# opencv_zoo (GitHub LFS) и LFS-хэш зеркала opencv на Hugging Face, 2026-10-25.
+
+face:
+  models:
+    detector:
+      file: face_detection_yunet_2023mar.onnx
+      sha256: 8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4
+      license: MIT
+      source: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
+      urls:
+        - https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+        - https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx
+    recognizer:
+      file: face_recognition_sface_2021dec.onnx
+      sha256: 0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79
+      license: Apache-2.0
+      source: https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface
+      urls:
+        - https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+        - https://huggingface.co/opencv/face_recognition_sface/resolve/main/face_recognition_sface_2021dec.onnx
+
+  # Порог косинусного сходства с фасом облика: ниже — `low`. Подобран 2026-10-25 на
+  # tests/fixtures/faces/ (наш Gemini, стиль канала, `uv run pytest -m models`):
+  #   тот же мальчик A против своего фаса: три четверти 0.77, кадр в сцене 0.63, профиль 0.53;
+  #   B против фаса B в сцене 0.72;
+  #   чужой в кадре: B в сцене против фаса A 0.35, ракурсы A против фаса B 0.39–0.42.
+  # Порог 0.363 из документации SFace — для фото: у рисованных лиц одного стиля чужие похожи
+  # сильнее, с ним не помечалось бы ничего. 0.47 — середина зазора 0.42…0.53 с округлением вниз:
+  # мягкий, пометка — повод посмотреть. Известный предел: два фронтальных портрета на одном фоне и
+  # в одной одежде дают 0.52 и для разных людей — сетка «Подозрительные» сортирует по сходству.
+  threshold: 0.47
+  # Уверенность YuNet: у опорного демо opencv_zoo 0.9 — для фото; рисованные лица увереннее
+  # не бывают, поэтому ниже.
+  detect_score: 0.7
+  # Кадр Gemini 1K–2K уменьшается до этой стороны перед детекцией: быстрее на CPU.
+  detect_max_side: 1280
+  # SFace выравнивает лицо в 112×112: лицо меньше ~48 px даёт шумный эмбеддинг — не проверяем.
+  min_face_px: 48

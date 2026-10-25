@@ -146,6 +146,7 @@ def test_generate_draws_a_version_with_ledger_row(env: Env) -> None:
     assert (state["status"], state["image_version"], "error" in state) == ("done", 1, False)
     asset = env.project()["assets"]["img-s002-v1"]
     asset.pop("created_at")
+    face = asset.pop("checks")["face"]  # весов в тестах нет — проверка лица пропущена (M6.5)
     assert asset == {
         "id": "img-s002-v1",
         "shot_id": "s002",
@@ -161,6 +162,11 @@ def test_generate_draws_a_version_with_ledger_row(env: Env) -> None:
         "usd_micro": 67_000,
         "cached": False,
     }
+    assert (face["status"], [a["id"] for a in face["appearances"]]) == (
+        "skipped",
+        ["you@powder-monkey-11"],
+    )
+    assert "fetch_models" in face["reason"]
     # Версия — та же картинка, что положил шлюз, без второй копии на диске.
     version = env.paths.shot_image_path("cursus", EPISODE, "s002", 1, "png")
     gateway_file = env.paths.media_dir("cursus", EPISODE) / "images"

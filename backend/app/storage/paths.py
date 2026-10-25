@@ -62,6 +62,11 @@ class StudioPaths:
         """Расписание публикаций, одно на оба канала (`docs/slots.md`)."""
         return self.root / "schedule.json"
 
+    @property
+    def models_dir(self) -> Path:
+        """Веса локальных моделей (M6.5: проверка лица); качает `app.tools.fetch_models`."""
+        return self.root / "models"
+
     # --- канал: data/channels/<channel>/{profile.json, oauth/, canon/} -------------------------
 
     def channel_dir(self, channel: str) -> Path:

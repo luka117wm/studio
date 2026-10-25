@@ -18,7 +18,14 @@ from pathlib import Path
 from typing import Literal
 
 from app.models.director import StrictModel
-from app.models.project import Asset, Project, ShotState, ShotStatus, image_asset_id
+from app.models.project import (
+    Asset,
+    AssetChecks,
+    Project,
+    ShotState,
+    ShotStatus,
+    image_asset_id,
+)
 from app.providers.base import image_mime
 from app.storage.atomic import (
     link_new,
@@ -57,6 +64,8 @@ class Drawing:
     # Версия плана, по которой собран заказ (M6.3): к записи версии текущая уже другая — версия
     # нарисована по прежнему плану и сама не выбирается. None — без проверки.
     plan_version: str | None = None
+    # Проверки консистентности файла (M6.5): пишутся вместе с версией, одной записью.
+    checks: AssetChecks | None = None
 
 
 class NotAnImage(ValueError):
@@ -154,6 +163,7 @@ def _add(
             usd_micro=drawing.usd_micro,
             created_at=now_iso(),
             cached=drawing.cached,
+            checks=drawing.checks,
         )
         state = _with_new_version(
             project.shots.get(shot_id, ShotState()),
@@ -180,6 +190,28 @@ def choose_image_version(
         find_version(project, shot_id, version)
         state = _chosen(project.shots.get(shot_id, ShotState()), version)
         return _write(project_path, project, shots={**project.shots, shot_id: state})
+
+
+def set_checks(
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    version: int,
+    checks: AssetChecks,
+) -> Asset:
+    """Проверки версии (перепроверка, M6.5): присланные виды заменяют прежние, остальные —
+    как были. Нет версии — VersionNotFound."""
+    project_path = paths.project_path(channel, episode)
+    with update_lock(project_path):
+        project = Project.model_validate(read_json(project_path))
+        asset = find_version(project, shot_id, version)
+        merged = (asset.checks or AssetChecks()).model_copy(
+            update={name: getattr(checks, name) for name in checks.model_fields_set}
+        )
+        updated = asset.model_copy(update={"checks": merged})
+        _write(project_path, project, assets={**project.assets, asset.id: updated})
+    return updated
 
 
 def set_work_status(

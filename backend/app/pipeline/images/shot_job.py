@@ -5,9 +5,10 @@
 Payload — заказ целиком (`ShotOrder`): перезапуск после аварии рисует тот же вариант.
 
 Джоб: тот же хэш уже среди версий кадра — та же версия, без вызова и денег; иначе шлюз отдаёт
-`cached` (готовый файл, $0) или `charged`, и файл становится новой версией кадра (L-042). Отказ
-модели, ошибка запроса и бюджет в момент вызова — кадр `failed` с причиной, без повтора; сеть и
-5xx — кадр `failed`, пока очередь не повторит. Контракт — `docs/generation.md`, «Джоб кадра».
+`cached` (готовый файл, $0) или `charged`, и файл становится новой версией кадра (L-042) — вместе
+с проверкой лица против фасов обликов кадра (M6.5), она ничего не блокирует. Отказ модели, ошибка
+запроса и бюджет в момент вызова — кадр `failed` с причиной, без повтора; сеть и 5xx — кадр
+`failed`, пока очередь не повторит. Контракт — `docs/generation.md`, «Джоб кадра».
 """
 
 import asyncio
@@ -22,8 +23,9 @@ from app.jobs.queue import Job, NewJob
 from app.jobs.worker import JobContext, TransientError
 from app.models.canon_config import CanonConfig
 from app.models.director import EPISODE_ID_PATTERN, SHOT_ID_PATTERN, Channel, Director, StrictModel
-from app.models.project import Project
+from app.models.project import AssetChecks, Project
 from app.pipeline.canon.episode_canon import plan_canon_ref
+from app.pipeline.checks.face import FaceChecker
 from app.pipeline.director_import import PlanShot, effective_plan
 from app.pipeline.images import shot_assets
 from app.pipeline.images.prompt_builder import IMAGES_STAGE, PromptProblem, build_shot_request
@@ -55,6 +57,8 @@ class ShotOrder(StrictModel):
     # Версия плана заказа (M6.3): сменилась, пока джоб ждал или рисовал, — версия кадра сама не
     # выбирается. У заказов до M6.3 поля нет — без проверки.
     plan_version: str | None = None
+    # Облики кадра (M6.5): с чьими фасами сверять лицо новой версии. Нет — проверки лица нет.
+    appearances: list[str] = []
 
 
 class ShotRefusal(BaseModel):
@@ -233,6 +237,7 @@ def order_for(
         input_hash=built.prompt.input_hash,
         request=built.request,
         plan_version=project.director_version,
+        appearances=list(shot.image.appearances),
     )
 
 
@@ -303,8 +308,11 @@ def finish_shot(paths: StudioPaths, job: Job) -> None:
 # --- джоб ----------------------------------------------------------------------------------------
 
 
-async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
-    """Один кадр, один вариант: готовая версия с тем же хэшем, иначе шлюз и новая версия."""
+async def draw_shot(
+    ctx: JobContext, order: ShotOrder, checker: FaceChecker | None = None
+) -> dict[str, Any]:
+    """Один кадр, один вариант: готовая версия с тем же хэшем, иначе шлюз и новая версия с
+    проверкой лица (`checker`; None — без проверки). Проверка не бросает: сбой — `skipped`."""
     gateway = ctx.gateway
     paths = gateway.paths
     where = (paths, order.channel, order.episode_id, order.shot_id)
@@ -337,6 +345,12 @@ async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
         if outcome.asset_path is None:
             raise ProviderError(f"Модель {order.model_id} не вернула файл — поставьте кадр снова.")
         charged = outcome.cost.usd_micro if outcome.status == "charged" else 0
+        face = None
+        if checker is not None and order.appearances:
+            ctx.progress(0.9, f"Кадр {order.shot_id} · проверка лица")
+            face = await asyncio.to_thread(
+                checker.check_shot, paths, order.channel, order.appearances, outcome.asset_path
+            )
         drawing = Drawing(
             input_hash=outcome.input_hash,
             model=outcome.route.key,
@@ -346,6 +360,7 @@ async def draw_shot(ctx: JobContext, order: ShotOrder) -> dict[str, Any]:
             usd_micro=charged,
             cached=outcome.status == "cached",
             plan_version=order.plan_version,
+            checks=None if face is None else AssetChecks(face=face),
         )
         asset = await asyncio.to_thread(
             shot_assets.add_image_file, *where, outcome.asset_path, drawing
