@@ -22,6 +22,8 @@ const JOB_KIND: Record<string, string> = {
   anchor_sheet: 'Лист опорных портретов',
   anchor_angle: 'Перегенерация ракурса',
   style_anchors: 'Опорные кадры стиля',
+  shot_image: 'Генерация кадра',
+  shot_check: 'Проверка кадра',
   sleep_job: 'Проверочный джоб',
 }
 

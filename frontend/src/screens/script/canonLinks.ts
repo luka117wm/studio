@@ -1,9 +1,10 @@
 /* Адреса экрана 3 на канон канала (экран 12, M5.10) и строка канона для заголовка секции и статус-строки. Адреса —
    как у экрана 12 (M5.8, M5.9): `?layer=periods&period=…`, `?layer=characters&character=…&appearance=…`, лист
    опорных портретов — ещё `&sheet=…`. Канал экрана 12 — канал открытого выпуска (`openEpisode`), в адрес не идёт.
-   Сама ссылка — `CanonLink.tsx`. */
-import type { CanonTarget, EpisodeCanon } from '@/types/plan'
+   Сама ссылка — `CanonLink.tsx`. Статус ссылки и листа — общие с каноном выпуска экрана 4 (M6.7). */
+import type { AnchorSheet, CanonTarget, EpisodeCanon, EpisodeCanonItem } from '@/types/plan'
 import { paths } from '../../app/routes'
+import type { Status } from '../../ui'
 import { plural } from '../episodes/board'
 
 type CanonKind = CanonTarget['kind']
@@ -47,4 +48,20 @@ export function canonNote(canon: EpisodeCanon | null | undefined): string | null
   if (!canon || canon.ready) return null
   const parts = canonIssues(canon)
   return parts.length ? `Канон: ${parts.join(', ')}` : 'Канон не готов'
+}
+
+/** Статус ссылки плана: прибита последняя версия, есть новее, версия не находится, только черновик, нет версии */
+export function refState(item: EpisodeCanonItem): { status: Status; label: string } {
+  if (item.status === 'ready') return { status: 'ready', label: 'готов' }
+  if (item.status === 'draft_only') return { status: 'warning', label: 'только черновик' }
+  if (item.status === 'missing') return { status: 'failed', label: 'нет версии' }
+  return item.resolved ? { status: 'warning', label: `есть ${item.latest}` } : { status: 'failed', label: `не находится, есть ${item.latest}` }
+}
+
+export const SHEET_STATUS: Record<AnchorSheet['status'], Status> = { ready: 'ready', partial: 'warning', outdated: 'warning', missing: 'failed' }
+
+export function sheetLabel(sheet: AnchorSheet): string {
+  if (sheet.status === 'missing') return 'листа нет'
+  if (sheet.status === 'outdated') return 'лист устарел'
+  return `лист ${sheet.chosen}/${sheet.total}`
 }

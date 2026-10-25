@@ -1,8 +1,9 @@
 // @vitest-environment node
-// Подписка на /api/events на фейковом EventSource: разбор событий, курсор, переподключение, отписка.
+// Подписка на /api/events на фейковом EventSource: разбор событий джобов и сводок пачек, курсор, переподключение, отписка.
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import type { BatchSummary } from '@/types/batch'
 import type { JobEventData } from '@/types/job'
-import { RECONNECT_MIN_MS, SILENCE_LIMIT_MS, subscribe, type JobEvent, type StreamState } from '../sse'
+import { RECONNECT_MIN_MS, SILENCE_LIMIT_MS, subscribe, type JobEvent, type StreamEvent, type StreamState } from '../sse'
 import { FakeEventSource } from './fakes'
 
 const job = (status: JobEventData['status'], progress = 0): JobEventData => ({
@@ -33,7 +34,7 @@ afterEach(() => {
 describe('subscribe', () => {
   test('события job.* с id и данными; heartbeat, повтор и битые — мимо', () => {
     const events: JobEvent[] = []
-    const stop = subscribe((event) => events.push(event))
+    const stop = subscribe((event) => event.type !== 'batch.updated' && events.push(event))
     const source = FakeEventSource.last()
     expect(source.url).toBe('/api/events')
     source.open()
@@ -48,6 +49,41 @@ describe('subscribe', () => {
       ['job.progress', 42, 'running', 0.5],
       ['job.done', 44, 'done', 1],
     ])
+    stop()
+  })
+
+  test('batch.updated — сводка пачки целиком, курсор общий с событиями джобов', () => {
+    const summary: BatchSummary = {
+      id: 'b1',
+      episode_id: 'pirate',
+      kind: 'shot_image',
+      model: 'nb2',
+      created_at: '2026-09-11T09:00:00+00:00',
+      paused: true,
+      cancelled: false,
+      retry_of: null,
+      jobs: { total: 4, queued: 2, running: 1, done: 1, failed: 0, cancelled: 0 },
+      finished: false,
+      estimate: { usd_micro: 268_000, usd: '$0.27' },
+      spent: { usd_micro: 67_000, usd: '$0.07' },
+      eta_s: 30,
+    }
+    const events: StreamEvent[] = []
+    const stop = subscribe((event) => events.push(event))
+    const source = FakeEventSource.last()
+    source.open()
+    source.emit('job.done', job('done', 1), 50)
+    source.emit('batch.updated', summary, 51)
+    source.emit('batch.updated', summary, 51) // повтор на стыке
+    source.emit('batch.updated', '{not json', 52)
+    expect(events.map((e) => [e.type, e.id])).toEqual([
+      ['job.done', 50],
+      ['batch.updated', 51],
+    ])
+    expect(events[1]?.data).toEqual(summary)
+    source.fail(true)
+    vi.advanceTimersByTime(RECONNECT_MIN_MS)
+    expect(FakeEventSource.last().url).toBe('/api/events?last_event_id=51') // битое курсор не двигает, как у джобов
     stop()
   })
 
@@ -127,7 +163,7 @@ describe('subscribe', () => {
   })
 
   test('отписка закрывает поток и отменяет переподключение', () => {
-    const events: JobEvent[] = []
+    const events: StreamEvent[] = []
     const states: StreamState[] = []
     const stop = subscribe((event) => events.push(event), { onState: (state) => states.push(state) })
     const source = FakeEventSource.last()

@@ -3,6 +3,7 @@
 // (`live.ts`), опроса по таймеру нет.
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
+import type { BatchEstimate, BatchResult, BatchSummary } from '@/types/batch'
 import type { BridgeSettings } from '@/types/bridge'
 import type {
   AnchorSetState,
@@ -81,6 +82,10 @@ export const qk = {
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
   /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
   shotPrompt: (id: string, shotId: string, stamp: number) => ['projects', id, 'plan', 'prompt', shotId, stamp] as const,
+  /** Смета пачки «Сгенерировать N кадров» — под префиксом выпуска: запись project.json перезапрашивает и её */
+  generateEstimate: (id: string) => ['projects', id, 'generate', 'estimate'] as const,
+  /** Сводка пачки: ответ постановки, паузы и отмены и событие `batch.updated` кладут её сюда целиком */
+  batch: (id: string) => ['batches', id] as const,
   /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
   canon: (channel: string) => ['canon', channel] as const,
   canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
@@ -316,6 +321,92 @@ export function useShotPrompt(id: string, shotId: string | null, planStamp: numb
     queryKey: qk.shotPrompt(id, shotId ?? '', planStamp),
     queryFn: ({ signal }) => api.get<ShotPrompt>(`/projects/${segment(id)}/shots/${segment(shotId ?? '')}/prompt`, { signal }),
     enabled: shotId !== null,
+  })
+}
+
+// --- кадры выпуска (экран 4, docs/generation.md) ---------------------------------------------------
+
+/** Вид джоба кадра: его события двигают плитки экрана 4 */
+export const SHOT_JOB = 'shot_image'
+
+/** Миниатюра версии кадра, webp 160 или 320; адрес версии неизменяем — браузер кэширует его навсегда */
+export function shotThumb(id: string, shotId: string, version: number, width: 160 | 320 = 320): string {
+  return `/api/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/thumb?w=${width}`
+}
+
+/** Пачка выпуска — последняя, у которой есть джоб кадра в снимке джобов (`qk.jobs`: снимок и поток SSE).
+ *  Эндпоинта «пачка выпуска» нет, снимок держит 200 последних джобов. */
+export function latestBatchId(items: readonly JobEventData[], episodeId: string): string | null {
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const job = items[i]!
+    if (job.episode_id === episodeId && job.kind === SHOT_JOB && job.batch_id !== null) return job.batch_id
+  }
+  return null
+}
+
+/** Сводка пачки выпуска: `null` — пачек не было, `undefined` — ещё грузится (снимок джобов или сама сводка) */
+export function useEpisodeBatch(episodeId: string): { data: BatchSummary | null | undefined; error: Error | null } {
+  const items = useJobs().data?.items
+  const batchId = items ? latestBatchId(items, episodeId) : null
+  const batch = useQuery({
+    queryKey: qk.batch(batchId ?? ''),
+    queryFn: ({ signal }) => api.get<BatchSummary>(`/batches/${segment(batchId ?? '')}`, { signal }),
+    enabled: batchId !== null,
+  })
+  if (!items) return { data: undefined, error: null }
+  return { data: batchId === null ? null : batch.data, error: batch.error }
+}
+
+/** Смета пачки до клика: кадры без картинки и `stale`, цена кадра модели по умолчанию. До утверждения бэкенд
+ *  ответил бы 409 — не запрашивается. */
+export function useGenerateEstimate(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.generateEstimate(id),
+    queryFn: ({ signal }) => api.get<BatchEstimate>(`/projects/${segment(id)}/generate/estimate`, { signal }),
+    enabled,
+  })
+}
+
+/** Пачка известна снимку джобов сразу после постановки, не дожидаясь потока: строка её первого джоба */
+async function trackBatch(client: QueryClient, batchId: string) {
+  const list = await api.get<JobList>('/jobs', { query: { batch: batchId, limit: 1 } })
+  for (const job of list.items) rememberJob(client, job)
+}
+
+/** После записи кадров выпуска: project.json (статусы, версии), смета пачки, выпуск и его строка в списках */
+function refreshShots(client: QueryClient, id: string) {
+  void client.invalidateQueries({ queryKey: qk.project(id), exact: true })
+  void client.invalidateQueries({ queryKey: qk.generateEstimate(id) })
+  void client.invalidateQueries({ queryKey: qk.episode(id) })
+  void client.invalidateQueries({ queryKey: qk.episodeLists })
+}
+
+/** «Сгенерировать N кадров»: пачка из кадров без картинки и `stale` (`POST …/generate`). Отказ — 409 с текстом:
+ *  бюджет суммой (`BudgetRefusal`), рисовать нечего, кадры заняты (`BatchRefusal`) */
+export function useGenerate(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.post<BatchResult>(`/projects/${segment(id)}/generate`, {}),
+    onSuccess: (result) => {
+      client.setQueryData(qk.batch(result.batch.id), result.batch)
+      void trackBatch(client, result.batch.id).catch(() => {}) // поток SSE всё равно принесёт джобы пачки
+      refreshShots(client, id)
+    },
+  })
+}
+
+export type BatchAction = 'pause' | 'resume' | 'cancel'
+
+/** Пауза, продолжение, отмена пачки — ответ сводкой. Отмена возвращает кадры из очереди к их статусу. */
+export function useBatchAction(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ batchId, action }: { batchId: string; action: BatchAction }) =>
+      api.post<BatchSummary>(`/batches/${segment(batchId)}/${action}`),
+    onSuccess: (summary, { action }) => {
+      client.setQueryData(qk.batch(summary.id), summary)
+      if (action === 'cancel') refreshShots(client, id)
+    },
   })
 }
 

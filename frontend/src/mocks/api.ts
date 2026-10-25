@@ -24,6 +24,7 @@ import type {
   Swatch,
 } from '@/types/canon'
 import type { Director } from '@/types/director'
+import type { BatchEstimate, BatchRefusal, BatchResult, BatchSummary, SkippedShot } from '@/types/batch'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobList } from '@/types/job'
 import type {
@@ -52,7 +53,7 @@ import type {
   ValidationItem,
 } from '@/types/plan'
 import type { ReferenceAnalysis, ReferenceMetrics, ReferenceVideo } from '@/types/reference'
-import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
+import type { Asset, EpisodeBrief, ImportResult, Project, ShotState } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
@@ -601,10 +602,143 @@ function directorFile(plan: EffectivePlan): Director {
   }
 }
 
+/* ---- Кадры «Пиратов» по артборду 4: сетка, версии, пачка 78 из 104 (M6.7) ---- */
+
+/** Кадр 1K маршрута nb2 из `config/pricing.yaml`, микродоллары */
+const PRICE_IMAGE = 67_000
+
+/** Разделы артборда 4 и число кадров: 104 кадра, 8 разделов */
+const GEN_SECTIONS: [id: string, title: string, shots: number][] = [
+  ['cold', 'Cold open', 6],
+  ['powder', 'Powder monkey', 15],
+  ['landsman', 'Landsman', 13],
+  ['able', 'Able seaman', 14],
+  ['boatswain', 'Boatswain', 13],
+  ['quartermaster', 'Quartermaster', 16],
+  ['captain', 'Captain', 19],
+  ['outro', 'Outro', 8],
+]
+/** Облик раздела — пять «you@…» канона моков (у квартирмейстера листа нет, у боцмана — 3 из 6); капитан и финал —
+ *  общие планы без персонажа */
+const GEN_LOOKS: Record<string, string> = {
+  cold: 'you@powder-monkey-11',
+  powder: 'you@powder-monkey-11',
+  landsman: 'you@landsman-19',
+  able: 'you@able-seaman-23',
+  boatswain: 'you@boatswain-34',
+  quartermaster: 'you@quartermaster-41',
+}
+export const GEN_BATCH = 'batch-pirate'
+/** Пачка артборда: s001–s080 закончены (s047 и s071 — отказ фильтра), s081–s083 рисуются, остальные в очереди */
+const GEN_FINISHED = 80
+const GEN_RUNNING = 83
+const GEN_FAILED: ReadonlySet<string> = new Set(['s047', 's071'])
+const GEN_STARTED = '2026-09-11T09:00:00+00:00'
+/** Цена кадра nb2 из `config/pricing.yaml`, как у сметы плана */
+const GEN_UNIT = PRICE_IMAGE
+/** Остаток пачки — секунд на кадр при трёх параллельных: 24 кадра → «осталось ~9 мин» */
+const GEN_SECONDS_PER_SHOT = 22.5
+export const SAFETY_REFUSAL =
+  'Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности: насилие и опасные действия — смягчите действие кадра.'
+
+/** Версии кадра артборда: у каждого третьего три (выбрана вторая), у чётного две, у остальных одна */
+const genVersions = (n: number) => (n % 3 === 0 ? 3 : n % 2 === 0 ? 2 : 1)
+
+/** План v004 артборда 4: утверждён, кадры по разделам, VO и действие — по кругу из трёх фраз */
+function generationPlan(episode: EpisodeListItem): EffectivePlan {
+  const base = mockPlan(episode, 'v004', 0)
+  let n = 0
+  const shots = GEN_SECTIONS.flatMap(([section, , count]) =>
+    Array.from({ length: count }, (): PlanShot => {
+      n += 1
+      const look = GEN_LOOKS[section]
+      return {
+        ...planShot(n),
+        section,
+        image: { prompt: 'carries a leather cartridge case down the gun deck', period: 'caribbean-1716', appearances: look ? [look] : [], shot_size: 'action' },
+        status: 'todo',
+      }
+    }),
+  )
+  return {
+    ...base,
+    approved_version: 'v004',
+    meta: { ...base.meta, working_title: 'Every Rank on a Pirate Ship', parts_total: 4 },
+    sections: GEN_SECTIONS.map(([id, title]) => ({ id, title, chapter: id !== 'cold' && id !== 'outro', vo_direction: null })),
+    shots,
+  }
+}
+
+function imageAsset(shot: string, version: number): Asset {
+  return {
+    id: `img-${shot}-v${version}`,
+    shot_id: shot,
+    kind: 'image',
+    version,
+    path: `media/${shot}/v${String(version).padStart(3, '0')}.png`,
+    hash: `sha256:${shot}${version}`,
+    status: 'ok',
+    model: 'nb2',
+    model_id: 'gemini-3.1-flash-image',
+    seed: 1900 + version,
+    variant: version,
+    usd_micro: GEN_UNIT,
+    created_at: GEN_STARTED,
+    cached: false,
+    checks: null,
+  }
+}
+
+const shotState = (fields: Partial<ShotState>): ShotState => ({
+  status: 'todo',
+  image_version: null,
+  duration_locked: false,
+  prompt_locked: false,
+  user_override: null,
+  stale_reasons: [],
+  error: null,
+  ...fields,
+})
+
+function shotJob(episodeId: string, batchId: string, shot: string, status: Job['status']): Job {
+  const started = status === 'queued' ? null : GEN_STARTED
+  const finished = status === 'done' || status === 'failed' || status === 'cancelled' ? GEN_STARTED : null
+  return {
+    id: `job-${batchId}-${shot}`,
+    kind: 'shot_image',
+    status,
+    progress: status === 'done' ? 1 : status === 'running' ? 0.5 : 0,
+    message: status === 'running' ? `Кадр ${shot} · рисуется` : null,
+    payload: { shot_id: shot, variant: 1, model: 'nb2' },
+    result: null,
+    error: status === 'failed' ? SAFETY_REFUSAL : null,
+    attempts: started ? 1 : 0,
+    cancel_requested: false,
+    episode_id: episodeId,
+    batch_id: batchId,
+    idempotency_key: null,
+    created_at: GEN_STARTED,
+    started_at: started,
+    finished_at: finished,
+    cost_usd_micro: GEN_UNIT,
+    cost_stage: 'images',
+    channel: null,
+  }
+}
+
+/** Строка пачки — как таблица `batches` бэкенда; счётчики и деньги сводки считаются по её джобам */
+interface MockBatch {
+  id: string
+  episode_id: string
+  created_at: string
+  paused: boolean
+  cancelled: boolean
+}
+
 /* ---- Смета, проверка, версия из JSON, утверждение (M4.7) ---- */
 
 /** Цены маршрутов профиля standard из `config/pricing.yaml`, микродоллары: кадр 1K, знак голоса, секунда клипа 720p */
-const PRICE = { image: 67_000, char: 100, second: 50_000 } as const
+const PRICE = { image: PRICE_IMAGE, char: 100, second: 50_000 } as const
 
 const ru = (n: number, [one, few, many]: readonly [string, string, string]) =>
   n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many
@@ -3213,6 +3347,203 @@ export function createMockApi() {
     return null
   }
 
+  /* ---- Генерация кадров (экран 4, M6.7): пачки и джобы кадров — как `batches` и `jobs` бэкенда ---- */
+
+  const batchRows = new Map<string, MockBatch>()
+  const shotJobs: Job[] = []
+  /** Кадры, которые смета и пачка пропускают с причиной: мок запрос кадра не собирает, проблемы задаёт тест */
+  const skippedShots: SkippedShot[] = []
+  let batchCount = 0
+
+  function batchSummary(row: MockBatch): BatchSummary {
+    const rows = shotJobs.filter((job) => job.batch_id === row.id)
+    const n = (status: Job['status']) => rows.filter((job) => job.status === status).length
+    const jobs = { total: rows.length, queued: n('queued'), running: n('running'), done: n('done'), failed: n('failed'), cancelled: n('cancelled') }
+    const finished = jobs.queued === 0 && jobs.running === 0
+    return {
+      ...row,
+      kind: 'shot_image',
+      model: 'nb2',
+      retry_of: null,
+      jobs,
+      finished,
+      estimate: money(GEN_UNIT * (jobs.total - jobs.cancelled)),
+      spent: money(GEN_UNIT * jobs.done),
+      eta_s: finished || row.paused ? null : Math.round((jobs.queued + jobs.running) * GEN_SECONDS_PER_SHOT),
+    }
+  }
+
+  /** Снимок джобов по фильтру, как `GET /api/jobs?batch=&episode=&kind=&limit=`: последние `limit` по порядку постановки */
+  function jobList(query: URLSearchParams): JobList {
+    const batch = query.get('batch')
+    const episode = query.get('episode')
+    const kind = query.get('kind')
+    const limit = Number(query.get('limit') ?? 200)
+    const items = [...jobs.items, ...shotJobs].filter(
+      (job) => (!batch || job.batch_id === batch) && (!episode || job.episode_id === episode) && (!kind || job.kind === kind),
+    )
+    const n = (status: Job['status']) => items.filter((job) => job.status === status).length
+    return {
+      items: items.slice(-limit),
+      summary: { total: items.length, queued: n('queued'), running: n('running'), done: n('done'), failed: n('failed'), cancelled: n('cancelled') },
+      last_event_id: jobs.last_event_id,
+    }
+  }
+
+  /** Состояние кадра — и в project.json, и статусом в плане: лист экрана 3 показывает его же */
+  function setShot(episode: EpisodeListItem, id: string, fields: Partial<ShotState>) {
+    const project = projectOf(episode)
+    project.shots[id] = { ...(project.shots[id] ?? shotState({})), ...fields }
+    const shot = plansOf(episode)?.shots.find((item) => item.id === id)
+    if (shot && fields.status) shot.status = fields.status
+  }
+
+  const activeJob = (episodeId: string, shot: string) =>
+    shotJobs.find((job) => job.episode_id === episodeId && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'))
+
+  /** Кадры пачки без `shots`: без выбранной картинки и `stale`, кроме пропущенных (`select_shots` бэкенда) */
+  function shotsToDraw(episode: EpisodeListItem): string[] {
+    const project = projectOf(episode)
+    const skipped = new Set(skippedShots.map((item) => item.shot_id))
+    return (effectivePlan(episode)?.shots ?? [])
+      .filter((shot) => shot.status !== 'removed' && !skipped.has(shot.id))
+      .filter((shot) => {
+        const state = project.shots[shot.id]
+        return !state?.image_version || state.status === 'stale'
+      })
+      .map((shot) => shot.id)
+  }
+
+  const batchRefusal = (refusal: BatchRefusal) => fail(409, refusal as unknown as Record<string, unknown>)
+
+  function generationRefusal(episode: EpisodeListItem): MockResponse | null {
+    const plan = plansOf(episode)
+    if (plan && plan.approved_version === plan.version) return null
+    const message = plan
+      ? 'План не утверждён — утвердите его на экране «Сценарий»: кадры рисуются только по утверждённому плану.'
+      : 'Плана ещё нет — соберите его на экране «Сценарий» и утвердите.'
+    return batchRefusal({ code: 'plan_not_approved', message, skipped: [], shots: [], batch_id: null })
+  }
+
+  function generateEstimate(episode: EpisodeListItem): MockResponse {
+    const refusal = generationRefusal(episode)
+    if (refusal) return refusal
+    const shots = shotsToDraw(episode)
+    return ok({
+      model: 'nb2',
+      model_id: 'gemini-3.1-flash-image',
+      count: shots.length,
+      unit: money(GEN_UNIT),
+      total: money(GEN_UNIT * shots.length),
+      shots: shots.map((shot_id) => ({ shot_id, variant: 1, usd: money(GEN_UNIT) })),
+      skipped: [...skippedShots],
+    } satisfies BatchEstimate)
+  }
+
+  /** «Сгенерировать N кадров»: утверждение, занятость, бюджет суммой — затем пачка и её джобы `queued` */
+  function startBatch(episode: EpisodeListItem): MockResponse {
+    const refusal = generationRefusal(episode)
+    if (refusal) return refusal
+    const shots = shotsToDraw(episode)
+    if (!shots.length) {
+      return batchRefusal({
+        code: 'nothing_to_draw',
+        message: 'Рисовать нечего: у кадров плана картинки в силе, остальные пропущены — причины в списке.',
+        skipped: [...skippedShots],
+        shots: [],
+        batch_id: null,
+      })
+    }
+    const busy = shots.filter((shot) => activeJob(episode.id, shot))
+    if (busy.length) {
+      return batchRefusal({
+        code: 'shots_busy',
+        message: `Кадры уже рисуются: ${busy.join(', ')} — дождитесь окончания пачки или отмените её.`,
+        skipped: [],
+        shots: busy,
+        batch_id: activeJob(episode.id, busy[0]!)?.batch_id ?? null,
+      })
+    }
+    const budget = budgetRefusalOf(episode.channel, GEN_UNIT * shots.length)
+    if (budget) return budget
+    batchCount += 1
+    const row: MockBatch = { id: `batch-${episode.id}-${batchCount}`, episode_id: episode.id, created_at: NOW, paused: false, cancelled: false }
+    batchRows.set(row.id, row)
+    for (const shot of shots) {
+      shotJobs.push(shotJob(episode.id, row.id, shot, 'queued'))
+      setShot(episode, shot, { status: 'queued' })
+    }
+    Object.assign(episode, { stage: 'generate', status: 'generating', updated_at: NOW })
+    return ok({ batch: batchSummary(row), skipped: [...skippedShots], warnings: [] } satisfies BatchResult, 201)
+  }
+
+  /** Пауза, продолжение, отмена; отмена снимает `queued`, их кадры — к своему статусу, начатые дорисуются */
+  function batchAction(id: string, action: string): MockResponse | null {
+    const row = batchRows.get(id)
+    if (!row) return fail(404, `Пачка «${id}» не найдена.`)
+    if (action === 'pause') row.paused = true
+    else if (action === 'resume') row.paused = false
+    else if (action === 'cancel') {
+      row.cancelled = true
+      const episode = one(row.episode_id)
+      for (const job of shotJobs) {
+        if (job.batch_id !== id || job.status !== 'queued') continue
+        Object.assign(job, { status: 'cancelled', finished_at: NOW })
+        const shot = String(job.payload.shot_id)
+        if (episode) setShot(episode, shot, { status: projectOf(episode).shots[shot]?.image_version ? 'done' : 'todo' })
+      }
+    } else return null
+    return ok(batchSummary(row))
+  }
+
+  /** Конец джоба кадра, как у воркера: новая версия выбрана, кадр `done`. Событие SSE тест шлёт сам */
+  function drawShot(episodeId: string, shot: string): Job | null {
+    const episode = one(episodeId)
+    if (!episode) return null
+    const project = projectOf(episode)
+    const version = Object.values(project.assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot).length + 1
+    project.assets[`img-${shot}-v${version}`] = imageAsset(shot, version)
+    setShot(episode, shot, { status: 'done', image_version: version, error: null })
+    const job = activeJob(episodeId, shot)
+    if (job) Object.assign(job, { status: 'done', progress: 1, finished_at: NOW, message: `Кадр ${shot} · готово: версия ${version}` })
+    return job ?? null
+  }
+
+  /** «Пираты» на экране 4 по артборду 4: план v004 из 104 кадров утверждён. `drawn` — пачка 78 из 104 с версиями 1–3 и
+   *  двумя отказами фильтра (s047, s071); без него — ни картинок, ни пачки (пустое состояние). По умолчанию у «Пиратов»
+   *  план артборда 3: его снимают эталоны и тесты экрана 3 (L-048) */
+  function generateArtboard({ drawn = true }: { drawn?: boolean } = {}) {
+    const episode = one('pirate')!
+    const plan = generationPlan(episode)
+    plans.set(episode.id, plan)
+    overrides.set(episode.id, {})
+    pinEpisode(episode)
+    Object.assign(projectOf(episode), { director_version: plan.version, approved_version: plan.version, approved_at: NOW, shots: {}, assets: {} })
+    Object.assign(episode, { stage: 'generate', status: drawn ? 'generating' : 'queued', updated_at: NOW })
+    if (!drawn) {
+      episode.summary = summary({ shots_total: plan.shots.length })
+      for (const shot of plan.shots) setShot(episode, shot.id, { status: 'todo' })
+      return
+    }
+    const project = projectOf(episode)
+    batchRows.set(GEN_BATCH, { id: GEN_BATCH, episode_id: episode.id, created_at: GEN_STARTED, paused: false, cancelled: false })
+    plan.shots.forEach((shot, i) => {
+      const n = i + 1
+      const status: Job['status'] = n > GEN_RUNNING ? 'queued' : n > GEN_FINISHED ? 'running' : GEN_FAILED.has(shot.id) ? 'failed' : 'done'
+      shotJobs.push(shotJob(episode.id, GEN_BATCH, shot.id, status))
+      if (status === 'done') {
+        const count = genVersions(n)
+        for (let version = 1; version <= count; version += 1) project.assets[`img-${shot.id}-v${version}`] = imageAsset(shot.id, version)
+        setShot(episode, shot.id, { status: 'done', image_version: count === 3 ? 2 : 1 })
+      } else if (status === 'failed') {
+        setShot(episode, shot.id, { status: 'failed', error: SAFETY_REFUSAL })
+      } else {
+        setShot(episode, shot.id, { status: status === 'running' ? 'generating' : 'queued' })
+      }
+    })
+    episode.summary = { ...episode.summary, shots_total: 104, shots_done: 78, shots_failed: 2, shots_generating: 3 }
+  }
+
   function handle(method: string, url: string, body?: unknown): MockResponse {
     const { pathname, searchParams } = new URL(url, 'http://studio.test')
     const path = pathname.replace(/^\/api/, '')
@@ -3288,16 +3619,25 @@ export function createMockApi() {
     }
     if (method === 'GET' && path === '/episodes') return ok(channel ? state.filter((e) => e.channel === channel) : state)
     if (method === 'GET' && path === '/slots') return ok(currentSlots())
-    if (method === 'GET' && path === '/jobs') return ok(jobs)
+    if (method === 'GET' && path === '/jobs') return ok(jobList(searchParams))
     if (parts[0] === 'jobs' && parts[1]) {
       const id = decodeURIComponent(parts[1])
-      const job = canonJobRecords.get(id) ?? jobs.items.find((j) => j.id === id)
+      const job = canonJobRecords.get(id) ?? jobs.items.find((j) => j.id === id) ?? shotJobs.find((j) => j.id === id)
       if (!job) return fail(404, `Джоба ${id} нет.`)
       if (method === 'GET' && parts.length === 2) return ok(job)
       if (method === 'POST' && parts[2] === 'cancel') {
         const cancelled: Job = { ...job, status: 'cancelled', finished_at: NOW }
         canonJobRecords.set(id, cancelled)
         return ok(cancelled)
+      }
+    }
+    if (parts[0] === 'batches' && parts[1]) {
+      const id = decodeURIComponent(parts[1])
+      const row = batchRows.get(id)
+      if (method === 'GET' && parts.length === 2) return row ? ok(batchSummary(row)) : fail(404, `Пачка «${id}» не найдена.`)
+      if (method === 'POST' && parts[2] && parts.length === 3) {
+        const response = batchAction(id, parts[2])
+        if (response) return response
       }
     }
     if (method === 'GET' && path === '/bridge/settings') return ok(bridgeSettings)
@@ -3391,6 +3731,13 @@ export function createMockApi() {
       if (method === 'GET' && rest === 'canon') return ok(episodeCanonOf(episode))
       if (method === 'POST' && rest === 'canon/update') return updateCanon(episode)
       if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'prompt') return shotPromptOf(episode, decodeURIComponent(parts[3]))
+      if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'images' && parts[5] && parts[6] === 'thumb') {
+        const w = Number(searchParams.get('w') ?? 320)
+        if (w !== 160 && w !== 320) return shapeError(['query', 'w'], `Ширины миниатюры ${w} нет — есть 160 и 320.`, 'thumb_width')
+        return { status: 200, body: thumbSvg(`${decodeURIComponent(parts[3])} · v${parts[5]}`, w, 9 / 16), contentType: 'image/svg+xml' }
+      }
+      if (method === 'GET' && rest === 'generate/estimate') return generateEstimate(episode)
+      if (method === 'POST' && rest === 'generate') return startBatch(episode)
       if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
       if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
       if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
@@ -3416,6 +3763,9 @@ export function createMockApi() {
     },
     /** Наборы частей моста по выпуску: принятые части и последний обмен */
     parts: partSets,
+    /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `drawShot` — конец джоба кадра */
+    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot },
+    generateArtboard,
   }
 }
 
