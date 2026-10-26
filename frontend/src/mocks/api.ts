@@ -55,7 +55,7 @@ import type {
   ValidationItem,
 } from '@/types/plan'
 import type { ReferenceAnalysis, ReferenceMetrics, ReferenceVideo } from '@/types/reference'
-import type { Asset, EpisodeBrief, ImportResult, Project, ShotState } from '@/types/project'
+import type { Asset, EpisodeBrief, ImportResult, Project, ShotImages, ShotState } from '@/types/project'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
@@ -664,6 +664,28 @@ export const SAFETY_REFUSAL =
 
 /** Версии кадра артборда: у каждого третьего три (выбрана вторая), у чётного две, у остальных одна */
 const genVersions = (n: number) => (n % 3 === 0 ? 3 : n % 2 === 0 ? 2 : 1)
+
+/** Кадр режима «Сравнение версий» артборда 4: три версии, выбрана вторая; модель — индекс каталога, сходство лица
+ *  с фасом облика — «среднее», «высокое», «высокое» (порог 0.47, запас 0.10). Время — 11:41, 11:58, 12:24 МСК */
+export const GEN_COMPARE = 's061'
+const GEN_COMPARE_VERSIONS: { model: number; seed: number; at: string; score: number }[] = [
+  { model: 1, seed: 418_902, at: '2026-09-11T08:41:00+00:00', score: 0.52 },
+  { model: 1, seed: 771_344, at: '2026-09-11T08:58:00+00:00', score: 0.71 },
+  { model: 3, seed: 905_117, at: '2026-09-11T09:24:00+00:00', score: 0.66 },
+]
+
+/** Версия s061 с метаданными артборда и проверкой лица облика раздела */
+function compareAsset(shot: string, version: number, appearance: string): Asset {
+  const meta = GEN_COMPARE_VERSIONS[version - 1]!
+  const face = {
+    status: 'ok' as const,
+    appearances: [{ id: appearance, status: 'ok' as const, score: meta.score, front: 'front-1-mock' }],
+    faces: 1,
+    threshold: 0.47,
+    checked_at: meta.at,
+  }
+  return { ...imageAsset(shot, version, IMAGE_CATALOG.models[meta.model]!), seed: meta.seed, created_at: meta.at, checks: { face } }
+}
 
 /** План v004 артборда 4: утверждён, кадры по разделам, VO и действие — по кругу из трёх фраз */
 function generationPlan(episode: EpisodeListItem): EffectivePlan {
@@ -3609,8 +3631,9 @@ export function createMockApi() {
     return ok({ shot_id: shotId, variant: nextVariant(episode, shotId), model: entry.key, model_id: entry.model, usd: unitMoney(entry.price.usd_micro) } satisfies RedrawEstimate)
   }
 
-  /** Конец джоба кадра, как у воркера: новая версия моделью заказа, выбрана, кадр `done`; итог — в `result`. Событие
-   *  SSE тест шлёт сам */
+  /** Конец джоба кадра, как у воркера: новая версия моделью и вариантом заказа, кадр `done`; итог — в `result`. Версия
+   *  выбирается сама, только если выбранной нет или она устарела (E-1, docs/generation.md), — у готового кадра это
+   *  вариант на выбор в «Сравнении версий». Событие SSE тест шлёт сам */
   function drawShot(episodeId: string, shot: string): Job | null {
     const episode = one(episodeId)
     if (!episode) return null
@@ -3618,8 +3641,10 @@ export function createMockApi() {
     const job = activeJob(episodeId, shot)
     const entry = catalogEntry(job ? String(job.payload.model) : null) ?? IMAGE_CATALOG.models[1]!
     const version = Object.values(project.assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot).length + 1
-    project.assets[`img-${shot}-v${version}`] = imageAsset(shot, version, entry)
-    setShot(episode, shot, { status: 'done', image_version: version, error: null })
+    project.assets[`img-${shot}-v${version}`] = { ...imageAsset(shot, version, entry), variant: job ? Number(job.payload.variant ?? version) : version }
+    const state = project.shots[shot]
+    const choose = (state?.image_version ?? null) === null || (state?.stale_reasons.length ?? 0) > 0
+    setShot(episode, shot, choose ? { status: 'done', image_version: version, error: null, stale_reasons: [] } : { status: 'done', error: null })
     if (job) {
       Object.assign(job, {
         status: 'done',
@@ -3630,6 +3655,30 @@ export function createMockApi() {
       })
     }
     return job ?? null
+  }
+
+  /** Версии кадра, как `GET …/images` (`ShotImages`): новые сверху и выбранная */
+  function shotImagesOf(episode: EpisodeListItem, shotId: string): ShotImages {
+    const project = projectOf(episode)
+    const state = project.shots[shotId]
+    const versions = Object.values(project.assets)
+      .filter((asset) => asset.kind === 'image' && asset.shot_id === shotId)
+      .sort((a, b) => b.version - a.version)
+    return { shot_id: shotId, status: state?.status ?? 'todo', image_version: state?.image_version ?? null, versions }
+  }
+
+  /** «Выбрать версию N» (`POST …/images/{version}/choose`): кадр `done`, причины устаревания и ошибка сняты; ошибки и
+   *  тексты — docs/generation.md, «API»; несуществующая версия project.json не меняет */
+  function chooseVersion(episode: EpisodeListItem, shotId: string, version: number): MockResponse {
+    const plan = effectivePlan(episode)
+    const shot = plan?.shots.find((item) => item.id === shotId)
+    if (!plan || !shot) return fail(404, `Кадра ${shotId} нет в плане ${plan?.version ?? ''} — проверьте id кадра.`)
+    if (shot.status === 'removed') return fail(404, `Кадр ${shotId} убран из плана ${plan.version} — картинок у него нет.`)
+    const numbers = shotImagesOf(episode, shotId).versions.map((asset) => asset.version).reverse()
+    if (!numbers.length) return fail(404, `У кадра ${shotId} ещё нет картинок — сначала сгенерируйте кадр.`)
+    if (!numbers.includes(version)) return fail(404, `У кадра ${shotId} нет версии ${version} — есть ${numbers.join(', ')}.`)
+    setShot(episode, shotId, { status: 'done', image_version: version, stale_reasons: [], error: null })
+    return ok(shotImagesOf(episode, shotId))
   }
 
   /** Отказ модели у джоба кадра, как у воркера: кадр `failed` с причиной, без повтора. Событие SSE тест шлёт сам */
@@ -3665,8 +3714,13 @@ export function createMockApi() {
       const status: Job['status'] = n > GEN_RUNNING ? 'queued' : n > GEN_FINISHED ? 'running' : GEN_FAILED.has(shot.id) ? 'failed' : 'done'
       shotJobs.push(shotJob(episode.id, GEN_BATCH, shot.id, status))
       if (status === 'done') {
-        const count = genVersions(n)
-        for (let version = 1; version <= count; version += 1) project.assets[`img-${shot.id}-v${version}`] = imageAsset(shot.id, version)
+        const compare = shot.id === GEN_COMPARE
+        const count = compare ? GEN_COMPARE_VERSIONS.length : genVersions(n)
+        for (let version = 1; version <= count; version += 1) {
+          project.assets[`img-${shot.id}-v${version}`] = compare
+            ? compareAsset(shot.id, version, shot.image.appearances[0]!)
+            : imageAsset(shot.id, version)
+        }
         setShot(episode, shot.id, { status: 'done', image_version: count === 3 ? 2 : 1 })
       } else if (status === 'failed') {
         setShot(episode, shot.id, { status: 'failed', error: SAFETY_REFUSAL })
@@ -3869,6 +3923,12 @@ export function createMockApi() {
         const w = Number(searchParams.get('w') ?? 320)
         if (w !== 160 && w !== 320) return shapeError(['query', 'w'], `Ширины миниатюры ${w} нет — есть 160 и 320.`, 'thumb_width')
         return { status: 200, body: thumbSvg(`${decodeURIComponent(parts[3])} · v${parts[5]}`, w, 9 / 16), contentType: 'image/svg+xml' }
+      }
+      if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'images' && parts[5] && parts[6] === 'file') {
+        return { status: 200, body: thumbSvg(`${decodeURIComponent(parts[3])} · v${parts[5]}`, 1280, 9 / 16), contentType: 'image/svg+xml' }
+      }
+      if (method === 'POST' && parts[2] === 'shots' && parts[3] && parts[4] === 'images' && parts[5] && parts[6] === 'choose') {
+        return chooseVersion(episode, decodeURIComponent(parts[3]), Number(parts[5]))
       }
       if (method === 'GET' && rest === 'generate/estimate') return generateEstimate(episode, batchQueryOf(searchParams))
       if (method === 'POST' && rest === 'generate') return startBatch(episode, (body ?? {}) as BatchQuery)

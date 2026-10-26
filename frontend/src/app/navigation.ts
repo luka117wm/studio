@@ -35,8 +35,15 @@ export function useSearchParam(name: string): string | null {
 
 /** Поставить или убрать (`null`) параметр адреса без новой записи в истории: вид экрана, а не переход. */
 export function setSearchParam(name: string, value: string | null): void {
+  setSearchParams({ [name]: value })
+}
+
+/** То же для нескольких параметров одной записью: вид и его предмет (`?view=compare&shot=s061`) меняются вместе. */
+export function setSearchParams(values: Record<string, string | null>): void {
   const url = new URL(window.location.href)
-  if (value === null) url.searchParams.delete(name)
-  else url.searchParams.set(name, value)
+  for (const [name, value] of Object.entries(values)) {
+    if (value === null) url.searchParams.delete(name)
+    else url.searchParams.set(name, value)
+  }
   navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true })
 }

@@ -37,7 +37,7 @@ import type {
 } from '@/types/plan'
 import type { StageCatalog } from '@/types/provider'
 import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
-import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
+import type { EpisodeBrief, ImportResult, Project, ShotImages } from '@/types/project'
 import type { RedrawBody } from '@/types/shot'
 import type { RedrawEstimate } from '@/types/shot_redraw'
 import type { Slot, SlotAssign } from '@/types/slot'
@@ -345,6 +345,11 @@ export function shotThumb(id: string, shotId: string, version: number, width: 16
   return `/api/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/thumb?w=${width}`
 }
 
+/** Картинка версии как есть (png, jpg или webp — как отдала модель) */
+export function shotFile(id: string, shotId: string, version: number): string {
+  return `/api/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/file`
+}
+
 /** Пачка выпуска — последняя, у которой есть джоб кадра в снимке джобов (`qk.jobs`: снимок и поток SSE).
  *  Эндпоинта «пачка выпуска» нет, снимок держит 200 последних джобов. */
 export function latestBatchId(items: readonly JobEventData[], episodeId: string): string | null {
@@ -422,6 +427,26 @@ export function useRedraw(id: string) {
       // Следующий вариант сдвинулся, а правка действия видна на листе и в диалоге
       void client.invalidateQueries({ queryKey: ['projects', id, 'shots', shotId] })
       if (prompt !== undefined && prompt !== null) void client.invalidateQueries({ queryKey: qk.plan(id), exact: true })
+    },
+  })
+}
+
+/** «Выбрать версию N» (`POST …/images/{version}/choose`): выбранная идёт в монтаж, кадр `done`. Ответ (`ShotImages`)
+ *  сразу кладётся в project.json кэша — рамка и плитка переезжают без ожидания перезапроса; статус выпуска (пометки
+ *  проверок — у выбранной) приходит перезапросом выпуска. */
+export function useChooseVersion(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ shotId, version }: { shotId: string; version: number }) =>
+      api.post<ShotImages>(`/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/choose`),
+    onSuccess: (images) => {
+      client.setQueryData<Project>(qk.project(id), (project) => {
+        const state = project?.shots[images.shot_id]
+        if (!project || !state) return project
+        const chosen = { ...state, image_version: images.image_version, status: images.status, stale_reasons: [], error: null }
+        return { ...project, shots: { ...project.shots, [images.shot_id]: chosen } }
+      })
+      refreshShots(client, id)
     },
   })
 }

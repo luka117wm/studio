@@ -1,5 +1,6 @@
 /* Итог действий экрана 4 из этой вкладки (M6.8): перерисовка кадра — тост по концу её джоба со списанной суммой или
-   причиной сбоя; пачка выбранных — тост, когда её сводка закончилась. Чужие джобы и пачки тостов не дают: следим
+   причиной сбоя; пачка выбранных — тост, когда её сводка закончилась. «Добавить версию» в сравнении версий (M6.9) —
+   тот же джоб, тост — своим названием действия. Чужие джобы и пачки тостов не дают: следим
    только за поставленным здесь. Источник — кэш запросов (снимок джобов и сводки пачек пишет поток SSE, `api/live.ts`):
    подписка на него, а конец, пришедший раньше ответа постановки, ловится сразу при постановке. Шапку расходов
    обновляет сам конец джоба (L-046). */
@@ -16,9 +17,12 @@ import { SHOTS } from './grid'
 
 const FINAL: ReadonlySet<string> = new Set(['done', 'failed', 'cancelled'])
 
+/** Каким действием поставлен джоб кадра: «Перерисовать» или «Добавить версию» */
+export type RedrawAction = 'redraw' | 'add'
+
 interface Watched {
-  /** Джоб перерисовки → его кадр */
-  jobs: Map<string, string>
+  /** Джоб перерисовки → его кадр и действие */
+  jobs: Map<string, { shot: string; action: RedrawAction }>
   batches: Set<string>
 }
 
@@ -26,20 +30,27 @@ interface Watched {
 function settle(client: QueryClient, watched: Watched, push: (toast: ToastItem) => void) {
   const items = client.getQueryData<LiveJobs>(qk.jobs)?.items ?? []
   for (const state of items) {
-    const shot = watched.jobs.get(state.job_id)
-    if (shot === undefined || !FINAL.has(state.status)) continue
+    const watch = watched.jobs.get(state.job_id)
+    if (watch === undefined || !FINAL.has(state.status)) continue
+    const { shot, action } = watch
     watched.jobs.delete(state.job_id)
     const id = `redraw-${state.job_id}`
     // `error` джоба — «<ТипОшибки>: <текст>» (docs/jobs.md); человеку — текст, как на плитке
     const reason = (state.error ?? '').replace(/^\w+: /, '') || 'причина — на плитке'
-    if (state.status === 'failed') push({ id, message: `${shot} не перерисован: ${reason}`, status: 'failed' })
+    if (state.status === 'failed') {
+      push({ id, message: action === 'add' ? `Версия кадра ${shot} не добавлена: ${reason}` : `${shot} не перерисован: ${reason}`, status: 'failed' })
+    }
     if (state.status !== 'done') continue
     // Итог (`result`) событие не несёт — джоб целиком
     void fetchJob(client, state.job_id)
       .then((job) => {
         const version = Number(job.result?.version ?? 0)
         const usd = Number(job.result?.usd_micro ?? 0)
-        push({ id, message: `Перерисовано: ${shot}${version ? `, версия ${version}` : ''}, списано ${formatUsd(usd)}`, status: 'ready' })
+        const message =
+          action === 'add'
+            ? `Добавлена версия${version ? ` ${version}` : ''} кадра ${shot}, списано ${formatUsd(usd)}`
+            : `Перерисовано: ${shot}${version ? `, версия ${version}` : ''}, списано ${formatUsd(usd)}`
+        push({ id, message, status: 'ready' })
       })
       .catch(() => {})
   }
@@ -71,8 +82,8 @@ export function useRedrawOutcome() {
   )
 
   return {
-    watchJob: (job: Job, shotId: string) => {
-      watched.current.jobs.set(job.id, shotId)
+    watchJob: (job: Job, shotId: string, action: RedrawAction = 'redraw') => {
+      watched.current.jobs.set(job.id, { shot: shotId, action })
       settle(client, watched.current, pushToast)
     },
     watchBatch: (batch: BatchSummary) => {

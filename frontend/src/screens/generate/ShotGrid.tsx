@@ -16,6 +16,8 @@ export interface ShotGridProps extends ShotActionHandlers {
   selected: ReadonlySet<string>
   model: string | null
   onSelect: (id: string, shift: boolean) => void
+  /** Плитка получила фокус: экран помнит последний кадр под фокусом — его открывает «Сравнить версии кадра» */
+  onFocusShot?: (id: string) => void
 }
 
 /** Ближайшая плитка в соседнем ряду: ряды — по раскладке, а не по счёту колонок (у разделов неполные ряды) */
@@ -34,7 +36,7 @@ function verticalNeighbour(container: HTMLElement, current: HTMLElement, down: b
   return best?.id ?? null
 }
 
-export function ShotGrid({ episodeId, sections, selected, model, onSelect, onRedraw, onEdit, onOpen }: ShotGridProps) {
+export function ShotGrid({ episodeId, sections, selected, model, onSelect, onFocusShot, onRedraw, onEdit, onOpen }: ShotGridProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const order = useMemo(() => sections.flatMap((section) => section.shots.map((shot) => shot.id)), [sections])
@@ -82,7 +84,10 @@ export function ShotGrid({ episodeId, sections, selected, model, onSelect, onRed
                   model={model}
                   tabbable={shot.id === tabbable}
                   onSelect={onSelect}
-                  onFocusShot={setFocusId}
+                  onFocusShot={(id) => {
+                    setFocusId(id)
+                    onFocusShot?.(id)
+                  }}
                   onRedraw={onRedraw}
                   onEdit={onEdit}
                   onOpen={onOpen}
