@@ -88,6 +88,14 @@ def order_for(
     нет в `canon_ref` или список пуст — None (проверки не будет, статус `off`)."""
     if not enabled(paths, channel):
         return None
+    return period_order(paths, channel, canon_ref, period_id)
+
+
+def period_order(
+    paths: StudioPaths, channel: str, canon_ref: CanonRef, period_id: str
+) -> AnachronismOrder | None:
+    """Вопрос об эпохе `period_id` по прибитой версии без оглядки на выключатель — для цены вопроса
+    до включения проверки (смета перепроверки, M6.10); эпохи нет или список пуст — None."""
     ref = canon_ref.periods.get(period_id)
     if ref is None:
         return None

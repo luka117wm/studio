@@ -7,13 +7,16 @@
    Модель — одна на экран (полоса выбора), по умолчанию — профиль канала из каталога.
    M6.9: режим «Сравнение версий» вместо сетки — вид в адресе (`?view=compare&shot=s061`, переживает перезагрузку),
    переключатель в заголовке и V; кадр — под фокусом, иначе последний под фокусом, иначе первый выбранный. Esc и «К
-   сетке кадров» возвращают фокус на плитку кадра. */
+   сетке кадров» возвращают фокус на плитку кадра.
+   M6.10: пометки проверок на плитках, вид «Подозрительные» (`?view=suspects`, сегмент рядом с «Сетка кадров») — его
+   плитка открывает сравнение, а выход из сравнения возвращает туда, откуда пришли (`from`); блок «Проверка» в каноне
+   выпуска. Пометки ничего не блокируют: кнопки и выбор от них не зависят. */
 import { FileText, Images, Mic, Palette, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { EpisodeListItem } from '@/types/episode'
 import type { Job } from '@/types/job'
 import { budgetRefusal } from '../../api/client'
-import { useCatalog, useEpisodeBatch, useGenerate, useGenerateEstimate, usePlan, useProject, useRedraw } from '../../api/queries'
+import { useCatalog, useChannels, useEpisodeBatch, useGenerate, useGenerateEstimate, usePlan, useProject, useRedraw } from '../../api/queries'
 import { EpisodeScreen } from '../../app/EpisodeScreen'
 import { QueryError, WorkAreaSkeleton } from '../../app/BackendState'
 import { navigate, setSearchParams, useSearchParam } from '../../app/navigation'
@@ -23,7 +26,7 @@ import { isEditable } from '../../app/keyboard'
 import { useHotkeySet } from '../../app/useHotkey'
 import { useStatusNote } from '../../app/useStatusNote'
 import { useUiStore } from '../../store/uiStore'
-import { Button, EmptyState, cn } from '../../ui'
+import { Button, EmptyState, SegmentedControl, cn } from '../../ui'
 import { plural } from '../episodes/board'
 import { CanonSide } from './CanonSide'
 import { CompareVersions } from './CompareVersions'
@@ -31,7 +34,9 @@ import { EditActionDialog } from './EditActionDialog'
 import { QueueStrip } from './QueueStrip'
 import { SelectionBar } from './SelectionBar'
 import { ShotGrid } from './ShotGrid'
+import { Suspects } from './Suspects'
 import { VoiceStub } from './VoiceStub'
+import { suspects } from './checks'
 import { SHOTS, gridSections, hasImages, headerNote, statusNote } from './grid'
 import { useSelection } from './selection'
 import { useRedrawOutcome } from './useRedrawOutcome'
@@ -64,7 +69,10 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
   const [lastFocused, setLastFocused] = useState<string | null>(null)
   const viewParam = useSearchParam('view')
   const shotParam = useSearchParam('shot')
+  const fromParam = useSearchParam('from')
   const compareId = viewParam === 'compare' ? shotParam : null
+  // Проверка анахронизмов выключена в профиле канала: её пометки на плитках — «проверено раньше»
+  const checkedEarlier = useChannels().data?.find((item) => item.id === episode.channel)?.checks?.anachronism === false
   // Кадр, на плитку которого вернётся фокус после сравнения
   const returnFocus = useRef<string | null>(null)
 
@@ -108,15 +116,20 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
     [sections],
   )
   const comparing = grid && compareId !== null
+  const listing = grid && !comparing && viewParam === 'suspects'
+  const gridView = grid && !comparing && !listing
+  const suspectCount = useMemo(() => suspects(sections).length, [sections])
   /** Кадр под фокусом клавиатуры — плитка, на кнопке выбора или действии которой стоит фокус */
   const focusedShot = () => (document.activeElement instanceof HTMLElement ? (document.activeElement.closest<HTMLElement>('[data-shot]')?.dataset.shot ?? null) : null)
   /** Чьи версии откроет «Сравнить версии кадра»: фокус с кнопки заголовка уже ушёл — последний под фокусом */
   const compareCandidate = lastFocused ?? selection.selected[0] ?? null
-  const openCompare = (shotId: string) => setSearchParams({ view: 'compare', shot: shotId })
+  const openCompare = (shotId: string, from: 'suspects' | null = null) => setSearchParams({ view: 'compare', shot: shotId, from })
+  /** Назад — в вид, откуда открыли сравнение: «Подозрительные» или сетка */
   const closeCompare = () => {
     returnFocus.current = compareId
-    setSearchParams({ view: null, shot: null })
+    setSearchParams({ view: fromParam === 'suspects' ? 'suspects' : null, shot: null, from: null })
   }
+  const setView = (view: 'grid' | 'suspects') => setSearchParams({ view: view === 'suspects' ? 'suspects' : null })
   useEffect(() => {
     const shotId = returnFocus.current
     if (compareId !== null || shotId === null) return
@@ -131,7 +144,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
       scope: 'screen',
       group: 'Генерация',
       description: 'Выбрать все кадры',
-      when: () => grid && !comparing && !isEditable(document.activeElement),
+      when: () => gridView && !isEditable(document.activeElement),
       handler: () => selection.selectAll(),
     },
     {
@@ -140,7 +153,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
       scope: 'screen',
       group: 'Генерация',
       description: comparing ? 'К сетке кадров' : 'Снять выбор',
-      when: () => comparing || selection.selected.length > 0,
+      when: () => comparing || (gridView && selection.selected.length > 0),
       handler: () => (comparing ? closeCompare() : selection.clear()),
     },
     {
@@ -150,7 +163,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
       group: 'Генерация',
       description: 'Перерисовать кадр под фокусом',
       hint: 'перерисовать кадр',
-      when: () => grid && !comparing,
+      when: () => gridView,
       handler: () => {
         const shotId = focusedShot()
         if (shotId) void redrawShot(shotId)
@@ -163,11 +176,11 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
       group: 'Генерация',
       description: comparing ? 'К сетке кадров' : 'Версии кадра под фокусом',
       hint: 'версии кадра',
-      when: () => comparing || (grid && (focusedShot() ?? compareCandidate) !== null),
+      when: () => comparing || (listing && focusedShot() !== null) || (gridView && (focusedShot() ?? compareCandidate) !== null),
       handler: () => {
         if (comparing) return closeCompare()
-        const shotId = focusedShot() ?? compareCandidate
-        if (shotId) openCompare(shotId)
+        const shotId = listing ? focusedShot() : (focusedShot() ?? compareCandidate)
+        if (shotId) openCompare(shotId, listing ? 'suspects' : null)
       },
     },
   ])
@@ -234,7 +247,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
               icon={Images}
               title={`Кадра ${compareId} нет в плане`}
               description="Он убран из действующего плана, или адрес устарел. Версии остальных кадров открываются из сетки."
-              secondary={{ label: 'К сетке кадров', onClick: closeCompare }}
+              secondary={{ label: fromParam === 'suspects' ? 'К подозрительным' : 'К сетке кадров', onClick: closeCompare }}
             />
           </Centered>
         )
@@ -252,6 +265,17 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
         />
       )
     }
+    if (listing) {
+      return (
+        <Suspects
+          episodeId={episode.id}
+          sections={sections}
+          checkedEarlier={checkedEarlier}
+          onOpen={(shotId) => openCompare(shotId, 'suspects')}
+          onGrid={() => setView('grid')}
+        />
+      )
+    }
     return (
       <>
         {generate.error && <Alert message={generate.error.message} className="border-b border-line px-4 py-2" />}
@@ -260,6 +284,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
           sections={sections}
           selected={selection.selection.ids}
           model={model}
+          checkedEarlier={checkedEarlier}
           onSelect={selection.click}
           onFocusShot={setLastFocused}
           onRedraw={(shotId) => void redrawShot(shotId)}
@@ -292,22 +317,37 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
     )
   }
 
-  const viewToggle = grid ? (
-    <Button
-      disabled={!comparing && compareCandidate === null}
-      title={comparing ? 'V или Esc' : compareCandidate ? `Версии кадра ${compareCandidate} (V)` : 'Выберите кадр: клик или фокус на плитке'}
-      onClick={() => (comparing ? closeCompare() : compareCandidate && openCompare(compareCandidate))}
-    >
-      {comparing ? 'К сетке кадров' : 'Сравнить версии кадра'}
-    </Button>
-  ) : null
+  const back = fromParam === 'suspects' ? 'К подозрительным' : 'К сетке кадров'
+  const viewToggle =
+    comparing || gridView ? (
+      <Button
+        disabled={!comparing && compareCandidate === null}
+        title={comparing ? 'V или Esc' : compareCandidate ? `Версии кадра ${compareCandidate} (V)` : 'Выберите кадр: клик или фокус на плитке'}
+        onClick={() => (comparing ? closeCompare() : compareCandidate && openCompare(compareCandidate))}
+      >
+        {comparing ? back : 'Сравнить версии кадра'}
+      </Button>
+    ) : null
   const note = comparing ? 'сравнение версий кадра' : plan.data ? headerNote(sections) : undefined
+  // Сетка или «Подозрительные» — вид экрана в заголовке; в сравнении версий вида нет, только путь назад
+  const view =
+    grid && !comparing ? (
+      <SegmentedControl
+        ariaLabel="Вид экрана"
+        value={listing ? 'suspects' : 'grid'}
+        onChange={setView}
+        options={[
+          { value: 'grid', label: 'Сетка кадров' },
+          { value: 'suspects', label: `Подозрительные (${suspectCount})` },
+        ]}
+      />
+    ) : undefined
   // В сравнении в заголовке только переключатель (артборд 4): главное действие экрана — у сетки
   const actions = viewToggle || headerAction ? <>{viewToggle}{!comparing && headerAction}</> : undefined
 
   return (
     <ScreenLayout
-      header={{ title: 'Генерация', note, actions }}
+      header={{ title: 'Генерация', note, view, actions }}
       strip={{ title: 'Очереди генерации', children: <QueueStrip episodeId={episode.id} batch={batch.data} error={batch.error} /> }}
       left={{
         kind: 'canon',
@@ -315,7 +355,7 @@ function Generate({ episode }: { episode: EpisodeListItem }) {
         note: 'только чтение',
         icon: Palette,
         collapsible: true,
-        children: <CanonSide channel={episode.channel} episodeId={episode.id} version={plan.data?.version ?? null} />,
+        children: <CanonSide channel={episode.channel} episodeId={episode.id} version={plan.data?.version ?? null} selected={grid ? selection.selected : null} />,
       }}
       right={{ title: 'Голос', icon: Mic, collapsible: true, children: <VoiceStub /> }}
     >

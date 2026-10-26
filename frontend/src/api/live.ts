@@ -9,7 +9,7 @@
 // перезапрашивает project.json выпуска (статусы и версии плиток) и смету пачки — с тем же порогом.
 import type { QueryClient } from '@tanstack/react-query'
 import type { JobEventData } from '@/types/job'
-import { SHOT_JOB, fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
+import { CHECK_JOB, SHOT_JOB, fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
 import { BATCH_EVENT, subscribe as subscribeSse, type JobEvent, type JobEventType, type StreamEvent, type StreamState } from './sse'
 
 export const SUMMARY_THROTTLE_MS = 1_000
@@ -70,6 +70,7 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
   const refreshShots = (episodeId: string) => {
     void client.invalidateQueries({ queryKey: qk.project(episodeId), exact: true })
     void client.invalidateQueries({ queryKey: qk.generateEstimate(episodeId) })
+    void client.invalidateQueries({ queryKey: qk.checkEstimates(episodeId) })
   }
 
   const onEvent = (event: StreamEvent) => {
@@ -96,8 +97,9 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
     const episodeId = event.data.episode_id
     if (episodeId === null) return
     // Джоб кадра сменил статус (поставлен, начал, кончил): плитки читают project.json. Сотня концов подряд — один
-    // перезапрос в секунду, хвост окна не теряется
-    if (event.data.kind === SHOT_JOB && event.type !== 'job.progress') throttled(`shots:${episodeId}`, () => refreshShots(episodeId))
+    // перезапрос в секунду, хвост окна не теряется. Конец перепроверки (M6.10) записал пометки выбранной версии
+    const shotsChanged = event.data.kind === SHOT_JOB ? event.type !== 'job.progress' : event.data.kind === CHECK_JOB && final
+    if (shotsChanged) throttled(`shots:${episodeId}`, () => refreshShots(episodeId))
     const key = `episode:${episodeId}`
     if (!final) {
       throttled(key, () => refreshEpisode(episodeId))

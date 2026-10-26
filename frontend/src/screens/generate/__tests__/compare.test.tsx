@@ -126,8 +126,8 @@ describe('вход, карточки, выход', () => {
     await user.keyboard('{Control>}a{/Control}')
     await user.click(screen.getByRole('button', { name: 'Сравнить версии кадра' }))
     await screen.findByRole('heading', { name: 'Версии кадра s001' })
-    // Версии без проверок — «не проверено»
-    expect(row(card(1, 1, 's001'), 'Соответствие канону')).toBe('не проверено')
+    // Сходство s001 в моках — 0.62, от порога 0.47 + 0.10 — «высокое»
+    expect(row(card(1, 1, 's001'), 'Соответствие канону')).toBe('высокое')
     await user.click(screen.getByRole('button', { name: 'К сетке кадров' }))
 
     await screen.findByRole('region', { name: 'Cold open' })

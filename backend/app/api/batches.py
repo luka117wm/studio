@@ -15,6 +15,8 @@ from app.jobs.queue import BatchSummary, batch_summary
 from app.jobs.worker import JobPool
 from app.models.director import StrictModel
 from app.models.project import Project
+from app.pipeline.checks import shot_check
+from app.pipeline.checks.shot_check import CheckEstimate
 from app.pipeline.images import batch
 from app.pipeline.images.batch import BatchEstimate, BatchNotFound, BatchRefused, BatchResult
 from app.pipeline.images.shot_job import SHOT_KIND
@@ -123,6 +125,31 @@ async def generate_estimate(
     except BatchRefused as exc:
         raise HTTPException(status_code=409, detail=exc.refusal.model_dump(mode="json")) from exc
     return batch.estimate(gateway, selection)
+
+
+@router.get("/projects/{episode_id}/check/estimate")
+async def check_estimate(
+    episode_id: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    shots: str | None = None,
+) -> CheckEstimate:
+    """Смета перепроверки до клика (M6.10) — те же заказы, что поставит `POST …/shots/{id}/check`
+    по каждому кадру `shots` (id через запятую), и цена вопроса для подписи выключателя. Ничего
+    не пишет. План не импортирован — 404."""
+    episode = require_episode(db, episode_id)
+    project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
+    director = read_version(paths, episode, project.director_version)
+    if director is None:
+        raise HTTPException(
+            status_code=404,
+            detail="План ещё не импортирован — кадров нет. Импортируйте план на экране «Сценарий».",
+        )
+    wanted = [s.strip() for s in shots.split(",") if s.strip()] if shots else []
+    return shot_check.estimate_checks(
+        paths, gateway, project, director, channel=episode.channel, shots=wanted
+    )
 
 
 @router.get("/batches/{batch_id}")

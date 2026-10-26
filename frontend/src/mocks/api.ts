@@ -55,7 +55,8 @@ import type {
   ValidationItem,
 } from '@/types/plan'
 import type { ReferenceAnalysis, ReferenceMetrics, ReferenceVideo } from '@/types/reference'
-import type { Asset, EpisodeBrief, ImportResult, Project, ShotImages, ShotState } from '@/types/project'
+import type { Asset, EpisodeBrief, FaceCheck, ImportResult, Project, ShotImages, ShotState } from '@/types/project'
+import type { CheckEstimate } from '@/types/check'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { formatSlotDate, formatUsd } from '../app/format'
 
@@ -76,6 +77,7 @@ export const channels = [
     voice: { voice_id: 'unset', pace_wpm: null },
     // Семена ниши артборда 2; у Otto семян нет — пустой список
     seeds: ['every rank', 'medieval life', 'pirates', 'ancient jobs', 'monasteries'],
+    checks: { anachronism: true },
   },
   {
     id: 'otto',
@@ -85,6 +87,7 @@ export const channels = [
     voice_quota: { limit_chars: 600_000 },
     voice: { voice_id: 'unset', pace_wpm: null },
     seeds: [],
+    checks: { anachronism: true },
   },
 ] satisfies ChannelProfile[]
 
@@ -673,6 +676,33 @@ const GEN_COMPARE_VERSIONS: { model: number; seed: number; at: string; score: nu
   { model: 1, seed: 771_344, at: '2026-09-11T08:58:00+00:00', score: 0.71 },
   { model: 3, seed: 905_117, at: '2026-09-11T09:24:00+00:00', score: 0.66 },
 ]
+
+/** Цена вопроса к VLM об анахронизмах одного кадра (M6.10): оценка сверху, как `anachronism.estimate` бэкенда */
+const CHECK_QUESTION = 900
+const CHECK_PERIOD = 'periods/caribbean-1716/v001'
+/** Пометки проверок «Пиратов» (M6.10): три лица ниже порога, один анахронизм, лиц не нашлось на двух общих планах */
+const GEN_LOW: Record<string, number> = { s012: 0.21, s028: 0.33, s044: 0.41 }
+const GEN_SUSPECT: Record<string, string[]> = { s019: ['wristwatches', 'zippers'] }
+const GEN_NO_FACE: ReadonlySet<string> = new Set(['s003', 's015'])
+
+/** Проверки выбранной версии кадра артборда: лицо облика (сходство 0.55…0.80, `low`, `no_face`) и анахронизмы */
+function genChecks(shot: string, n: number, appearance: string | undefined): Asset['checks'] {
+  const checked_at = GEN_STARTED
+  const found = GEN_SUSPECT[shot] ?? []
+  const anachronism = { status: found.length ? ('suspect' as const) : ('ok' as const), found, period: CHECK_PERIOD, usd_micro: 163, checked_at }
+  if (!appearance) return { anachronism }
+  const low = GEN_LOW[shot]
+  const face: FaceCheck = GEN_NO_FACE.has(shot)
+    ? { status: 'no_face', appearances: [{ id: appearance, status: 'no_face', score: null }], faces: 0, threshold: 0.47, checked_at }
+    : {
+        status: low === undefined ? 'ok' : 'low',
+        appearances: [{ id: appearance, status: low === undefined ? 'ok' : 'low', score: low ?? (found.length ? 0.62 : 0.55 + ((n * 7) % 26) / 100) }],
+        faces: 1,
+        threshold: 0.47,
+        checked_at,
+      }
+  return { face, anachronism }
+}
 
 /** Версия s061 с метаданными артборда и проверкой лица облика раздела */
 function compareAsset(shot: string, version: number, appearance: string): Asset {
@@ -1999,9 +2029,15 @@ export function createMockApi() {
   const nextIdeaId = () => `i${String(Math.max(0, ...ideas.map((i) => Number(i.id.slice(1)))) + 1).padStart(4, '0')}`
 
   /** PATCH семян: как `ChannelPatch` бэкенда — пустые выбрасываются, до 20, до 80 знаков, без повторов */
-  function patchSeeds(channel: string, body: unknown): MockResponse {
+  /** `PATCH /api/channels/{id}`: семена ниши (M4.8) и выключатель проверки анахронизмов (M6.6); поле не прислано — не
+   *  меняется */
+  function patchChannel(channel: string, body: unknown): MockResponse {
     const profile = profiles.find((p) => p.id === channel)
     if (!profile) return fail(404, `Канал «${channel}» не найден. Создайте каналы: PYTHONPATH=backend uv run python -m app.tools.seed`)
+    if (isPlainObject(body) && isPlainObject(body.checks) && typeof body.checks.anachronism === 'boolean') {
+      profile.checks = { anachronism: body.checks.anachronism }
+    }
+    if (!isPlainObject(body) || !('seeds' in body)) return ok(profile)
     const raw = isPlainObject(body) && Array.isArray(body.seeds) ? (body.seeds as unknown[]).map(String) : []
     const seeds = raw.map((seed) => seed.trim()).filter(Boolean)
     const invalid = (msg: string) => ({ status: 422, body: { detail: [{ type: 'value_error', loc: ['body', 'seeds'], msg }] } })
@@ -3466,8 +3502,11 @@ export function createMockApi() {
     if (shot && fields.status) shot.status = fields.status
   }
 
+  /** Незаконченный джоб кадра (`shot_image`); перепроверки (`shot_check`) живут в том же списке, но не рисуют */
   const activeJob = (episodeId: string, shot: string) =>
-    shotJobs.find((job) => job.episode_id === episodeId && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'))
+    shotJobs.find(
+      (job) => job.kind === 'shot_image' && job.episode_id === episodeId && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'),
+    )
 
   /** Модель заказа: ключ каталога `images`; нет — профиль по умолчанию; не из каталога — `null` (422) */
   const catalogEntry = (key: string | null | undefined): CatalogEntry | null =>
@@ -3478,7 +3517,9 @@ export function createMockApi() {
   /** Следующий свободный вариант: после вариантов версий кадра и его незаконченных джобов (`next_variant` бэкенда) */
   function nextVariant(episode: EpisodeListItem, shot: string): number {
     const versions = Object.values(projectOf(episode).assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot)
-    const pending = shotJobs.filter((job) => job.episode_id === episode.id && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'))
+    const pending = shotJobs.filter(
+      (job) => job.kind === 'shot_image' && job.episode_id === episode.id && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'),
+    )
     return Math.max(0, ...versions.map((asset) => asset.variant ?? asset.version), ...pending.map((job) => Number(job.payload.variant ?? 1))) + 1
   }
 
@@ -3657,6 +3698,71 @@ export function createMockApi() {
     return job ?? null
   }
 
+  const vlmOn = (episode: EpisodeListItem) => profiles.find((p) => p.id === episode.channel)?.checks?.anachronism !== false
+
+  /** Что поставит перепроверка кадра (`check_order` бэкенда): кадр в плане, выбранная версия, есть что проверять */
+  function checkOrder(episode: EpisodeListItem, shotId: string): { appearances: string[]; usd_micro: number } | string {
+    const plan = effectivePlan(episode)
+    const shot = plan?.shots.find((item) => item.id === shotId)
+    if (!plan || !shot) return `Кадра ${shotId} нет в плане ${plan?.version ?? ''} — проверьте id кадра.`
+    if (shot.status === 'removed') return `Кадр ${shotId} убран из плана ${plan.version} — картинок у него нет.`
+    const state = projectOf(episode).shots[shotId]
+    if ((state?.image_version ?? null) === null) {
+      return shotImagesOf(episode, shotId).versions.length
+        ? `У кадра ${shotId} не выбрана картинка — выберите версию, потом проверяйте.`
+        : `У кадра ${shotId} ещё нет картинок — сначала сгенерируйте кадр.`
+    }
+    const vlm = vlmOn(episode)
+    if (!shot.image.appearances.length && !vlm) {
+      return `В кадре ${shotId} нет персонажей, а проверка анахронизмов выключена в профиле канала — проверять нечего.`
+    }
+    return { appearances: shot.image.appearances, usd_micro: vlm ? CHECK_QUESTION : 0 }
+  }
+
+  /** Смета перепроверки (`GET …/check/estimate?shots=`): цена вопроса — и при выключенной проверке, для подписи */
+  function checkEstimate(episode: EpisodeListItem, shots: string[]): MockResponse {
+    if (!plansOf(episode)) return fail(404, 'План ещё не импортирован — кадров нет. Импортируйте план на экране «Сценарий».')
+    const priced: CheckEstimate['shots'] = []
+    const skipped: CheckEstimate['skipped'] = []
+    for (const shotId of [...new Set(shots)]) {
+      const order = checkOrder(episode, shotId)
+      if (typeof order === 'string') skipped.push({ shot_id: shotId, reason: order })
+      else priced.push({ shot_id: shotId, face: order.appearances.length > 0, usd: unitMoney(order.usd_micro) })
+    }
+    const total = priced.reduce((sum, shot) => sum + shot.usd.usd_micro, 0)
+    return ok({ vlm: vlmOn(episode), question: unitMoney(CHECK_QUESTION), count: priced.length, total: unitMoney(total), shots: priced, skipped } satisfies CheckEstimate)
+  }
+
+  let checkCount = 0
+  /** «Перепроверить» (`POST …/shots/{id}/check`): джоб `shot_check` в очереди; конец — `finishCheck` теста */
+  function checkShot(episode: EpisodeListItem, shotId: string): MockResponse {
+    const order = checkOrder(episode, shotId)
+    if (typeof order === 'string') return fail(order.startsWith('В кадре') ? 409 : 404, order)
+    checkCount += 1
+    const job: Job = {
+      ...shotJob(episode.id, null, shotId, 'queued', { id: `job-check-${checkCount}-${shotId}` }),
+      kind: 'shot_check',
+      payload: { shot_id: shotId, version: projectOf(episode).shots[shotId]!.image_version },
+      cost_usd_micro: order.usd_micro || null,
+      cost_stage: order.usd_micro ? 'check' : null,
+    }
+    shotJobs.push(job)
+    return ok(job, 201)
+  }
+
+  /** Конец перепроверки, как у воркера: проверки выбранной версии заменены. Событие SSE тест шлёт сам */
+  function finishCheck(episodeId: string, shotId: string, checks: Asset['checks']): Job | null {
+    const episode = one(episodeId)
+    if (!episode) return null
+    const project = projectOf(episode)
+    const version = project.shots[shotId]?.image_version
+    const asset = project.assets[`img-${shotId}-v${version}`]
+    if (asset) asset.checks = { ...asset.checks, ...checks }
+    const job = shotJobs.find((item) => item.kind === 'shot_check' && item.payload.shot_id === shotId && item.status === 'queued')
+    if (job) Object.assign(job, { status: 'done', progress: 1, finished_at: NOW })
+    return job ?? null
+  }
+
   /** Версии кадра, как `GET …/images` (`ShotImages`): новые сверху и выбранная */
   function shotImagesOf(episode: EpisodeListItem, shotId: string): ShotImages {
     const project = projectOf(episode)
@@ -3716,12 +3822,13 @@ export function createMockApi() {
       if (status === 'done') {
         const compare = shot.id === GEN_COMPARE
         const count = compare ? GEN_COMPARE_VERSIONS.length : genVersions(n)
+        const chosen = count === 3 ? 2 : 1
         for (let version = 1; version <= count; version += 1) {
           project.assets[`img-${shot.id}-v${version}`] = compare
             ? compareAsset(shot.id, version, shot.image.appearances[0]!)
-            : imageAsset(shot.id, version)
+            : { ...imageAsset(shot.id, version), checks: version === chosen ? genChecks(shot.id, n, shot.image.appearances[0]) : null }
         }
-        setShot(episode, shot.id, { status: 'done', image_version: count === 3 ? 2 : 1 })
+        setShot(episode, shot.id, { status: 'done', image_version: chosen })
       } else if (status === 'failed') {
         setShot(episode, shot.id, { status: 'failed', error: SAFETY_REFUSAL })
       } else {
@@ -3742,7 +3849,7 @@ export function createMockApi() {
       const response = canonRoute(method, decodeURIComponent(parts[1]) as ChannelId, parts.slice(2).map(decodeURIComponent), searchParams, body)
       if (response) return response
     }
-    if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchSeeds(decodeURIComponent(parts[1]), body)
+    if (method === 'PATCH' && parts[0] === 'channels' && parts[1]) return patchChannel(decodeURIComponent(parts[1]), body)
     if (method === 'GET' && path === '/ideas') {
       const status = searchParams.get('status')
       const list = ideas.filter((i) => (!channel || i.channel === channel) && (!status || i.status === status))
@@ -3931,6 +4038,12 @@ export function createMockApi() {
         return chooseVersion(episode, decodeURIComponent(parts[3]), Number(parts[5]))
       }
       if (method === 'GET' && rest === 'generate/estimate') return generateEstimate(episode, batchQueryOf(searchParams))
+      if (method === 'GET' && rest === 'check/estimate') {
+        return checkEstimate(episode, (searchParams.get('shots') ?? '').split(',').filter(Boolean))
+      }
+      if (method === 'POST' && parts[2] === 'shots' && parts[3] && parts.length === 5 && parts[4] === 'check') {
+        return checkShot(episode, decodeURIComponent(parts[3]))
+      }
       if (method === 'POST' && rest === 'generate') return startBatch(episode, (body ?? {}) as BatchQuery)
       if (parts[2] === 'shots' && parts[3] && parts.length === 5 && parts[4] === 'redraw' && method === 'POST') {
         return redrawShot(episode, decodeURIComponent(parts[3]), (body ?? {}) as { model?: string | null; prompt?: string | null })
@@ -3963,8 +4076,9 @@ export function createMockApi() {
     },
     /** Наборы частей моста по выпуску: принятые части и последний обмен */
     parts: partSets,
-    /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `drawShot` — конец джоба кадра */
-    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot, refuseShot },
+    /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `drawShot` — конец джоба кадра, `finishCheck` —
+     *  конец перепроверки */
+    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot, refuseShot, finishCheck },
     generateArtboard,
   }
 }

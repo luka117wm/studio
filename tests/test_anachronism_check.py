@@ -399,3 +399,61 @@ def test_recheck_with_check_switched_off_keeps_the_paid_mark(env: Env) -> None:
     assert (done["status"], done["result"]["anachronism"]) == ("done", "off")
     # Выключатель не стирает оплаченную пометку: она остаётся, пока проверку не включат снова.
     assert anachronism_of(env, "s002")["found"] == ["plastic"]
+
+
+# --- смета перепроверки (M6.10) ------------------------------------------------------------------
+
+
+def test_check_estimate_prices_each_shot_like_the_check_job(env: Env) -> None:
+    for shot in ("s001", "s002"):
+        assert env.draw(shot)["status"] == "done"
+    estimate = env.get(f"{BASE}/check/estimate?shots=s002,s001,s003,s099,s002")
+    order = env.order("s002")
+    assert order.check is not None
+    question = anachronism.estimate(env.gateway, order.check).usd_micro
+    assert (estimate["vlm"], estimate["question"]["usd_micro"]) == (True, question)
+    priced = [(s["shot_id"], s["face"], s["usd"]["usd_micro"]) for s in estimate["shots"]]
+    assert priced == [("s002", True, question), ("s001", False, question)]
+    # Сумма — сумма цен заказов (L-053), не «первая × N»
+    total = sum(s["usd"]["usd_micro"] for s in estimate["shots"])
+    assert (estimate["count"], estimate["total"]["usd_micro"]) == (2, total)
+    assert estimate["skipped"] == [
+        {"shot_id": "s003", "reason": "У кадра s003 ещё нет картинок — сначала сгенерируйте кадр."},
+        {"shot_id": "s099", "reason": "Кадра s099 нет в плане v001 — проверьте id кадра."},
+    ]
+    # Смета и оценка джоба — одна цена
+    job = env.post(f"{BASE}/shots/s002/check")
+    assert job["cost_usd_micro"] == question
+
+
+def test_check_estimate_with_check_off_is_free_and_still_names_the_question(off: Env) -> None:
+    for shot in ("s001", "s002"):
+        assert off.draw(shot)["status"] == "done"
+    estimate = off.get(f"{BASE}/check/estimate?shots=s001,s002")
+    assert estimate["vlm"] is False
+    assert estimate["question"] is not None and estimate["question"]["usd_micro"] > 0
+    assert [(s["shot_id"], s["face"], s["usd"]["usd_micro"]) for s in estimate["shots"]] == [
+        ("s002", True, 0)
+    ]
+    assert (estimate["count"], estimate["total"]["usd_micro"]) == (1, 0)
+    assert estimate["skipped"] == [
+        {
+            "shot_id": "s001",
+            "reason": "В кадре s001 нет персонажей, а проверка анахронизмов выключена в профиле"
+            " канала — проверять нечего.",
+        }
+    ]
+    # Без кадров — только цена вопроса для подписи выключателя; включение её не меняет
+    bare = off.get(f"{BASE}/check/estimate")
+    assert (bare["count"], bare["shots"], bare["question"]) == (0, [], estimate["question"])
+    set_anachronism(off.paths, True)
+    assert off.get(f"{BASE}/check/estimate")["question"] == estimate["question"]
+
+
+def test_check_estimate_without_plan_is_404(env: Env) -> None:
+    env.post("/api/episodes", {"id": "c10-no-plan", "channel": "cursus", "title": "No plan"})
+    response = env.client.get("/api/projects/c10-no-plan/check/estimate?shots=s001")
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "План ещё не импортирован — кадров нет. Импортируйте план на экране «Сценарий»."
+    )

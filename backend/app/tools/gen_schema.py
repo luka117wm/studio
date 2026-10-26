@@ -64,6 +64,7 @@ from app.models.reference import ReferenceVideo, SimilarityReport
 from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.canon.anchors import AnchorSetState
 from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
+from app.pipeline.checks.shot_check import CheckEstimate
 from app.pipeline.director_import import EffectivePlan, ImportResult
 from app.pipeline.images.batch import BatchEstimate, BatchRefusal, BatchResult
 from app.pipeline.images.prompt_builder import ShotPrompt
@@ -151,6 +152,8 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
     "shot": [(ShotGenerate, "validation"), (RedrawBody, "validation")],
     # Цена перерисовки (M6.4) — ответ, своя группа: тела `shot` — в режиме validation (L-031).
     "shot_redraw": [(RedrawEstimate, "serialization")],
+    # Смета перепроверки кадров (M6.10) — ответ.
+    "check": [(CheckEstimate, "serialization")],
     # Пачка кадров (M6.3): ответы; тела — отдельно (L-031).
     "batch": [
         (BatchSummary, "serialization"),

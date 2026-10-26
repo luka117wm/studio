@@ -18,7 +18,8 @@ import type {
   PeriodPrompt,
   StyleDoc,
 } from '@/types/canon'
-import type { ChannelProfile, FormatPreview } from '@/types/channel'
+import type { ChannelChecksInput, ChannelProfile, FormatPreview } from '@/types/channel'
+import type { CheckEstimate } from '@/types/check'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
@@ -41,7 +42,7 @@ import type { EpisodeBrief, ImportResult, Project, ShotImages } from '@/types/pr
 import type { RedrawBody } from '@/types/shot'
 import type { RedrawEstimate } from '@/types/shot_redraw'
 import type { Slot, SlotAssign } from '@/types/slot'
-import { ApiError, api } from './client'
+import { ApiError, api, budgetRefusal } from './client'
 
 export type ChannelId = EpisodeListItem['channel']
 /** Канал или режим просмотра «Все каналы» (решение 4 устава M3) */
@@ -93,6 +94,9 @@ export const qk = {
     ['projects', id, 'generate', 'estimate', query] as const,
   /** Цена и вариант перерисовки кадра моделью — под префиксом выпуска */
   redrawEstimate: (id: string, shotId: string, model: string) => ['projects', id, 'shots', shotId, 'redraw', model] as const,
+  /** Смета перепроверки выбранных кадров и цена вопроса к VLM (M6.10); префикс — конец перепроверки и запись кадров */
+  checkEstimates: (id: string) => ['projects', id, 'check'] as const,
+  checkEstimate: (id: string, shots: string) => ['projects', id, 'check', 'estimate', shots] as const,
   /** Каталог моделей этапа с ценой единицы (`GET /api/providers/catalog/{stage}`) — меняется только с конфигом */
   catalog: (stage: string) => ['catalog', stage] as const,
   /** Сводка пачки: ответ постановки, паузы и отмены и событие `batch.updated` кладут её сюда целиком */
@@ -339,6 +343,8 @@ export function useShotPrompt(id: string, shotId: string | null, planStamp: numb
 
 /** Вид джоба кадра: его события двигают плитки экрана 4 */
 export const SHOT_JOB = 'shot_image'
+/** Вид джоба перепроверки (M6.5–M6.6): его конец меняет пометки выбранной версии */
+export const CHECK_JOB = 'shot_check'
 
 /** Миниатюра версии кадра, webp 160 или 320; адрес версии неизменяем — браузер кэширует его навсегда */
 export function shotThumb(id: string, shotId: string, version: number, width: 160 | 320 = 320): string {
@@ -431,6 +437,52 @@ export function useRedraw(id: string) {
   })
 }
 
+/** Смета перепроверки до клика (M6.10, `GET …/check/estimate?shots=`): сколько кадров встанет, сумма вопросов к VLM
+ *  (лицо бесплатно), пропущенные с причиной и цена вопроса одного кадра — для подписи выключателя, и при выключенной
+ *  проверке. Без кадров — только цена вопроса. Пока идёт новая смета, видна прежняя (`isPlaceholderData`, L-056). */
+export function useCheckEstimate(id: string, shots: readonly string[]) {
+  const list = shots.join(',')
+  return useQuery({
+    queryKey: qk.checkEstimate(id, list),
+    queryFn: ({ signal }) => api.get<CheckEstimate>(`/projects/${segment(id)}/check/estimate`, { signal, query: { shots: list || undefined } }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** «Перепроверить выбранные»: `POST …/shots/{id}/check` по кадрам сметы по очереди. Отказ (бюджет — 409) останавливает
+ *  постановку: уже поставленные джобы остаются, ошибка несёт их число (`CheckRefused`). */
+export class CheckRefused extends Error {
+  /** Джобы, поставленные до отказа */
+  readonly queued: Job[]
+  /** На каком кадре отказ */
+  readonly shotId: string
+  constructor(error: unknown, queued: Job[], shotId: string) {
+    super(budgetRefusal(error)?.message ?? (error as Error).message)
+    this.queued = queued
+    this.shotId = shotId
+  }
+}
+
+export function useCheckShots(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (shots: readonly string[]) => {
+      const queued: Job[] = []
+      for (const shotId of shots) {
+        try {
+          const job = await api.post<Job>(`/projects/${segment(id)}/shots/${segment(shotId)}/check`)
+          rememberJob(client, job)
+          queued.push(job)
+        } catch (error) {
+          throw new CheckRefused(error, queued, shotId)
+        }
+      }
+      return queued
+    },
+    onSettled: () => void client.invalidateQueries({ queryKey: qk.checkEstimates(id) }),
+  })
+}
+
 /** «Выбрать версию N» (`POST …/images/{version}/choose`): выбранная идёт в монтаж, кадр `done`. Ответ (`ShotImages`)
  *  сразу кладётся в project.json кэша — рамка и плитка переезжают без ожидания перезапроса; статус выпуска (пометки
  *  проверок — у выбранной) приходит перезапросом выпуска. */
@@ -457,10 +509,12 @@ async function trackBatch(client: QueryClient, batchId: string) {
   for (const job of list.items) rememberJob(client, job)
 }
 
-/** После записи кадров выпуска: project.json (статусы, версии), смета пачки, выпуск и его строка в списках */
+/** После записи кадров выпуска: project.json (статусы, версии), сметы пачки и перепроверки, выпуск и его строка в
+ *  списках */
 function refreshShots(client: QueryClient, id: string) {
   void client.invalidateQueries({ queryKey: qk.project(id), exact: true })
   void client.invalidateQueries({ queryKey: qk.generateEstimate(id) })
+  void client.invalidateQueries({ queryKey: qk.checkEstimates(id) })
   void client.invalidateQueries({ queryKey: qk.episode(id) })
   void client.invalidateQueries({ queryKey: qk.episodeLists })
 }
@@ -952,6 +1006,21 @@ export function usePatchChannelSeeds(channel: ChannelId) {
     mutationFn: (seeds: string[]) => api.patch<ChannelProfile>(`/channels/${segment(channel)}`, { seeds }),
     onSuccess: (profile) =>
       client.setQueryData<ChannelProfile[]>(qk.channels, (list) => list?.map((c) => (c.id === profile.id ? profile : c))),
+  })
+}
+
+/** Выключатель проверки анахронизмов канала (`PATCH /api/channels/{id} {checks}`, M6.6): цена кадра включает вопрос
+ *  к VLM — сметы выпусков (пачка, перерисовка, перепроверка) заново */
+export function usePatchChannelChecks(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (checks: ChannelChecksInput) => api.patch<ChannelProfile>(`/channels/${segment(channel)}`, { checks }),
+    onSuccess: (profile) => {
+      client.setQueryData<ChannelProfile[]>(qk.channels, (list) => list?.map((c) => (c.id === profile.id ? profile : c)))
+      void client.invalidateQueries({
+        predicate: ({ queryKey }) => queryKey[0] === 'projects' && queryKey.some((part) => part === 'estimate' || part === 'redraw'),
+      })
+    },
   })
 }
 

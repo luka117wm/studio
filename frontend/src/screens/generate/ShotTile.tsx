@@ -3,13 +3,15 @@
    выбрана»), у сбоя — причина внизу, целиком — в подсказке кнопки выбора (под слоем действий полосу не дублируем).
    Вся площадь — кнопка выбора (клик, ⇧-клик — диапазон, Space с клавиатуры); выбранная — рамка accent и галочка.
    Наведение и фокус открывают действия кадра (`ShotActions`, M6.8): они монтируются только у активной плитки — у сотни
-   плиток нет сотни смет. Пометки проверок — M6.10. */
+   плиток нет сотни смет. Пометки проверок выбранной версии (M6.10) — warning-треугольники перед глифом статуса, текст —
+   в подсказке плитки и имени треугольника; выбор и действия от них не зависят. */
 import { Check } from 'lucide-react'
 import { useRef, useState, type FocusEvent } from 'react'
 import { shotThumb } from '../../api/queries'
 import { StatusGlyph, cn } from '../../ui'
 import { ICON_STROKE } from '../../ui/internal/icon'
 import { ShotActions, type ShotActionHandlers } from './ShotActions'
+import { markLabels } from './checks'
 import { TILE_GLYPH, TILE_LABEL, type TileShot } from './grid'
 
 export interface ShotTileProps extends ShotActionHandlers {
@@ -20,11 +22,13 @@ export interface ShotTileProps extends ShotActionHandlers {
   model: string | null
   /** Tab попадает в сетку только на этот кадр (roving tabindex) */
   tabbable: boolean
+  /** Проверка анахронизмов выключена в профиле: её пометки — «проверено раньше» */
+  checkedEarlier: boolean
   onSelect: (id: string, shift: boolean) => void
   onFocusShot: (id: string) => void
 }
 
-export function ShotTile({ episodeId, shot, selected, model, tabbable, onSelect, onFocusShot, onRedraw, onEdit, onOpen }: ShotTileProps) {
+export function ShotTile({ episodeId, shot, selected, model, tabbable, checkedEarlier, onSelect, onFocusShot, onRedraw, onEdit, onOpen }: ShotTileProps) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   // Клик с клавиатуры (Space, Enter) — без координат и без ⇧ в событии: ⇧ помним с keydown
@@ -36,6 +40,9 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, onSelect,
   const active = hovered || focused
   // Подпись над картинкой читается на подложке, на пустом кадре подложка не нужна
   const backing = pictured ? 'rounded-control bg-app/70 px-1' : undefined
+  const marks = markLabels(shot.marks, checkedEarlier)
+  const stale = shot.status === 'stale' ? shot.staleReasons : []
+  const hint = [...stale, ...marks].join('; ')
 
   const onBlur = (e: FocusEvent<HTMLLIElement>) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false)
@@ -47,7 +54,7 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, onSelect,
       data-shot={shot.id}
       data-status={shot.status}
       data-selected={selected || undefined}
-      title={shot.status === 'stale' && shot.staleReasons.length ? shot.staleReasons.join('; ') : undefined}
+      title={hint || undefined}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -84,10 +91,13 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, onSelect,
       <span className={cn('pointer-events-none absolute top-1 left-1 font-script text-11', failed ? 'text-failed-text' : 'text-muted', backing)}>
         {shot.id}
       </span>
-      {glyph && (
+      {(glyph || marks.length > 0) && (
         <span className={cn('pointer-events-none absolute top-1 right-1 flex items-center gap-1', backing)}>
           {generating && <span className="text-11 text-generating">рисуется</span>}
-          <StatusGlyph status={glyph} label={TILE_LABEL[shot.status]} />
+          {marks.map((label) => (
+            <StatusGlyph key={label} status="warning" label={label} />
+          ))}
+          {glyph && <StatusGlyph status={glyph} label={TILE_LABEL[shot.status]} />}
         </span>
       )}
       {selected && (

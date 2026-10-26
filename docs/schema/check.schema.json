@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/check",
+  "title": "check",
+  "description": "Модели API Studio, группа «check». Сгенерировано из Pydantic.",
+  "$defs": {
+    "CheckEstimate": {
+      "description": "Смета перепроверки до клика (M6.10): «Перепроверить выбранные (N, ~$X)» и цена вопроса в\nподписи выключателя — `GET /api/projects/{id}/check/estimate?shots=`.",
+      "properties": {
+        "vlm": {
+          "title": "Vlm",
+          "type": "boolean"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "total": {
+          "$ref": "#/$defs/Money"
+        },
+        "shots": {
+          "items": {
+            "$ref": "#/$defs/CheckEstimateShot"
+          },
+          "title": "Shots",
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedCheck"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "vlm",
+        "question",
+        "count",
+        "total",
+        "shots",
+        "skipped"
+      ],
+      "title": "CheckEstimate",
+      "type": "object"
+    },
+    "CheckEstimateShot": {
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "face": {
+          "title": "Face",
+          "type": "boolean"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "shot_id",
+        "face",
+        "usd"
+      ],
+      "title": "CheckEstimateShot",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "SkippedCheck": {
+      "description": "Кадр, который перепроверка не поставит, и почему — текст отказа `POST …/check`.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_id",
+        "reason"
+      ],
+      "title": "SkippedCheck",
+      "type": "object"
+    }
+  }
+}

@@ -200,7 +200,9 @@ async def image_job(ctx: JobContext, payload: ImagePayload) -> dict[str, Any]:
 `shot_check` — проверки выбранной версии кадра заново: лицо (бесплатно, если в кадре есть персонажи) и анахронизмы
 (вопрос к VLM, если проверка включена в профиле). Ставит `POST /api/projects/{id}/shots/{shot_id}/check` (201 —
 джоб). С вопросом к VLM джоб платный: оценка — `cost_usd_micro` этапа `check`, бюджет выпуска и месяца — до очереди
-(409 `BudgetRefusal`); без него — оценки нет. Код — `pipeline/checks/shot_check.py`, спека — `jobs/handlers/shots.py`.
+(409 `BudgetRefusal`); без него — оценки нет. Смета до клика — `GET /api/projects/{id}/check/estimate?shots=` (M6.10,
+`docs/generation.md`, «Деньги и выключатель»): та же оценка по каждому кадру. Код — `pipeline/checks/shot_check.py`,
+спека — `jobs/handlers/shots.py`.
 
 - **Payload** (`ShotCheckOrder`): выпуск, канал, кадр, версия — выбранная на момент постановки, облики кадра
   действующего плана, вопрос об анахронизмах (`check`; нет — выключено).

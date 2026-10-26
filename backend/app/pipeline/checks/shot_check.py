@@ -14,8 +14,9 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
+from app.cost.money import Money, format_unit_usd
 from app.jobs import queue
 from app.jobs.queue import Job, NewJob
 from app.jobs.worker import JobContext
@@ -179,6 +180,91 @@ def check_order(
 def check_cost(gateway: Gateway, order: ShotCheckOrder) -> Cost | None:
     """Цена перепроверки: вопрос об анахронизмах, если он в заказе; лицо бесплатно — None."""
     return None if order.check is None else anachronism.estimate(gateway, order.check)
+
+
+class CheckEstimateShot(BaseModel):
+    shot_id: str
+    face: bool  # лицо проверится: в кадре есть персонажи (локально, бесплатно)
+    usd: Money  # вопрос к VLM сверху; вопроса нет (проверка выключена) — $0
+
+
+class SkippedCheck(BaseModel):
+    """Кадр, который перепроверка не поставит, и почему — текст отказа `POST …/check`."""
+
+    shot_id: str
+    reason: str
+
+
+class CheckEstimate(BaseModel):
+    """Смета перепроверки до клика (M6.10): «Перепроверить выбранные (N, ~$X)» и цена вопроса в
+    подписи выключателя — `GET /api/projects/{id}/check/estimate?shots=`."""
+
+    vlm: bool  # проверка анахронизмов включена в профиле канала
+    # Вопрос одного кадра выпуска сверху — максимум по эпохам плана; считается и при выключенной
+    # проверке: подпись выключателя называет цену до включения. Эпох со списком нет — None.
+    question: Money | None
+    count: int
+    total: Money  # сумма вопросов кадров; лицо бесплатно
+    shots: list[CheckEstimateShot]
+    skipped: list[SkippedCheck]
+
+
+def _money(usd_micro: int) -> Money:
+    return Money(usd_micro=usd_micro, usd=format_unit_usd(usd_micro))
+
+
+def estimate_checks(
+    paths: StudioPaths,
+    gateway: Gateway,
+    project: Project,
+    director: Director,
+    *,
+    channel: Channel,
+    shots: list[str],
+) -> CheckEstimate:
+    """Те же заказы и цены, что поставит `POST …/shots/{id}/check` по каждому кадру сейчас
+    (`check_order`, `check_cost`). Ничего не пишет."""
+    canon_ref = plan_canon_ref(director)
+    questions = [
+        anachronism.estimate(gateway, question).usd_micro
+        for period_id in canon_ref.periods
+        if (question := anachronism.period_order(paths, channel, canon_ref, period_id)) is not None
+    ]
+    priced: list[CheckEstimateShot] = []
+    skipped: list[SkippedCheck] = []
+    for shot_id in dict.fromkeys(shots):
+        state = project.shots.get(shot_id)
+        if state is None:
+            reason = f"Кадра {shot_id} нет в плане {project.director_version} — проверьте id кадра."
+            skipped.append(SkippedCheck(shot_id=shot_id, reason=reason))
+            continue
+        if state.status == "removed":
+            reason = (
+                f"Кадр {shot_id} убран из плана {project.director_version} — картинок у него нет."
+            )
+            skipped.append(SkippedCheck(shot_id=shot_id, reason=reason))
+            continue
+        try:
+            order = check_order(paths, project, director, channel=channel, shot_id=shot_id)
+        except (NoChosenImage, NothingToCheck) as exc:
+            skipped.append(SkippedCheck(shot_id=shot_id, reason=str(exc)))
+            continue
+        cost = check_cost(gateway, order)
+        priced.append(
+            CheckEstimateShot(
+                shot_id=shot_id,
+                face=bool(order.appearances),
+                usd=_money(0 if cost is None else cost.usd_micro),
+            )
+        )
+    return CheckEstimate(
+        vlm=anachronism.enabled(paths, channel),
+        question=_money(max(questions)) if questions else None,
+        count=len(priced),
+        total=_money(sum(shot.usd.usd_micro for shot in priced)),
+        shots=priced,
+        skipped=skipped,
+    )
 
 
 def enqueue_check(conn: sqlite3.Connection, gateway: Gateway, order: ShotCheckOrder) -> Job:

@@ -9,6 +9,7 @@ import { autosaver } from '../../../app/autosave'
 import { setPlatform } from '../../../app/keyboard'
 import { SAFETY_REFUSAL } from '../../../mocks/api'
 import { useUiStore } from '../../../store/uiStore'
+import { NO_MARKS } from '../checks'
 import { gridSections, headerNote, sectionNote, statusNote, type TileShot } from '../grid'
 import { INITIAL, artboardApi, calls, openGenerate, shotEvent, stream } from './harness'
 
@@ -116,7 +117,7 @@ describe('живые данные', () => {
 })
 
 describe('grid.ts', () => {
-  const shot = (id: string, status: TileShot['status']): TileShot => ({ id, status, version: null, versions: [], error: null, staleReasons: [] })
+  const shot = (id: string, status: TileShot['status']): TileShot => ({ id, status, version: null, versions: [], error: null, staleReasons: [], marks: NO_MARKS })
 
   test('сводка раздела: ошибки важнее работы, работа — готовности', () => {
     expect(sectionNote([shot('a', 'done'), shot('b', 'failed'), shot('c', 'generating')])).toEqual({ text: '1 ошибка, 1 готов', status: 'failed' })
@@ -157,6 +158,6 @@ describe('grid.ts', () => {
     const project = { shots: { s1: { status: 'stale', image_version: 2, stale_reasons: ['Промпт изменён вручную'] } }, assets: {} } as unknown as Project
     const sections = gridSections(plan, project)
     expect(sections.map((s) => s.section.id)).toEqual(['r1'])
-    expect(sections[0]!.shots).toEqual([{ id: 's1', status: 'stale', version: 2, versions: [], error: null, staleReasons: ['Промпт изменён вручную'] }])
+    expect(sections[0]!.shots).toEqual([{ id: 's1', status: 'stale', version: 2, versions: [], error: null, staleReasons: ['Промпт изменён вручную'], marks: NO_MARKS }])
   })
 })

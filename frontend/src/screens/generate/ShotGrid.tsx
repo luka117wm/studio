@@ -15,6 +15,8 @@ export interface ShotGridProps extends ShotActionHandlers {
   sections: GridSection[]
   selected: ReadonlySet<string>
   model: string | null
+  /** Проверка анахронизмов выключена в профиле: её пометки — «проверено раньше» */
+  checkedEarlier: boolean
   onSelect: (id: string, shift: boolean) => void
   /** Плитка получила фокус: экран помнит последний кадр под фокусом — его открывает «Сравнить версии кадра» */
   onFocusShot?: (id: string) => void
@@ -36,7 +38,7 @@ function verticalNeighbour(container: HTMLElement, current: HTMLElement, down: b
   return best?.id ?? null
 }
 
-export function ShotGrid({ episodeId, sections, selected, model, onSelect, onFocusShot, onRedraw, onEdit, onOpen }: ShotGridProps) {
+export function ShotGrid({ episodeId, sections, selected, model, checkedEarlier, onSelect, onFocusShot, onRedraw, onEdit, onOpen }: ShotGridProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const order = useMemo(() => sections.flatMap((section) => section.shots.map((shot) => shot.id)), [sections])
@@ -83,6 +85,7 @@ export function ShotGrid({ episodeId, sections, selected, model, onSelect, onFoc
                   selected={selected.has(shot.id)}
                   model={model}
                   tabbable={shot.id === tabbable}
+                  checkedEarlier={checkedEarlier}
                   onSelect={onSelect}
                   onFocusShot={(id) => {
                     setFocusId(id)
