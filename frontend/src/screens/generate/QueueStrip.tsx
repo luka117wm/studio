@@ -7,6 +7,7 @@ import { Pause, Play, X } from 'lucide-react'
 import { useState } from 'react'
 import type { BatchSummary } from '@/types/batch'
 import { useBatchAction, type BatchAction } from '../../api/queries'
+import { useModalScope } from '../../app/useHotkey'
 import { useUiStore } from '../../store/uiStore'
 import { Button, Dialog, IconButton, StatusGlyph, cn, type Status } from '../../ui'
 import { HATCH } from '../../ui/internal/hatch'
@@ -66,6 +67,8 @@ function BatchTrack({ episodeId, batch }: { episodeId: string; batch: BatchSumma
   const action = useBatchAction(episodeId)
   const pushToast = useUiStore((s) => s.pushToast)
   const [confirm, setConfirm] = useState(false)
+  // Пока открыто подтверждение, пробел и R на его кнопках не трогают сетку
+  useModalScope(confirm)
   const { jobs } = batch
   const state = stateOf(batch)
   // Пауза и отмена — пока у пачки есть что ставить: отменённая только дорисовывает начатые

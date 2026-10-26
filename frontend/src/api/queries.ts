@@ -4,6 +4,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import type { BatchEstimate, BatchResult, BatchSummary } from '@/types/batch'
+import type { BatchCreate } from '@/types/batch_request'
 import type { BridgeSettings } from '@/types/bridge'
 import type {
   AnchorSetState,
@@ -34,8 +35,11 @@ import type {
   ShotPrompt,
   SimilarityReport,
 } from '@/types/plan'
+import type { StageCatalog } from '@/types/provider'
 import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
 import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
+import type { RedrawBody } from '@/types/shot'
+import type { RedrawEstimate } from '@/types/shot_redraw'
 import type { Slot, SlotAssign } from '@/types/slot'
 import { ApiError, api } from './client'
 
@@ -82,8 +86,15 @@ export const qk = {
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
   /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
   shotPrompt: (id: string, shotId: string, stamp: number) => ['projects', id, 'plan', 'prompt', shotId, stamp] as const,
-  /** Смета пачки «Сгенерировать N кадров» — под префиксом выпуска: запись project.json перезапрашивает и её */
+  /** Смета пачки «Сгенерировать N кадров» — под префиксом выпуска: запись project.json перезапрашивает и её;
+   *  это же префикс смет пачки выбранных кадров (`generateEstimateOf`) */
   generateEstimate: (id: string) => ['projects', id, 'generate', 'estimate'] as const,
+  generateEstimateOf: (id: string, query: { shots: string; model: string; redraw: boolean }) =>
+    ['projects', id, 'generate', 'estimate', query] as const,
+  /** Цена и вариант перерисовки кадра моделью — под префиксом выпуска */
+  redrawEstimate: (id: string, shotId: string, model: string) => ['projects', id, 'shots', shotId, 'redraw', model] as const,
+  /** Каталог моделей этапа с ценой единицы (`GET /api/providers/catalog/{stage}`) — меняется только с конфигом */
+  catalog: (stage: string) => ['catalog', stage] as const,
   /** Сводка пачки: ответ постановки, паузы и отмены и событие `batch.updated` кладут её сюда целиком */
   batch: (id: string) => ['batches', id] as const,
   /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
@@ -367,6 +378,54 @@ export function useGenerateEstimate(id: string, enabled: boolean) {
   })
 }
 
+/** Каталог моделей этапа: сегменты модели и цена единицы в подсказке (`docs/providers.md`, «API») */
+export function useCatalog(stage: string) {
+  return useQuery({
+    queryKey: qk.catalog(stage),
+    queryFn: ({ signal }) => api.get<StageCatalog>(`/providers/catalog/${segment(stage)}`, { signal }),
+    staleTime: Infinity,
+  })
+}
+
+/** Смета пачки выбранных кадров следующим вариантом (`redraw: true`) выбранной моделью; ничего не выбрано — нет
+ *  запроса. Пока идёт новая смета, видна прежняя. */
+export function useRedrawBatchEstimate(id: string, shots: readonly string[], model: string | null) {
+  const query = { shots: shots.join(','), model: model ?? '', redraw: true }
+  return useQuery({
+    queryKey: qk.generateEstimateOf(id, query),
+    queryFn: ({ signal }) => api.get<BatchEstimate>(`/projects/${segment(id)}/generate/estimate`, { signal, query }),
+    enabled: shots.length > 0 && model !== null,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Какой вариант и почём нарисует «Перерисовать» кадра этой моделью; `enabled` — подсказка или диалог открыты */
+export function useRedrawEstimate(id: string, shotId: string, model: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.redrawEstimate(id, shotId, model ?? ''),
+    queryFn: ({ signal }) =>
+      api.get<RedrawEstimate>(`/projects/${segment(id)}/shots/${segment(shotId)}/redraw/estimate`, { signal, query: { model: model ?? undefined } }),
+    enabled: enabled && model !== null,
+  })
+}
+
+/** «Перерисовать» и «С правкой…» (`POST …/redraw`): джоб следующего варианта. С `prompt` бэкенд сначала проверяет
+ *  правку (стоп-лист — 422 в форме PATCH, ничего не пишет), затем бюджет — 409. */
+export function useRedraw(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ shotId, ...body }: RedrawBody & { shotId: string }) =>
+      api.post<Job>(`/projects/${segment(id)}/shots/${segment(shotId)}/redraw`, body),
+    onSuccess: (job, { shotId, prompt }) => {
+      rememberJob(client, job)
+      refreshShots(client, id)
+      // Следующий вариант сдвинулся, а правка действия видна на листе и в диалоге
+      void client.invalidateQueries({ queryKey: ['projects', id, 'shots', shotId] })
+      if (prompt !== undefined && prompt !== null) void client.invalidateQueries({ queryKey: qk.plan(id), exact: true })
+    },
+  })
+}
+
 /** Пачка известна снимку джобов сразу после постановки, не дожидаясь потока: строка её первого джоба */
 async function trackBatch(client: QueryClient, batchId: string) {
   const list = await api.get<JobList>('/jobs', { query: { batch: batchId, limit: 1 } })
@@ -381,14 +440,24 @@ function refreshShots(client: QueryClient, id: string) {
   void client.invalidateQueries({ queryKey: qk.episodeLists })
 }
 
-/** «Сгенерировать N кадров»: пачка из кадров без картинки и `stale` (`POST …/generate`). Отказ — 409 с текстом:
- *  бюджет суммой (`BudgetRefusal`), рисовать нечего, кадры заняты (`BatchRefusal`) */
+const settledJobs = (summary: BatchSummary) => summary.jobs.done + summary.jobs.failed + summary.jobs.cancelled
+
+/** Сводка из ответа записи не затирает более позднюю из потока: событие конца джоба могло прийти раньше ответа */
+function storeBatch(client: QueryClient, summary: BatchSummary) {
+  client.setQueryData<BatchSummary>(qk.batch(summary.id), (current) =>
+    current && settledJobs(current) > settledJobs(summary) ? current : summary,
+  )
+}
+
+/** «Сгенерировать N кадров» — пачка из кадров без картинки и `stale` (`POST …/generate`, тело пустое);
+ *  «Перерисовать выбранные» — `{shots, model, redraw: true}`. Отказ — 409 с текстом: бюджет суммой
+ *  (`BudgetRefusal`), рисовать нечего, кадры заняты (`BatchRefusal`) */
 export function useGenerate(id: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: () => api.post<BatchResult>(`/projects/${segment(id)}/generate`, {}),
+    mutationFn: (body: BatchCreate) => api.post<BatchResult>(`/projects/${segment(id)}/generate`, body),
     onSuccess: (result) => {
-      client.setQueryData(qk.batch(result.batch.id), result.batch)
+      storeBatch(client, result.batch)
       void trackBatch(client, result.batch.id).catch(() => {}) // поток SSE всё равно принесёт джобы пачки
       refreshShots(client, id)
     },
@@ -404,7 +473,7 @@ export function useBatchAction(id: string) {
     mutationFn: ({ batchId, action }: { batchId: string; action: BatchAction }) =>
       api.post<BatchSummary>(`/batches/${segment(batchId)}/${action}`),
     onSuccess: (summary, { action }) => {
-      client.setQueryData(qk.batch(summary.id), summary)
+      storeBatch(client, summary)
       if (action === 'cancel') refreshShots(client, id)
     },
   })

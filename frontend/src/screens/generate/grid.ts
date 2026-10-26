@@ -112,3 +112,13 @@ export function statusNote(sections: GridSection[]): string {
 
 /** Нарисована ли у выпуска хоть одна версия: до первой пачки вместо сетки — пустое состояние с ценой */
 export const hasImages = (project: Project | undefined) => Object.values(project?.assets ?? {}).some((asset) => asset.kind === 'image')
+
+/** Подписи сегментов модели: без общего для всех моделей каталога начала («Nano Banana 2 Lite» → «2 Lite»); хотя бы
+ *  слово у каждой остаётся, одна модель — подпись целиком */
+export function shortLabels(labels: readonly string[]): string[] {
+  if (labels.length < 2) return [...labels]
+  const words = labels.map((label) => label.split(' '))
+  let common = 0
+  while (words.every((w) => w.length > common + 1 && w[common] === words[0]![common])) common += 1
+  return words.map((w) => w.slice(common).join(' '))
+}

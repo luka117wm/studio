@@ -24,6 +24,8 @@ import type {
   Swatch,
 } from '@/types/canon'
 import type { Director } from '@/types/director'
+import type { StageCatalog } from '@/types/provider'
+import type { RedrawEstimate } from '@/types/shot_redraw'
 import type { BatchEstimate, BatchRefusal, BatchResult, BatchSummary, SkippedShot } from '@/types/batch'
 import type { Idea, IdeaCreate, IdeaPatch, IdeasAnswerResult, IdeasPrompt } from '@/types/idea'
 import type { Job, JobList } from '@/types/job'
@@ -634,10 +636,29 @@ const GEN_FINISHED = 80
 const GEN_RUNNING = 83
 const GEN_FAILED: ReadonlySet<string> = new Set(['s047', 's071'])
 const GEN_STARTED = '2026-09-11T09:00:00+00:00'
-/** Цена кадра nb2 из `config/pricing.yaml`, как у сметы плана */
-const GEN_UNIT = PRICE_IMAGE
 /** Остаток пачки — секунд на кадр при трёх параллельных: 24 кадра → «осталось ~9 мин» */
 const GEN_SECONDS_PER_SHOT = 22.5
+/** Цена единицы в подписи каталога и сметы — до десятых цента, как `format_unit_usd` бэкенда */
+const unitMoney = (usd_micro: number): Money => ({ usd_micro, usd: `$${(usd_micro / 1_000_000).toFixed(3).replace(/0$/, '')}` })
+
+/** Каталог `images`, как `GET /api/providers/catalog/images`: порядок и подписи — `config/providers.yaml`, цены
+ *  картинки 1K/2K — `config/pricing.yaml`; по умолчанию — профиль standard */
+export const IMAGE_CATALOG = {
+  stage: 'images',
+  kind: 'image',
+  default: 'nb2',
+  models: [
+    { key: 'nb2-lite', label: 'Nano Banana 2 Lite', model: 'gemini-3.1-flash-lite-image', unit: 'image', price: unitMoney(34_000) },
+    { key: 'nb2', label: 'Nano Banana 2', model: 'gemini-3.1-flash-image', unit: 'image', price: unitMoney(PRICE_IMAGE) },
+    { key: 'nb2-2k', label: 'Nano Banana 2 · 2K', model: 'gemini-3.1-flash-image', unit: 'image', price: unitMoney(101_000) },
+    { key: 'nb-pro', label: 'Nano Banana Pro', model: 'gemini-3-pro-image', unit: 'image', price: unitMoney(134_000) },
+  ],
+} satisfies StageCatalog
+type CatalogEntry = StageCatalog['models'][number]
+
+/** `error` джоба, как у воркера (`jobs/worker.py::describe`): «<ТипОшибки>: <текст>»; у кадра — текст без типа */
+const jobError = (text: string) => `ProviderError: ${text}`
+
 export const SAFETY_REFUSAL =
   'Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности: насилие и опасные действия — смягчите действие кадра.'
 
@@ -669,7 +690,7 @@ function generationPlan(episode: EpisodeListItem): EffectivePlan {
   }
 }
 
-function imageAsset(shot: string, version: number): Asset {
+function imageAsset(shot: string, version: number, entry: CatalogEntry = IMAGE_CATALOG.models[1]!): Asset {
   return {
     id: `img-${shot}-v${version}`,
     shot_id: shot,
@@ -678,11 +699,11 @@ function imageAsset(shot: string, version: number): Asset {
     path: `media/${shot}/v${String(version).padStart(3, '0')}.png`,
     hash: `sha256:${shot}${version}`,
     status: 'ok',
-    model: 'nb2',
-    model_id: 'gemini-3.1-flash-image',
+    model: entry.key,
+    model_id: entry.model,
     seed: 1900 + version,
     variant: version,
-    usd_micro: GEN_UNIT,
+    usd_micro: entry.price.usd_micro,
     created_at: GEN_STARTED,
     cached: false,
     checks: null,
@@ -700,18 +721,26 @@ const shotState = (fields: Partial<ShotState>): ShotState => ({
   ...fields,
 })
 
-function shotJob(episodeId: string, batchId: string, shot: string, status: Job['status']): Job {
+/** Джоб кадра пачки или одиночной перерисовки (`batchId` null — тогда `id` задаёт вызывающий) */
+function shotJob(
+  episodeId: string,
+  batchId: string | null,
+  shot: string,
+  status: Job['status'],
+  order: { id?: string; model?: CatalogEntry; variant?: number } = {},
+): Job {
+  const entry = order.model ?? IMAGE_CATALOG.models[1]!
   const started = status === 'queued' ? null : GEN_STARTED
   const finished = status === 'done' || status === 'failed' || status === 'cancelled' ? GEN_STARTED : null
   return {
-    id: `job-${batchId}-${shot}`,
+    id: order.id ?? `job-${batchId}-${shot}`,
     kind: 'shot_image',
     status,
     progress: status === 'done' ? 1 : status === 'running' ? 0.5 : 0,
     message: status === 'running' ? `Кадр ${shot} · рисуется` : null,
-    payload: { shot_id: shot, variant: 1, model: 'nb2' },
+    payload: { shot_id: shot, variant: order.variant ?? 1, model: entry.key },
     result: null,
-    error: status === 'failed' ? SAFETY_REFUSAL : null,
+    error: status === 'failed' ? jobError(SAFETY_REFUSAL) : null,
     attempts: started ? 1 : 0,
     cancel_requested: false,
     episode_id: episodeId,
@@ -720,7 +749,7 @@ function shotJob(episodeId: string, batchId: string, shot: string, status: Job['
     created_at: GEN_STARTED,
     started_at: started,
     finished_at: finished,
-    cost_usd_micro: GEN_UNIT,
+    cost_usd_micro: entry.price.usd_micro,
     cost_stage: 'images',
     channel: null,
   }
@@ -733,6 +762,8 @@ interface MockBatch {
   created_at: string
   paused: boolean
   cancelled: boolean
+  /** Ключ каталога на пачку; нет — профиль по умолчанию */
+  model?: string
 }
 
 /* ---- Смета, проверка, версия из JSON, утверждение (M4.7) ---- */
@@ -2158,13 +2189,7 @@ export function createMockApi() {
       if (!('user_override' in patch)) continue
       const merged = patch.user_override === null ? {} : mergeOverride(next[id] ?? {}, patch.user_override ?? {})
       const image = isPlainObject(merged.image) ? merged.image : {}
-      if (typeof image.prompt === 'string' && image.prompt.includes(STYLE_TOKEN)) {
-        errors.push({
-          type: 'shot_override',
-          loc: ['shots', id, 'user_override', 'image', 'prompt'],
-          msg: `кадр ${id}: в image.prompt стилевой токен «cinematic lighting» (lighting), ожидалось только действие, композиция и ракурс — стиль задаёт канон`,
-        })
-      }
+      if (typeof image.prompt === 'string') errors.push(...promptErrors(id, image.prompt))
       if (typeof merged.vo === 'string' && !merged.vo.trim()) {
         errors.push({ type: 'shot_override', loc: ['shots', id, 'user_override', 'vo'], msg: `кадр ${id}: пустой vo, ожидалось текст закадрового голоса` })
       }
@@ -2174,8 +2199,10 @@ export function createMockApi() {
     if (errors.length) return { status: 422, body: { detail: errors } }
     overrides.set(episode.id, next)
     const project = projectOf(episode)
+    // Выбранная версия и причина сбоя (экран 4) — не правка: остаются как были
     for (const shot of plan?.shots ?? []) {
       project.shots[shot.id] = {
+        ...project.shots[shot.id],
         status: shot.status,
         duration_locked: false,
         prompt_locked: false,
@@ -2184,6 +2211,22 @@ export function createMockApi() {
       }
     }
     return null
+  }
+
+  /** Проверка действия кадра, как у правки на листе (принцип 13): стоп-лист стилевых токенов и непустое действие */
+  function promptErrors(id: string, prompt: string): { type: string; loc: (string | number)[]; msg: string }[] {
+    const loc = ['shots', id, 'user_override', 'image', 'prompt']
+    if (!prompt.trim()) return [{ type: 'shot_override', loc, msg: `кадр ${id}: пустое действие в image.prompt, ожидалось действие, композиция и ракурс` }]
+    if (prompt.includes(STYLE_TOKEN)) {
+      return [
+        {
+          type: 'shot_override',
+          loc,
+          msg: `кадр ${id}: в image.prompt стилевой токен «cinematic lighting» (lighting), ожидалось только действие, композиция и ракурс — стиль задаёт канон`,
+        },
+      ]
+    }
+    return []
   }
 
   function partsOf(episode: EpisodeListItem): PartsState {
@@ -3354,21 +3397,24 @@ export function createMockApi() {
   /** Кадры, которые смета и пачка пропускают с причиной: мок запрос кадра не собирает, проблемы задаёт тест */
   const skippedShots: SkippedShot[] = []
   let batchCount = 0
+  let redrawCount = 0
 
   function batchSummary(row: MockBatch): BatchSummary {
     const rows = shotJobs.filter((job) => job.batch_id === row.id)
     const n = (status: Job['status']) => rows.filter((job) => job.status === status).length
     const jobs = { total: rows.length, queued: n('queued'), running: n('running'), done: n('done'), failed: n('failed'), cancelled: n('cancelled') }
     const finished = jobs.queued === 0 && jobs.running === 0
+    const cost = (list: Job[]) => list.reduce((sum, job) => sum + (job.cost_usd_micro ?? 0), 0)
+    const { model = IMAGE_CATALOG.default, ...fields } = row
     return {
-      ...row,
+      ...fields,
       kind: 'shot_image',
-      model: 'nb2',
+      model,
       retry_of: null,
       jobs,
       finished,
-      estimate: money(GEN_UNIT * (jobs.total - jobs.cancelled)),
-      spent: money(GEN_UNIT * jobs.done),
+      estimate: money(cost(rows.filter((job) => job.status !== 'cancelled'))),
+      spent: money(cost(rows.filter((job) => job.status === 'done'))),
       eta_s: finished || row.paused ? null : Math.round((jobs.queued + jobs.running) * GEN_SECONDS_PER_SHOT),
     }
   }
@@ -3401,18 +3447,45 @@ export function createMockApi() {
   const activeJob = (episodeId: string, shot: string) =>
     shotJobs.find((job) => job.episode_id === episodeId && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'))
 
-  /** Кадры пачки без `shots`: без выбранной картинки и `stale`, кроме пропущенных (`select_shots` бэкенда) */
-  function shotsToDraw(episode: EpisodeListItem): string[] {
+  /** Модель заказа: ключ каталога `images`; нет — профиль по умолчанию; не из каталога — `null` (422) */
+  const catalogEntry = (key: string | null | undefined): CatalogEntry | null =>
+    IMAGE_CATALOG.models.find((entry) => entry.key === (key || IMAGE_CATALOG.default)) ?? null
+  const unknownModel = (key: string | null | undefined) =>
+    fail(422, `Модели «${key}» нет в каталоге images — есть ${IMAGE_CATALOG.models.map((entry) => entry.key).join(', ')}.`)
+
+  /** Следующий свободный вариант: после вариантов версий кадра и его незаконченных джобов (`next_variant` бэкенда) */
+  function nextVariant(episode: EpisodeListItem, shot: string): number {
+    const versions = Object.values(projectOf(episode).assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot)
+    const pending = shotJobs.filter((job) => job.episode_id === episode.id && job.payload.shot_id === shot && (job.status === 'queued' || job.status === 'running'))
+    return Math.max(0, ...versions.map((asset) => asset.variant ?? asset.version), ...pending.map((job) => Number(job.payload.variant ?? 1))) + 1
+  }
+
+  /** Кадры пачки (`select_shots` бэкенда): без `shots` — без выбранной картинки и `stale`; с `shots` — названные из
+   *  действующего плана; пропущенные тестом — мимо. `redraw` — следующий вариант, иначе вариант 1 */
+  function shotsToDraw(episode: EpisodeListItem, named: readonly string[] | null = null): string[] {
     const project = projectOf(episode)
     const skipped = new Set(skippedShots.map((item) => item.shot_id))
-    return (effectivePlan(episode)?.shots ?? [])
-      .filter((shot) => shot.status !== 'removed' && !skipped.has(shot.id))
+    const plan = (effectivePlan(episode)?.shots ?? []).filter((shot) => shot.status !== 'removed' && !skipped.has(shot.id))
+    if (named) return named.filter((id) => plan.some((shot) => shot.id === id))
+    return plan
       .filter((shot) => {
         const state = project.shots[shot.id]
         return !state?.image_version || state.status === 'stale'
       })
       .map((shot) => shot.id)
   }
+
+  interface BatchQuery {
+    shots?: string[] | null
+    model?: string | null
+    redraw?: boolean
+  }
+
+  const batchQueryOf = (query: URLSearchParams): BatchQuery => ({
+    shots: query.get('shots')?.split(',').filter(Boolean) ?? null,
+    model: query.get('model'),
+    redraw: query.get('redraw') === 'true',
+  })
 
   const batchRefusal = (refusal: BatchRefusal) => fail(409, refusal as unknown as Record<string, unknown>)
 
@@ -3425,26 +3498,31 @@ export function createMockApi() {
     return batchRefusal({ code: 'plan_not_approved', message, skipped: [], shots: [], batch_id: null })
   }
 
-  function generateEstimate(episode: EpisodeListItem): MockResponse {
+  function generateEstimate(episode: EpisodeListItem, query: BatchQuery): MockResponse {
     const refusal = generationRefusal(episode)
     if (refusal) return refusal
-    const shots = shotsToDraw(episode)
+    const entry = catalogEntry(query.model)
+    if (!entry) return unknownModel(query.model)
+    const shots = shotsToDraw(episode, query.shots ?? null)
+    const unit = entry.price.usd_micro
     return ok({
-      model: 'nb2',
-      model_id: 'gemini-3.1-flash-image',
+      model: entry.key,
+      model_id: entry.model,
       count: shots.length,
-      unit: money(GEN_UNIT),
-      total: money(GEN_UNIT * shots.length),
-      shots: shots.map((shot_id) => ({ shot_id, variant: 1, usd: money(GEN_UNIT) })),
+      unit: unitMoney(unit),
+      total: money(unit * shots.length),
+      shots: shots.map((shot_id) => ({ shot_id, variant: query.redraw ? nextVariant(episode, shot_id) : 1, usd: unitMoney(unit) })),
       skipped: [...skippedShots],
     } satisfies BatchEstimate)
   }
 
   /** «Сгенерировать N кадров»: утверждение, занятость, бюджет суммой — затем пачка и её джобы `queued` */
-  function startBatch(episode: EpisodeListItem): MockResponse {
+  function startBatch(episode: EpisodeListItem, query: BatchQuery): MockResponse {
     const refusal = generationRefusal(episode)
     if (refusal) return refusal
-    const shots = shotsToDraw(episode)
+    const entry = catalogEntry(query.model)
+    if (!entry) return unknownModel(query.model)
+    const shots = shotsToDraw(episode, query.shots ?? null)
     if (!shots.length) {
       return batchRefusal({
         code: 'nothing_to_draw',
@@ -3464,13 +3542,13 @@ export function createMockApi() {
         batch_id: activeJob(episode.id, busy[0]!)?.batch_id ?? null,
       })
     }
-    const budget = budgetRefusalOf(episode.channel, GEN_UNIT * shots.length)
+    const budget = budgetRefusalOf(episode.channel, entry.price.usd_micro * shots.length)
     if (budget) return budget
     batchCount += 1
-    const row: MockBatch = { id: `batch-${episode.id}-${batchCount}`, episode_id: episode.id, created_at: NOW, paused: false, cancelled: false }
+    const row: MockBatch = { id: `batch-${episode.id}-${batchCount}`, episode_id: episode.id, created_at: NOW, paused: false, cancelled: false, model: entry.key }
     batchRows.set(row.id, row)
     for (const shot of shots) {
-      shotJobs.push(shotJob(episode.id, row.id, shot, 'queued'))
+      shotJobs.push(shotJob(episode.id, row.id, shot, 'queued', { model: entry, variant: query.redraw ? nextVariant(episode, shot) : 1 }))
       setShot(episode, shot, { status: 'queued' })
     }
     Object.assign(episode, { stage: 'generate', status: 'generating', updated_at: NOW })
@@ -3496,16 +3574,71 @@ export function createMockApi() {
     return ok(batchSummary(row))
   }
 
-  /** Конец джоба кадра, как у воркера: новая версия выбрана, кадр `done`. Событие SSE тест шлёт сам */
+  /** «Перерисовать» и «С правкой…» (`POST …/redraw`): правка проверяется как PATCH до записи (стоп-лист, пустое
+   *  действие — 422), затем бюджет — и только потом правка пишется, а джоб следующего варианта встаёт в очередь */
+  function redrawShot(episode: EpisodeListItem, shotId: string, body: { model?: string | null; prompt?: string | null }): MockResponse {
+    const refusal = generationRefusal(episode)
+    if (refusal) return refusal
+    const shot = effectivePlan(episode)?.shots.find((item) => item.id === shotId && item.status !== 'removed')
+    if (!shot) return fail(404, `Кадра ${shotId} в действующем плане выпуска нет.`)
+    const entry = catalogEntry(body.model)
+    if (!entry) return unknownModel(body.model)
+    const prompt = body.prompt ?? null
+    if (prompt !== null) {
+      const invalid = promptErrors(shotId, prompt)
+      if (invalid.length) return { status: 422, body: { detail: invalid } }
+    }
+    const budget = budgetRefusalOf(episode.channel, entry.price.usd_micro)
+    if (budget) return budget
+    if (prompt !== null) patchShots(episode, { [shotId]: { user_override: { image: { prompt } } } })
+    redrawCount += 1
+    const job = shotJob(episode.id, null, shotId, 'queued', { id: `job-redraw-${redrawCount}-${shotId}`, model: entry, variant: nextVariant(episode, shotId) })
+    shotJobs.push(job)
+    setShot(episode, shotId, { status: 'queued' })
+    return ok(job, 201)
+  }
+
+  function redrawEstimate(episode: EpisodeListItem, shotId: string, model: string | null): MockResponse {
+    const refusal = generationRefusal(episode)
+    if (refusal) return refusal
+    if (!effectivePlan(episode)?.shots.some((item) => item.id === shotId && item.status !== 'removed')) {
+      return fail(404, `Кадра ${shotId} в действующем плане выпуска нет.`)
+    }
+    const entry = catalogEntry(model)
+    if (!entry) return unknownModel(model)
+    return ok({ shot_id: shotId, variant: nextVariant(episode, shotId), model: entry.key, model_id: entry.model, usd: unitMoney(entry.price.usd_micro) } satisfies RedrawEstimate)
+  }
+
+  /** Конец джоба кадра, как у воркера: новая версия моделью заказа, выбрана, кадр `done`; итог — в `result`. Событие
+   *  SSE тест шлёт сам */
   function drawShot(episodeId: string, shot: string): Job | null {
     const episode = one(episodeId)
     if (!episode) return null
     const project = projectOf(episode)
-    const version = Object.values(project.assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot).length + 1
-    project.assets[`img-${shot}-v${version}`] = imageAsset(shot, version)
-    setShot(episode, shot, { status: 'done', image_version: version, error: null })
     const job = activeJob(episodeId, shot)
-    if (job) Object.assign(job, { status: 'done', progress: 1, finished_at: NOW, message: `Кадр ${shot} · готово: версия ${version}` })
+    const entry = catalogEntry(job ? String(job.payload.model) : null) ?? IMAGE_CATALOG.models[1]!
+    const version = Object.values(project.assets).filter((asset) => asset.kind === 'image' && asset.shot_id === shot).length + 1
+    project.assets[`img-${shot}-v${version}`] = imageAsset(shot, version, entry)
+    setShot(episode, shot, { status: 'done', image_version: version, error: null })
+    if (job) {
+      Object.assign(job, {
+        status: 'done',
+        progress: 1,
+        finished_at: NOW,
+        message: `Кадр ${shot} · готово: версия ${version}`,
+        result: { shot_id: shot, version, status: 'charged', usd_micro: entry.price.usd_micro },
+      })
+    }
+    return job ?? null
+  }
+
+  /** Отказ модели у джоба кадра, как у воркера: кадр `failed` с причиной, без повтора. Событие SSE тест шлёт сам */
+  function refuseShot(episodeId: string, shot: string, error = SAFETY_REFUSAL): Job | null {
+    const episode = one(episodeId)
+    if (!episode) return null
+    const job = activeJob(episodeId, shot)
+    if (job) Object.assign(job, { status: 'failed', finished_at: NOW, error: jobError(error) })
+    setShot(episode, shot, { status: 'failed', error })
     return job ?? null
   }
 
@@ -3640,6 +3773,7 @@ export function createMockApi() {
         if (response) return response
       }
     }
+    if (method === 'GET' && path === '/providers/catalog/images') return ok(IMAGE_CATALOG)
     if (method === 'GET' && path === '/bridge/settings') return ok(bridgeSettings)
     if (method === 'GET' && path === '/cost/summary') {
       return channel && costSummaries[channel] ? ok(costSummaries[channel]) : fail(422, 'Неизвестный канал.')
@@ -3736,8 +3870,14 @@ export function createMockApi() {
         if (w !== 160 && w !== 320) return shapeError(['query', 'w'], `Ширины миниатюры ${w} нет — есть 160 и 320.`, 'thumb_width')
         return { status: 200, body: thumbSvg(`${decodeURIComponent(parts[3])} · v${parts[5]}`, w, 9 / 16), contentType: 'image/svg+xml' }
       }
-      if (method === 'GET' && rest === 'generate/estimate') return generateEstimate(episode)
-      if (method === 'POST' && rest === 'generate') return startBatch(episode)
+      if (method === 'GET' && rest === 'generate/estimate') return generateEstimate(episode, batchQueryOf(searchParams))
+      if (method === 'POST' && rest === 'generate') return startBatch(episode, (body ?? {}) as BatchQuery)
+      if (parts[2] === 'shots' && parts[3] && parts.length === 5 && parts[4] === 'redraw' && method === 'POST') {
+        return redrawShot(episode, decodeURIComponent(parts[3]), (body ?? {}) as { model?: string | null; prompt?: string | null })
+      }
+      if (method === 'GET' && parts[2] === 'shots' && parts[3] && parts[4] === 'redraw' && parts[5] === 'estimate') {
+        return redrawEstimate(episode, decodeURIComponent(parts[3]), searchParams.get('model'))
+      }
       if (method === 'GET' && rest === 'plan/parts') return ok(planParts(episode))
       if (method === 'POST' && rest === 'plan/prompt') return planPrompt(episode, Number(searchParams.get('part') ?? 1))
       if (method === 'POST' && rest === 'plan/answer') return planAnswer(episode, (body as { text: string }).text)
@@ -3764,7 +3904,7 @@ export function createMockApi() {
     /** Наборы частей моста по выпуску: принятые части и последний обмен */
     parts: partSets,
     /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `drawShot` — конец джоба кадра */
-    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot },
+    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot, refuseShot },
     generateArtboard,
   }
 }
