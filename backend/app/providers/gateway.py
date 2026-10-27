@@ -105,6 +105,9 @@ class Gateway:
         self.pricing = pricing
         self.paths = paths
         self._key_statuses: tuple[float, list[KeyStatus]] | None = None
+        # sha256 референсов по (путь, inode, размер, mtime): смета плана собирает запрос каждого
+        # кадра (M6.11), а фасы облика — одни и те же файлы. Файлы канона не переписываются.
+        self._ref_digests: dict[tuple[Path, int, int, int], str] = {}
 
     # --- без сети -----------------------------------------------------------------------------
 
@@ -208,7 +211,12 @@ class Gateway:
             raise RouteError(f"Референс {path} лежит вне каталога данных.") from None
         if not path.is_file():
             raise RouteError(f"Референс {relative.as_posix()} не найден.")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        stat = path.stat()
+        key = (path.resolve(), stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        digest = self._ref_digests.get(key)
+        if digest is None:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            self._ref_digests[key] = digest
         return ImageRef(path=relative.as_posix(), sha256=digest)
 
     async def check_keys(self, *, max_age_s: float = 0) -> list[KeyStatus]:

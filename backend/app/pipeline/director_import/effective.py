@@ -122,6 +122,12 @@ def edit_stale(state: ShotState, before: Shot, after: Shot) -> ShotState:
     )
 
 
+def image_edits(before: Shot, after: Shot) -> bool:
+    """Правка поменяла поле, из которого собирается запрос картинки (промпт, крупность): заказы
+    кадра в очереди рисовали бы прежний запрос (M6.11)."""
+    return any(change.field in MANUAL_STALE_REASONS for change in diff_shots(before, after))
+
+
 def effective_plan(
     director: Director,
     project: Project,

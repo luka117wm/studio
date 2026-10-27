@@ -130,7 +130,8 @@ test('нужно каналу → эпоха через мост → публи�
   const confirm = page.getByRole('dialog', { name: 'Перевести на новые версии' })
   await expect(confirm.getByRole('list', { name: 'Что сменится' })).toHaveText('облик you@ashigaru-17: v001 → v003, 4 кадра')
   await confirm.getByRole('button', { name: 'Перевести', exact: true }).click()
-  await expect(toast('План v002 на новых версиях канона: 4 кадра stale')).toBeVisible()
+  // Картинок у кадров ещё нет — устаревать нечему (M6.1), как у бэкенда
+  await expect(toast('План v002 на новых версиях канона: 0 кадров stale')).toBeVisible()
   await expect(canon).toContainText('готов')
   // Тост перевода перекрывает кнопку внизу правой панели (как в script.spec) — клик ждёт автоскрытия, не дольше 4 с
   await side.getByRole('button', { name: 'Утвердить план' }).click()

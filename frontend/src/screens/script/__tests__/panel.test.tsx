@@ -97,6 +97,61 @@ describe('смета', () => {
   })
 })
 
+describe('после генерации (M6.11)', () => {
+  const rowsOf = (estimate: HTMLElement) =>
+    [...estimate.querySelectorAll('dl > div')].map((row) => [...row.children].map((cell) => cell.textContent))
+
+  test('78 из 104 нарисованы — 26 кадров и «Уже нарисовано»; правка действия одного — 27', async () => {
+    const api = createMockApi()
+    api.generateArtboard()
+    const { side } = await open('/episodes/pirate/script', api)
+    const estimate = await within(side).findByRole('region', { name: 'Смета по плану' }, { timeout: 3000 })
+    await within(estimate).findByText('Уже нарисовано')
+    const rows = rowsOf(estimate)
+    expect(rows[0]).toEqual(['Кадры', '26 × $0.067', '$1.74'])
+    expect(rows[1]).toEqual(['Уже нарисовано', '78 кадров', '$0'])
+    const drawnRow = within(estimate).getByText('Уже нарисовано').parentElement!
+    expect(drawnRow.lastElementChild!.className).toContain('text-muted')
+
+    const edit = { shots: { s001: { user_override: { image: { prompt: 'drops the cartridge case on the deck' } } } } }
+    expect(api.handle('PATCH', '/api/projects/pirate', edit).status).toBe(200)
+    cleanup()
+    const again = await open('/episodes/pirate/script', api)
+    const fresh = await within(again.side).findByRole('region', { name: 'Смета по плану' }, { timeout: 3000 })
+    await waitFor(() => expect(rowsOf(fresh)[0]).toEqual(['Кадры', '27 × $0.067', '$1.81']))
+    expect(rowsOf(fresh)[1]).toEqual(['Уже нарисовано', '77 кадров', '$0'])
+    // Правка — не новая версия: утверждение на месте
+    expect(approveButton(again.side).textContent).toBe('План v004 утверждён')
+  })
+
+  test('новая версия из JSON — «Изменения v005»: кадр с картинкой, её время и цена; «Скрыть»', async () => {
+    const api = createMockApi()
+    api.generateArtboard()
+    const { side } = await open('/episodes/pirate/script?mode=json', api)
+    const area = (await screen.findByRole('textbox', { name: 'JSON плана' }, { timeout: 3000 })) as HTMLTextAreaElement
+    const plan = JSON.parse(area.value) as { shots: { id: string; vo: string; image: { prompt: string } }[] }
+    plan.shots.find((shot) => shot.id === 's001')!.image.prompt = 'climbs out of the hold with the cartridge case'
+    plan.shots.find((shot) => shot.id === 's047')!.image.prompt = 'ducks behind a gun carriage'
+    plan.shots.find((shot) => shot.id === 's002')!.vo += ' Again.'
+    fireEvent.change(area, { target: { value: JSON.stringify(plan, null, 2) } })
+    const panel = screen.getByRole('complementary', { name: 'Проверка плана' })
+    const save = within(panel).getByRole('button', { name: 'Сохранить как версию' })
+    await waitFor(() => expect(save.hasAttribute('disabled')).toBe(false), { timeout: 3000 })
+    await userEvent.click(save)
+
+    const report = await within(side).findByRole('region', { name: 'Изменения v005' }, { timeout: 3000 })
+    expect(within(report).getByText('Изменено 3 кадра; картинки устарели у 1')).toBeTruthy()
+    const stale = within(report).getByRole('list', { name: 'Устаревшие картинки' })
+    // s047 упал отказом фильтра — картинки нет, устаревать нечему; s002 — только VO
+    expect(within(stale).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(stale).getByRole('button', { name: 'Перейти к кадру s001' })).toBeTruthy()
+    expect(within(stale).getByText(/^картинка .*\d\d:\d\d, \$0\.067 — устарела$/)).toBeTruthy()
+
+    await userEvent.click(within(report).getByRole('button', { name: 'Скрыть изменения' }))
+    expect(within(side).queryByRole('region', { name: 'Изменения v005' })).toBeNull()
+  })
+})
+
 describe('утверждение', () => {
   test('плана нет — кнопка выключена, подсказка; части не собраны — каких не хватает', async () => {
     const { side } = await open('/episodes/samurai/script')

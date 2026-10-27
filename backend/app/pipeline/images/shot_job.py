@@ -31,7 +31,7 @@ from app.pipeline.checks import anachronism
 from app.pipeline.checks.anachronism import AnachronismOrder
 from app.pipeline.checks.shot_check import ShotChecks, check_anachronism
 from app.pipeline.director_import import PlanShot, effective_plan
-from app.pipeline.images import shot_assets
+from app.pipeline.images import current, shot_assets
 from app.pipeline.images.prompt_builder import IMAGES_STAGE, PromptProblem, build_shot_request
 from app.pipeline.images.shot_assets import Drawing
 from app.pipeline.images.status import refresh_episode_status
@@ -329,14 +329,35 @@ def finish_shot(paths: StudioPaths, job: Job) -> None:
 
 
 async def draw_shot(
-    ctx: JobContext, order: ShotOrder, checks: ShotChecks | None = None
+    ctx: JobContext,
+    order: ShotOrder,
+    checks: ShotChecks | None = None,
+    config: CanonConfig | None = None,
 ) -> dict[str, Any]:
     """Один кадр, один вариант: готовая версия с тем же хэшем, иначе шлюз и новая версия с
     проверками (`checks`; None — без проверок): лицо — вместе с версией, анахронизмы — после
-    неё, по её миниатюре. Проверки не бросают: сбой — `skipped` / `failed` у проверки."""
+    неё, по её миниатюре. Проверки не бросают: сбой — `skipped` / `failed` у проверки.
+
+    Версия выбирается сама, только если нарисована по действующему запросу кадра (`config` —
+    канон для сборки; None — только по версии плана, M6.3): правка промпта или канона, пока джоб
+    ждал или рисовал, оставляет её на выбор человеку (M6.11)."""
     gateway = ctx.gateway
     paths = gateway.paths
     where = (paths, order.channel, order.episode_id, order.shot_id)
+    rule = (
+        None
+        if config is None
+        else current.drawn_by_current(
+            paths,
+            gateway,
+            config,
+            channel=order.channel,
+            shot_id=order.shot_id,
+            variant=order.variant,
+            model=order.model,
+            input_hash=order.input_hash,
+        )
+    )
     if ctx.cancelled():
         shot_assets.settle(paths, order.channel, order.episode_id, [order.shot_id])
         return _result(order, None, "cancelled", 0)
@@ -347,7 +368,7 @@ async def draw_shot(
     known = shot_assets.find_image_by_hash(project, order.shot_id, order.input_hash)
     if known is not None:
         await asyncio.to_thread(
-            shot_assets.bind_existing, *where, known.version, order.plan_version
+            shot_assets.bind_existing, *where, known.version, order.plan_version, rule
         )
         ctx.progress(1.0, f"Кадр {order.shot_id} · версия {known.version} уже нарисована")
         return _result(order, known.version, "exists", 0)
@@ -384,7 +405,7 @@ async def draw_shot(
             checks=_first_checks(checks, order, face),
         )
         asset = await asyncio.to_thread(
-            shot_assets.add_image_file, *where, outcome.asset_path, drawing
+            shot_assets.add_image_file, *where, outcome.asset_path, drawing, rule
         )
     except Exception as exc:
         shot_assets.set_work_status(*where, "failed", shot_error(exc))

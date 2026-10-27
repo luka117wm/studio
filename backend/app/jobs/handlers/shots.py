@@ -6,6 +6,7 @@
 from functools import partial
 
 from app.jobs.worker import HandlerSpec
+from app.models.canon_config import CanonConfig
 from app.pipeline.checks.shot_check import (
     CHECK_KIND,
     ShotCheckOrder,
@@ -23,14 +24,17 @@ from app.pipeline.images.shot_job import (
 )
 
 
-def specs(images_parallel: int, checks: ShotChecks) -> list[HandlerSpec]:
+def specs(
+    images_parallel: int, checks: ShotChecks, config: CanonConfig | None = None
+) -> list[HandlerSpec]:
     """Спеки видов: `shot_image` — не больше `images_parallel` одновременных из общего пула
     (M6.3); `shot_check` — по одному: модель лица одна на процесс, вызовы и так по очереди. Цену
-    перепроверки (вопрос к VLM) и бюджет считает постановка (`shot_check.enqueue_check`)."""
+    перепроверки (вопрос к VLM) и бюджет считает постановка (`shot_check.enqueue_check`).
+    `config` — канон для сверки новой версии с действующим запросом кадра (M6.11)."""
     return [
         HandlerSpec(
             SHOT_KIND,
-            partial(draw_shot, checks=checks),
+            partial(draw_shot, checks=checks, config=config),
             ShotOrder,
             estimate=order_cost,
             on_cancel=cancel_shot,

@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:2702a74d827f30d3bb5b68e29c70904a71badfd539c3605447e72d1474ff5634
+ * @generated sha256:f7d78f819628ed2e7aa879732157d303902a768aa006d1c089883c99fe8e8065
  */
 export interface AnachronismCheck {
   status: 'ok' | 'suspect' | 'failed' | 'off'
@@ -109,6 +109,14 @@ export interface ImportResult {
   changes: ShotChange[]
 }
 
+/**
+ * Деньги в ответе API: по `usd_micro` считать, `usd` показывать.
+ */
+export interface Money {
+  usd_micro: number
+  usd: string
+}
+
 export interface MotionOverride {
   type?:
     | (
@@ -170,7 +178,7 @@ export interface ShotChange {
   fields: string[]
   stale: boolean
   drawn_at: string | null
-  price: number | null
+  price: Money | null
 }
 
 /**
@@ -181,6 +189,7 @@ export interface ShotImages {
   status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
   image_version: number | null
   versions: Asset[]
+  matches_plan: number[]
 }
 
 /**

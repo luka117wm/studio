@@ -40,13 +40,14 @@ test('новая версия стиля → перевод выпуска → s
   await expect(confirm.getByRole('list', { name: 'Что сменится' })).toHaveText('стиль канала: v003 → v004, 8 кадров')
   await expect(confirm.getByText('Затронутые кадры станут stale, картинки останутся.')).toBeVisible()
   await confirm.getByRole('button', { name: 'Перевести', exact: true }).click()
-  await expect(toast('План v004 на новых версиях канона: 8 кадров stale')).toBeVisible()
+  // Устаревает только картинка (M6.1): s004 и s005 в очереди без неё — их статус прежний, как у бэкенда
+  await expect(toast('План v004 на новых версиях канона: 6 кадров stale')).toBeVisible()
 
   // 4. Новая версия плана прибита к v004; на листе у s001 — stale с причиной смены стиля
   await expect(style).toContainText('v004')
   await expect(canon.getByRole('button', { name: 'Перевести на новые версии' })).toHaveCount(0)
   const sheet = page.getByRole('article', { name: 'Лист сценария' })
-  await expect(sheet.locator('[data-shot]').getByRole('img', { name: 'Статус: проверить' })).toHaveCount(8)
+  await expect(sheet.locator('[data-shot]').getByRole('img', { name: 'Статус: проверить' })).toHaveCount(6)
   const glyph = sheet.locator('[data-shot="s001"]').getByRole('img', { name: 'Статус: проверить' })
   await glyph.hover()
   await expect(page.getByRole('tooltip')).toHaveText('Стиль канала: style/v003 → style/v004')

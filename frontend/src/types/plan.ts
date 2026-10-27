@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/plan.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:edb039e213378924f5314413c2ea68b803b9f543d307994ea11deeacb8d1c991
+ * @generated sha256:d866856171e80303b05ca5a6764be4630a212eb716fb9f2c88581247266ea0d1
  */
 /**
  * Лист опорных портретов облика для версии персонажа: выбрано ракурсов из шести (M5.4).
@@ -378,7 +378,7 @@ export interface ShotChange {
   fields: string[]
   stale: boolean
   drawn_at: string | null
-  price: number | null
+  price: Money | null
 }
 
 /**

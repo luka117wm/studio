@@ -2,15 +2,23 @@
 
 Только чистые функции: диск, коды ответов и временная область частей — `api/director.py`.
 Мёрдж меняет в `ShotState` лишь `status` и `stale_reasons`; `*_locked` и `user_override`
-не трогаются, ассеты и тайминги — тоже (принципы 1, 8).
+не трогаются, ассеты и тайминги — тоже (принципы 1, 8). У строки отчёта кадра с картинкой —
+когда нарисована выбранная версия и сколько стоила (M6.11): «картинка 12:41, $0.067 — устарела».
 """
 
 import hashlib
 import json
 from typing import Any, Literal
 
+from app.cost.money import Money, format_unit_usd
 from app.models.director import CanonRef, Director, Shot, StrictModel
-from app.models.project import DirectorVersionInfo, Project, ShotState, VersionSource
+from app.models.project import (
+    DirectorVersionInfo,
+    Project,
+    ShotState,
+    VersionSource,
+    image_asset_id,
+)
 from app.models.validators import validate_director
 from app.pipeline.director_import.stale import (
     CanonChanges,
@@ -46,9 +54,10 @@ class ShotChange(StrictModel):
     change: str
     fields: list[str] = []
     stale: bool = False
-    # Когда нарисована текущая картинка и цена перерисовки — появятся с модулями картинок и цен.
+    # Выбранная версия картинки кадра (M6.11): когда нарисована (ISO 8601 UTC) и её цена, до
+    # десятых цента («$0.067»; из кэша — $0). Картинки нет — null.
     drawn_at: str | None = None
-    price: int | None = None
+    price: Money | None = None
 
 
 class ImportResult(StrictModel):
@@ -279,6 +288,7 @@ def merge_into_project(
                     kind="added",
                     change="Кадр вернулся в план" if returned else "Новый кадр",
                     stale=base.has_image,
+                    **_drawn(project, shot.id, base),
                 )
             )
             continue
@@ -302,6 +312,7 @@ def merge_into_project(
                 change="; ".join([*(c.reason for c in field_changes), *canon_rs]),
                 fields=[c.field for c in field_changes],
                 stale=is_stale,
+                **_drawn(project, shot.id, state),
             )
         )
 
@@ -317,6 +328,7 @@ def merge_into_project(
                 section=previous.section if previous else None,
                 kind="removed",
                 change=reason,
+                **_drawn(project, shot_id, state),
             )
         )
 
@@ -353,3 +365,17 @@ def merge_into_project(
         changes=changes,
     )
     return updated, result
+
+
+def _drawn(project: Project, shot_id: str, state: ShotState) -> dict[str, Any]:
+    """`drawn_at` и `price` выбранной версии кадра для строки отчёта; картинки нет — пусто."""
+    if state.image_version is None:
+        return {}
+    asset = project.assets.get(image_asset_id(shot_id, state.image_version))
+    if asset is None:
+        return {}
+    micro = asset.usd_micro or 0
+    return {
+        "drawn_at": asset.created_at,
+        "price": Money(usd_micro=micro, usd=format_unit_usd(micro)),
+    }

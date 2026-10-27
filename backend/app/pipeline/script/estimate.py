@@ -2,14 +2,16 @@
 
 Объёмы — из действующего плана (версия плюс правки, без убранных кадров), цены — только через
 `Gateway.estimate` маршрутами профиля по умолчанию (принципы 5, 6): ни цен, ни ID моделей здесь
-нет. Сценарий при мосте через чат — строка $0 без вызова (устав M4, решения 1 и 2). Превышение
+нет. Кадры с годной картинкой (M6.11, `pipeline/images/current.py`) не считаются: строка «Кадры»
+— только то, что осталось нарисовать, нарисованное — строкой «Уже нарисовано» за $0. Сценарий
+при мосте через чат — строка $0 без вызова (устав M4, решения 1 и 2). Превышение
 бюджета — предупреждение в ответе, не отказ: отказывает очередь генерации в M6 (решение 8).
 Контракт — `docs/providers.md`, «Смета плана».
 """
 
 import math
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -37,6 +39,8 @@ from app.providers.registry import PlanSource
 BRIDGE_PROVIDER = "bridge"
 BRIDGE_MODEL = "chat"
 BRIDGE_LABEL = "Мост через чат"
+# Строка кадров с годной картинкой: их не перерисовывать, $0 (M6.11).
+DRAWN_TITLE = "Уже нарисовано"
 
 # Текст остатка уровня бюджета после выпуска: «Останется $75.20 из месячных $150».
 _LEFT: dict[BudgetLevel, str] = {
@@ -60,8 +64,9 @@ class StageCost(Cost):
 class EstimateLine(BaseModel):
     """Строка сметы плана для экрана: что, сколько и почём."""
 
-    title: str  # «Кадры», «Голос», «Анимация», «План»
-    label: str  # «104 × $0.067», «23 400 знаков», «6 клипов × $0.32», «Мост через чат»
+    title: str  # «Кадры», «Уже нарисовано», «Голос», «Анимация», «План»
+    # «104 × $0.067», «78 кадров», «23 400 знаков», «6 клипов × $0.32», «Мост через чат»
+    label: str
     usd: Money
     cost: StageCost  # этап, модель маршрута, единицы
 
@@ -194,18 +199,22 @@ def plan_estimate(
     budgets: Budgets,
     committed: Mapping[BudgetLevel, Committed],
     volumes: EstimateVolumes,
+    drawn: Collection[str] = frozenset(),
 ) -> PlanEstimate:
     """Смета действующего плана и остаток каждого уровня бюджета после выпуска.
 
     `committed` — занятое уровнем до выпуска (журнал и очередь, `cost/budget.py`); `volumes` —
-    объём запроса сценария при `plan_source: api`.
+    объём запроса сценария при `plan_source: api`; `drawn` — id кадров с годной картинкой: их
+    рисовать не нужно.
     """
     shots = [shot for shot in plan.shots if shot.status != "removed"]
     chars = sum(len(shot.vo) for shot in shots)
     words = sum(count_words(shot.vo) for shot in shots)
+    done = sum(shot.id in drawn for shot in shots)
+    to_draw = len(shots) - done
 
     image = gateway.estimate("images", ImageRequest(prompt="shot"))
-    images = stage_cost(image, len(shots))
+    images = stage_cost(image, to_draw)
     voice = _voice(gateway, chars)
     animate, clips_label = _animate(
         gateway, Counter(shot.animate.seconds for shot in shots if shot.animate.recommended)
@@ -217,8 +226,11 @@ def plan_estimate(
         tokens = int(sum(line.quantity for line in script.lines))
         script_label = f"{_count(tokens)} {plural(tokens, 'токен', 'токена', 'токенов')}"
 
-    lines = [
-        _line("Кадры", f"{len(shots)} × {format_unit_usd(image.usd_micro)}", images),
+    lines = [_line("Кадры", f"{to_draw} × {format_unit_usd(image.usd_micro)}", images)]
+    if done:
+        word = plural(done, "кадр", "кадра", "кадров")
+        lines.append(_line(DRAWN_TITLE, f"{_count(done)} {word}", stage_cost(image, 0)))
+    lines += [
         _line("Голос", f"{_count(chars)} {plural(chars, 'знак', 'знака', 'знаков')}", voice),
         _line("Анимация", clips_label, animate),
         _line("План", script_label, script),

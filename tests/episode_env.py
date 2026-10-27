@@ -260,4 +260,4 @@ def run_handler(env: Env, job: dict[str, Any]) -> dict[str, Any]:
         threading.Event(),
         env.gateway,
     )
-    return asyncio.run(draw_shot(ctx, ShotOrder.model_validate(job["payload"])))
+    return asyncio.run(draw_shot(ctx, ShotOrder.model_validate(job["payload"]), config=env.config))

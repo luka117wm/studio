@@ -18,19 +18,23 @@ from pydantic import BaseModel, Field
 from app.api.deps import CanonConfigDep, DbDep, GatewayDep, JobsDep, PathsDep
 from app.api.director import read_version
 from app.api.episodes import Episode, require_episode
-from app.api.projects import patched_project
+from app.api.projects import image_edited, patched_project
 from app.cost.budget import BudgetExceeded
 from app.cost.money import Money, format_unit_usd
 from app.jobs.queue import Job
+from app.models.canon_config import CanonConfig
 from app.models.director import StrictModel
 from app.models.project import Asset, Project
 from app.pipeline.checks import shot_check
 from app.pipeline.checks.shot_check import NoChosenImage, NothingToCheck
 from app.pipeline.images import shot_assets, shot_job
+from app.pipeline.images.batch import cancel_for_edit
+from app.pipeline.images.current import CurrentRequests
 from app.pipeline.images.shot_assets import ShotImages, VersionNotFound
 from app.pipeline.images.shot_job import OrderRefused, ShotNotInPlan
 from app.pipeline.images.status import refresh_episode_status
 from app.providers.base import RouteError
+from app.providers.gateway import Gateway
 from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.paths import StudioPaths
 from app.storage.thumbs import ThumbWidth
@@ -80,9 +84,11 @@ async def redraw_shot(
     """«Перерисовать», «Добавить версию», «С правкой…»: джоб `shot_image` следующим свободным
     вариантом, в том числе при незаконченном джобе того же кадра. Новая версия выбирается сама,
     только если картинки нет или выбранная устарела. С `prompt` — сначала правка действия; отказ
-    (стилевой токен, пустое действие — 422; проблемы — 409; бюджет — 409) правку не пишет."""
+    (стилевой токен, пустое действие — 422; проблемы — 409; бюджет — 409) правку не пишет.
+    Правка, поменявшая действие, снимает ждущие заказы кадра по прежнему промпту (M6.11)."""
     episode = require_episode(db, episode_id)
     path = paths.project_path(episode.channel, episode.id)
+    edited: list[str] = []
     try:
         with update_lock(path):
             current = read_json(path)
@@ -91,7 +97,10 @@ async def redraw_shot(
             if body.prompt is not None:
                 shot_job.plan_shot(project, director, shot_id)  # кадра нет — 404, не 422 правки
                 edit = {"user_override": {"image": {"prompt": body.prompt}}}
+                before = project
                 project = patched_project(paths, episode, current, {"shots": {shot_id: edit}})
+                assert director is not None  # `plan_shot` без плана отказывает
+                edited = image_edited(director, before, project, [shot_id])
             order = shot_job.redraw_order(
                 db,
                 paths,
@@ -107,6 +116,8 @@ async def redraw_shot(
             gateway.check_budget(db, shot_job.order_cost(gateway, order), episode_id=episode.id)
             if body.prompt is not None:
                 write_json_atomic(path, project.model_dump(mode="json"))
+        # После замка: снятие пишет project.json само; до постановки — новый заказ не снимается.
+        cancel_for_edit(db, paths, episode.id, edited)
         job = shot_job.enqueue_shot(db, gateway, paths, order, allow_busy=True)
     except ShotNotInPlan as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -230,15 +241,29 @@ async def check_shot(
 
 
 @router.get("/images")
-async def get_shot_images(episode_id: str, shot_id: str, paths: PathsDep, db: DbDep) -> ShotImages:
-    """Версии картинки кадра с метаданными, новые сверху, и выбранная версия."""
-    _, project = _shot_of_plan(paths, db, episode_id, shot_id)
-    return shot_assets.shot_images(project, shot_id)
+async def get_shot_images(
+    episode_id: str,
+    shot_id: str,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
+) -> ShotImages:
+    """Версии картинки кадра с метаданными, новые сверху, выбранная версия и версии, нарисованные
+    по действующему запросу кадра (`matches_plan`, M6.11)."""
+    episode, project = _shot_of_plan(paths, db, episode_id, shot_id)
+    return _images(paths, gateway, config, episode, project, shot_id)
 
 
 @router.post("/images/{version}/choose")
 async def choose_shot_image(
-    episode_id: str, shot_id: str, version: int, paths: PathsDep, db: DbDep
+    episode_id: str,
+    shot_id: str,
+    version: int,
+    paths: PathsDep,
+    db: DbDep,
+    gateway: GatewayDep,
+    config: CanonConfigDep,
 ) -> ShotImages:
     """Выбранная версия идёт в монтаж; кадр — `done`. Статус выпуска — заново: пометки проверок
     выбранной версии (M6.5–M6.6) его меняют."""
@@ -250,7 +275,29 @@ async def choose_shot_image(
     except VersionNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     refresh_episode_status(paths, episode.id)
-    return shot_assets.shot_images(project, shot_id)
+    return _images(paths, gateway, config, episode, project, shot_id)
+
+
+def _images(
+    paths: StudioPaths,
+    gateway: Gateway,
+    config: CanonConfig,
+    episode: Episode,
+    project: Project,
+    shot_id: str,
+) -> ShotImages:
+    director = read_version(paths, episode, project.director_version)
+    matching: list[int] = []
+    if director is not None:
+        requests = CurrentRequests(
+            paths, gateway, config, channel=episode.channel, project=project, director=director
+        )
+        matching = [
+            asset.version
+            for asset in shot_assets.image_versions(project, shot_id)
+            if requests.matches(shot_id, asset)
+        ]
+    return shot_assets.shot_images(project, shot_id, matching)
 
 
 @router.get("/images/{version}/thumb")

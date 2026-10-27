@@ -3,8 +3,9 @@
 Каждая отрисовка — новый неизменяемый файл `media/<кадр>/vNNN.<ext>` с миниатюрами webp 160/320
 (принцип 12) и строкой `assets["img-<кадр>-v<N>"]` в project.json: хэш входов, модель, seed,
 вариант, цена, когда нарисована, из кэша ли. Выбранная версия — `ShotState.image_version`: новая
-версия выбирается сама, если картинки нет или выбранная устарела (`stale`), иначе ждёт человека
-(M6.9). Версии не удаляются и не перезаписываются.
+версия выбирается сама, если картинки нет или выбранная устарела (`stale`) и версия нарисована по
+действующему плану и запросу (M6.11, `current.py`), иначе ждёт человека (M6.9). Версии не удаляются
+и не перезаписываются.
 
 Статусы кадра на время работы — `queued`, `generating`, `failed` с причиной (M6.2); без работы —
 `settled_status`. project.json читается и пишется под `update_lock`: запись версии идёт из потока,
@@ -47,6 +48,9 @@ THUMB_WIDTHS: tuple[ThumbWidth, ...] = (160, 320)
 _VERSION_FILE_RE = re.compile(r"^v(\d{3})\.[a-z0-9]+$")
 # Статусы, которые ставит работа над кадром; остальные выводит `settled_status`.
 WorkStatus = Literal["queued", "generating", "failed"]
+# Нарисована ли версия по действующему запросу кадра — по свежему снимку project.json под замком
+# (M6.11, `current.drawn_by_current`); None — без сверки.
+CurrentRule = Callable[[Project], bool]
 
 
 @dataclass(frozen=True)
@@ -94,6 +98,9 @@ class ShotImages(StrictModel):
     status: ShotStatus
     image_version: int | None
     versions: list[Asset]
+    # Номера версий, нарисованных по действующему запросу кадра — план с правками и канон
+    # (M6.11, `current.py`): остальные нарисованы по прежнему промпту, канону или модели.
+    matches_plan: list[int] = []
 
 
 def add_image_version(
@@ -119,16 +126,30 @@ def add_image_version(
 
 
 def add_image_file(
-    paths: StudioPaths, channel: str, episode: str, shot_id: str, source: Path, drawing: Drawing
+    paths: StudioPaths,
+    channel: str,
+    episode: str,
+    shot_id: str,
+    source: Path,
+    drawing: Drawing,
+    current: CurrentRule | None = None,
 ) -> Asset:
     """Новая версия из файла шлюза — оплаченного или из кэша (L-042): жёсткая ссылка, второй копии
-    на диске нет; файл шлюза, как и версия, не меняется."""
+    на диске нет; файл шлюза, как и версия, не меняется. `current` — сверка с действующим запросом
+    перед выбором."""
     with source.open("rb") as fh:
         mime = image_mime(fh.read(16))
     if mime is None:
         raise NotAnImage(f"кадр {shot_id}: файл {source.name} — не PNG, JPEG или WEBP")
     return _add(
-        paths, channel, episode, shot_id, IMAGE_EXT[mime], lambda p: link_new(source, p), drawing
+        paths,
+        channel,
+        episode,
+        shot_id,
+        IMAGE_EXT[mime],
+        lambda p: link_new(source, p),
+        drawing,
+        current,
     )
 
 
@@ -140,6 +161,7 @@ def _add(
     ext: str,
     store: Callable[[Path], None],
     drawing: Drawing,
+    current: CurrentRule | None = None,
 ) -> Asset:
     project_path = paths.project_path(channel, episode)
     with update_lock(project_path):
@@ -168,7 +190,7 @@ def _add(
         state = _with_new_version(
             project.shots.get(shot_id, ShotState()),
             version,
-            may_choose=_plan_is_current(project, drawing.plan_version),
+            may_choose=_may_choose(project, drawing.plan_version, current),
         )
         _write(
             project_path,
@@ -275,6 +297,7 @@ def bind_existing(
     shot_id: str,
     version: int,
     plan_version: str | None = None,
+    current: CurrentRule | None = None,
 ) -> ShotState:
     """Тот же запрос второй раз: новой версии нет, готовая выбирается по правилу новой версии."""
     project_path = paths.project_path(channel, episode)
@@ -283,7 +306,7 @@ def bind_existing(
         state = _with_new_version(
             project.shots.get(shot_id, ShotState()),
             version,
-            may_choose=_plan_is_current(project, plan_version),
+            may_choose=_may_choose(project, plan_version, current),
         )
         _write(project_path, project, shots={**project.shots, shot_id: state})
     return state
@@ -295,13 +318,14 @@ def image_versions(project: Project, shot_id: str) -> list[Asset]:
     return sorted(found, key=lambda a: a.version, reverse=True)
 
 
-def shot_images(project: Project, shot_id: str) -> ShotImages:
+def shot_images(project: Project, shot_id: str, matches_plan: Sequence[int] = ()) -> ShotImages:
     state = project.shots.get(shot_id, ShotState())
     return ShotImages(
         shot_id=shot_id,
         status=state.status,
         image_version=state.image_version,
         versions=image_versions(project, shot_id),
+        matches_plan=list(matches_plan),
     )
 
 
@@ -349,17 +373,32 @@ def _next_version(media: Path, project: Project, shot_id: str) -> int:
     return max([0, *on_disk, *in_assets]) + 1
 
 
-def _with_new_version(state: ShotState, version: int, *, may_choose: bool = True) -> ShotState:
+def _with_new_version(
+    state: ShotState, version: int, *, may_choose: Callable[[], bool] | None = None
+) -> ShotState:
     """Новая (или найденная по хэшу) версия: выбирается, если картинки нет или выбранная устарела
-    и версия нарисована по текущему плану; иначе ждёт выбора человека. Сбой снимается всегда."""
+    и версия нарисована по текущему плану и запросу; иначе ждёт выбора человека. Сбой снимается
+    всегда. Сверка с запросом (`may_choose`) — только когда выбор вообще возможен: она собирает
+    запрос кадра."""
     state = state.model_copy(update={"error": None})
-    if may_choose and (not state.has_image or state.stale_reasons):
+    wants = not state.has_image or bool(state.stale_reasons)
+    if wants and (may_choose is None or may_choose()):
         return _chosen(state, version)
     return state.model_copy(update={"status": settled_status(state)})
 
 
-def _plan_is_current(project: Project, plan_version: str | None) -> bool:
-    return plan_version is None or plan_version == project.director_version
+def _may_choose(
+    project: Project, plan_version: str | None, current: CurrentRule | None
+) -> Callable[[], bool]:
+    """Версия нарисована по текущей версии плана (M6.3) и, если есть сверка, по действующему
+    запросу кадра (M6.11): правка промпта, пока джоб рисовал, — тоже не она."""
+
+    def check() -> bool:
+        if plan_version is not None and plan_version != project.director_version:
+            return False
+        return current is None or current(project)
+
+    return check
 
 
 def _update_states(

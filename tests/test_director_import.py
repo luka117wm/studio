@@ -198,6 +198,41 @@ def test_second_version_merges_stale_added_removed(
     assert (info["added"], info["changed"], info["removed"], info["shots"]) == (1, 3, 1, 10)
 
 
+def test_report_names_when_and_for_how_much_the_picture_was_drawn(
+    episode: TestClient,
+    paths: StudioPaths,
+    v1: dict[str, Any],
+    v2: dict[str, Any],
+    draw: DrawShot,
+) -> None:
+    """M6.11: у строки кадра с картинкой — дата и цена выбранной версии («картинка 12:41, $0.067 —
+    устарела»), у кадра без картинки — null. `changed` — изменённые кадры, и без `stale` (VO)."""
+    assert episode.post(URL, json=v1).status_code == 200
+    chosen = draw(EPISODE, "s002")
+    draw(EPISODE, "s002", variant=2, cached=True)  # ждёт выбора человека: в отчёте — выбранная
+    removed = draw(EPISODE, "s006", cached=True)
+    result = episode.post(URL, json=v2).json()
+    by_id = {c["shot_id"]: c for c in result["changes"]}
+
+    assert by_id["s002"]["stale"] is True
+    assert (by_id["s002"]["drawn_at"], by_id["s002"]["price"]) == (
+        chosen.created_at,
+        {"usd_micro": 67_000, "usd": "$0.067"},
+    )
+    # Убранный кадр тоже называет свою картинку; из кэша она стоила $0.
+    assert (by_id["s006"]["kind"], by_id["s006"]["drawn_at"], by_id["s006"]["price"]) == (
+        "removed",
+        removed.created_at,
+        {"usd_micro": 0, "usd": "$0"},
+    )
+    for shot_id in ("s008", "s009", "s011"):
+        assert (by_id[shot_id]["drawn_at"], by_id[shot_id]["price"]) == (None, None)
+
+    changed = [c for c in result["changes"] if c["kind"] == "changed"]
+    assert result["changed"] == len(changed) == 3
+    assert [c["shot_id"] for c in changed if not c["stale"]] == ["s008", "s009"]
+
+
 def test_locked_fields_survive_and_flag_stale(
     episode: TestClient,
     paths: StudioPaths,

@@ -469,6 +469,58 @@ def test_copied_plan_is_refused_with_phrases(
     assert seeded.get(f"/api/episodes/{reference_episode}").json()["stage"] == "script"
 
 
+def copied_edits() -> dict[str, Any]:
+    """Правка VO первых кадров текстом субтитров — на листе сценария, поверх своего плана."""
+    return {
+        "shots": {
+            f"s{n:03d}": {"user_override": {"vo": vo}} for n, vo in enumerate(COPIED, start=1)
+        }
+    }
+
+
+def test_edit_repeating_subtitles_is_refused_at_approval(
+    seeded: TestClient, reference_episode: str, no_canon_gate: None
+) -> None:
+    """Сходство при утверждении — по действующему плану (версия плюс правки, M6.11): своя версия
+    плана, но VO поправлен фразами референса — отказ, как у скопированного плана."""
+    import_plan(seeded, reference_episode, [])
+    edited = seeded.patch(f"/api/projects/{reference_episode}", json=copied_edits())
+    assert edited.status_code == 200, edited.text  # до утверждения правку ловит утверждение
+    response = seeded.post(f"/api/episodes/{reference_episode}/approve")
+    assert response.status_code == 409
+    problems = response.json()["detail"]["problems"]
+    assert [p["check"] for p in problems] == ["similarity"]
+    assert f"«{HELMSMAN}»" in problems[0]["message"]
+
+
+def test_vo_edit_after_approval_is_refused_at_the_field(
+    seeded: TestClient, paths: StudioPaths, reference_episode: str, no_canon_gate: None
+) -> None:
+    """Правка утверждённого плана утверждения не снимает (M6.11) — поэтому правку VO, поднявшую
+    сходство выше порога, отклоняет сам PATCH: 422 у VO кадров, файл не меняется."""
+    import_plan(seeded, reference_episode, [])
+    assert seeded.post(f"/api/episodes/{reference_episode}/approve").status_code == 200
+    path = paths.project_path("cursus", reference_episode)
+    before = path.read_bytes()
+
+    response = seeded.patch(f"/api/projects/{reference_episode}", json=copied_edits())
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert [d["loc"] for d in detail] == [
+        ["shots", "s001", "user_override", "vo"],
+        ["shots", "s002", "user_override", "vo"],
+    ]
+    assert detail[0]["msg"].startswith("кадр s001: сходство с референсом ")
+    assert f"«{HELMSMAN}»" in detail[0]["msg"]
+    assert path.read_bytes() == before
+
+    own = {"shots": {"s001": {"user_override": {"vo": "Below deck the oars move as one."}}}}
+    assert seeded.patch(f"/api/projects/{reference_episode}", json=own).status_code == 200
+    episode = seeded.get(f"/api/episodes/{reference_episode}").json()
+    assert episode["stage"] == "generate"
+    assert read_json(path)["approved_version"] == "v001"
+
+
 # --- конфиг ---------------------------------------------------------------------------------------
 
 

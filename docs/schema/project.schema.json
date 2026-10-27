@@ -679,6 +679,25 @@
       "title": "ImportResult",
       "type": "object"
     },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
     "MotionOverride": {
       "additionalProperties": false,
       "properties": {
@@ -965,14 +984,13 @@
         "price": {
           "anyOf": [
             {
-              "type": "integer"
+              "$ref": "#/$defs/Money"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Price"
+          "default": null
         }
       },
       "required": [
@@ -1026,13 +1044,22 @@
           },
           "title": "Versions",
           "type": "array"
+        },
+        "matches_plan": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Matches Plan",
+          "type": "array"
         }
       },
       "required": [
         "shot_id",
         "status",
         "image_version",
-        "versions"
+        "versions",
+        "matches_plan"
       ],
       "title": "ShotImages",
       "type": "object"

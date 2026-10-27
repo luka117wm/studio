@@ -2255,6 +2255,18 @@ export function createMockApi() {
       else delete next[id]
     }
     if (errors.length) return { status: 422, body: { detail: errors } }
+    // Правка промпта или крупности нарисованного кадра — `stale` (`edit_stale`); утверждение остаётся (M6.11)
+    for (const id of Object.keys(shots)) {
+      const shot = plan?.shots.find((item) => item.id === id)
+      if (!shot || !hasPicture(episode, shot)) continue
+      const was = (edits[id]?.image ?? {}) as Record<string, unknown>
+      const now = (next[id]?.image ?? {}) as Record<string, unknown>
+      const reasons = [
+        ...(was.prompt !== now.prompt ? ['Промпт изменён вручную'] : []),
+        ...(was.shot_size !== now.shot_size ? ['Крупность изменена вручную'] : []),
+      ].filter((reason) => !shot.stale_reasons.includes(reason))
+      if (reasons.length) Object.assign(shot, { status: 'stale', stale_reasons: [...shot.stale_reasons, ...reasons] })
+    }
     overrides.set(episode.id, next)
     const project = projectOf(episode)
     // Выбранная версия и причина сбоя (экран 4) — не правка: остаются как были
@@ -2396,20 +2408,35 @@ export function createMockApi() {
     } satisfies PlanAnswerResult)
   }
 
-  /** Смета как у `plan_estimate` бэкенда: кадры, голос, клипы, план через мост; остаток месяца — от сводки расходов */
+  /** Смета как у `plan_estimate` бэкенда: кадры, голос, клипы, план через мост; остаток месяца — от сводки расходов.
+   *  Кадры с годной картинкой (M6.11) — строкой «Уже нарисовано»: выбрана версия, кадр не `stale` и не `failed`; хэшей
+   *  запроса мок не считает */
   function estimateOf(episode: EpisodeListItem): MockResponse {
     const plan = effectivePlan(episode)
     if (!plan) return fail(409, 'Плана ещё нет — смета появится, когда план будет собран: вставьте ответ чата или импортируйте JSON.')
     const shots = plan.shots.filter((shot) => shot.status !== 'removed')
+    const states = projectOf(episode).shots
+    const drawn = shots.filter((shot) => {
+      const state = states[shot.id]
+      return !!state?.image_version && !state.stale_reasons.length && !state.error && !['stale', 'failed'].includes(state.status)
+    }).length
+    const toDraw = shots.length - drawn
     const chars = shots.reduce((sum, shot) => sum + shot.vo.length, 0)
     const clips = shots.filter((shot) => shot.animate.recommended)
     const seconds = clips.reduce((sum, shot) => sum + shot.animate.seconds, 0)
     const sameLength = new Set(clips.map((shot) => shot.animate.seconds)).size <= 1
     const clipWord = ru(clips.length, ['клип', 'клипа', 'клипов'])
     const lines = [
-      estimateLine('Кадры', `${shots.length} × $0.067`, 'images', 'gemini-3.1-flash-image', [
-        { unit: 'image', quantity: shots.length, variant: '1K', usd_micro: PRICE.image * shots.length },
+      estimateLine('Кадры', `${toDraw} × $0.067`, 'images', 'gemini-3.1-flash-image', [
+        { unit: 'image', quantity: toDraw, variant: '1K', usd_micro: PRICE.image * toDraw },
       ]),
+      ...(drawn
+        ? [
+            estimateLine('Уже нарисовано', `${count(drawn)} ${ru(drawn, ['кадр', 'кадра', 'кадров'])}`, 'images', 'gemini-3.1-flash-image', [
+              { unit: 'image', quantity: 0, variant: '1K', usd_micro: 0 },
+            ]),
+          ]
+        : []),
       estimateLine('Голос', `${count(chars)} ${ru(chars, ['знак', 'знака', 'знаков'])}`, 'voice', 'eleven_multilingual_v2', [
         { unit: 'char', quantity: chars, variant: null, usd_micro: PRICE.char * chars },
       ]),
@@ -2428,7 +2455,7 @@ export function createMockApi() {
       },
     ]
     const total = lines.reduce((sum, line) => sum + line.usd.usd_micro, 0)
-    const animation = lines[2]!.usd.usd_micro
+    const animation = lines.find((line) => line.title === 'Анимация')!.usd.usd_micro
     const budgets = profiles.find((c) => c.id === episode.channel)!.budgets
     const spent = costSummaries[episode.channel].budget
     const monthCommitted = spent.charged.usd_micro + spent.reserved.usd_micro + spent.queued.usd_micro
@@ -2495,13 +2522,27 @@ export function createMockApi() {
     }
     const version = `v${String((current ? Number(current.version.slice(1)) : 0) + 1).padStart(3, '0')}`
     const before = new Map((current?.shots ?? []).map((shot) => [shot.id, shot]))
-    const shots = director.shots.map((shot) => ({
-      ...planShot(1),
-      ...shot,
-      status: before.get(shot.id)?.status ?? 'queued',
-      stale_reasons: [],
-      overridden: [],
-    })) as PlanShot[]
+    const changes: ShotChange[] = []
+    const shots = director.shots.map((raw) => {
+      const shot = raw as PlanShot
+      const old = before.get(shot.id)
+      if (!old) {
+        changes.push({ shot_id: shot.id, section: shot.section, kind: 'added', change: 'Новый кадр', fields: [], stale: false, drawn_at: null, price: null })
+        return { ...planShot(1), ...shot, status: 'todo', stale_reasons: [], overridden: [] }
+      }
+      // Как `diff_shots` бэкенда, без словарного diff: картинку меняют промпт и крупность, VO — нет
+      const fields = [
+        ...(old.vo !== shot.vo ? ['vo'] : []),
+        ...(old.image.prompt !== shot.image?.prompt ? ['image.prompt'] : []),
+        ...(old.image.shot_size !== shot.image?.shot_size ? ['image.shot_size'] : []),
+      ]
+      const drawn = drawnOf(episode, shot.id)
+      const stale = hasPicture(episode, old) && fields.some((field) => field.startsWith('image.'))
+      const change = fields.map((field) => ({ vo: 'VO изменён', 'image.prompt': 'Промпт изменён', 'image.shot_size': 'Крупность изменена' })[field]).join('; ')
+      if (fields.length) changes.push({ shot_id: shot.id, section: shot.section, kind: 'changed', change, fields, stale, ...drawn })
+      if (stale) setShot(episode, shot.id, { status: 'stale', stale_reasons: [change] })
+      return { ...planShot(1), ...shot, status: stale ? 'stale' : old.status, stale_reasons: stale ? [change] : old.stale_reasons, overridden: [] }
+    }) as PlanShot[]
     plans.set(episode.id, {
       version,
       source: 'manual',
@@ -2517,10 +2558,12 @@ export function createMockApi() {
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     const ids = new Set(shots.map((shot) => shot.id))
-    const added = shots.filter((shot) => !before.has(shot.id)).length
-    const removed = [...before.keys()].filter((id) => !ids.has(id)).length
-    const changed = shots.filter((shot) => before.has(shot.id) && canonical(before.get(shot.id)!.vo) !== canonical(shot.vo)).length
-    return ok({ version, created: true, added, changed, removed, changes: [] } satisfies ImportResult)
+    for (const [id, old] of before) {
+      if (ids.has(id)) continue
+      changes.push({ shot_id: id, section: old.section, kind: 'removed', change: `Кадр убран из плана ${version}`, fields: [], stale: false, ...drawnOf(episode, id) })
+    }
+    const counted = (kind: ShotChange['kind']) => changes.filter((change) => change.kind === kind).length
+    return ok({ version, created: true, added: counted('added'), changed: counted('changed'), removed: counted('removed'), changes } satisfies ImportResult)
   }
 
   /** «Утвердить план», как бэкенд M4.6: стадия до генерации, план есть, у кадров VO и промпт; повтор — без изменений */
@@ -2630,7 +2673,11 @@ export function createMockApi() {
         .filter(({ kind, id }) => kind === 'style' || (kind === 'period' ? shot.image.period === id : shot.image.appearances.includes(id)))
         .map(({ reason }) => reason)
       if (!reasons.length) return shot
-      changes.push({ shot_id: shot.id, section: shot.section, kind: 'changed', change: reasons.join('; '), fields: [], stale: true, drawn_at: null, price: null })
+      // Устаревать может только картинка (M6.1): у кадра без неё причины — история, статус прежний
+      const pictured = hasPicture(episode, shot)
+      changes.push({ shot_id: shot.id, section: shot.section, kind: 'changed', change: reasons.join('; '), fields: [], stale: pictured, ...drawnOf(episode, shot.id) })
+      if (!pictured) return { ...shot, stale_reasons: [...new Set([...shot.stale_reasons, ...reasons])] }
+      setShot(episode, shot.id, { status: 'stale', stale_reasons: reasons })
       return { ...shot, status: 'stale', stale_reasons: reasons }
     })
     plans.set(episode.id, { ...plan, version, source: 'manual', shots })
@@ -2638,6 +2685,20 @@ export function createMockApi() {
     projectOf(episode).director_version = version
     if (episode.stage === 'generate') Object.assign(episode, { stage: 'script', updated_at: NOW })
     return ok({ version, created: true, added: 0, changed: changes.length, removed: 0, changes } satisfies ImportResult)
+  }
+
+  /** У кадра есть картинка: выбрана версия или — у плана артборда 3, где ассетов нет, — кадр «готов» или устарел */
+  function hasPicture(episode: EpisodeListItem, shot: PlanShot): boolean {
+    return !!projectOf(episode).shots[shot.id]?.image_version || shot.status === 'done' || shot.status === 'stale'
+  }
+
+  /** Дата и цена выбранной версии кадра для строки отчёта импорта (M6.11); картинки нет — null */
+  function drawnOf(episode: EpisodeListItem, shotId: string): Pick<ShotChange, 'drawn_at' | 'price'> {
+    const project = projectOf(episode)
+    const version = project.shots[shotId]?.image_version
+    const asset = version ? project.assets[`img-${shotId}-v${version}`] : undefined
+    if (!asset) return { drawn_at: null, price: null }
+    return { drawn_at: asset.created_at ?? null, price: unitMoney(asset.usd_micro ?? 0) }
   }
 
   /** Предпросмотр запроса кадра действующего плана (`GET …/shots/{id}/prompt`): ничего не пишет и не оплачивает */
@@ -3770,7 +3831,9 @@ export function createMockApi() {
     const versions = Object.values(project.assets)
       .filter((asset) => asset.kind === 'image' && asset.shot_id === shotId)
       .sort((a, b) => b.version - a.version)
-    return { shot_id: shotId, status: state?.status ?? 'todo', image_version: state?.image_version ?? null, versions }
+    // Хэшей запроса мок не считает: у кадра в силе все версии по действующему запросу, у устаревшего — ни одной
+    const matches_plan = state?.status === 'stale' ? [] : versions.map((asset) => asset.version)
+    return { shot_id: shotId, status: state?.status ?? 'todo', image_version: state?.image_version ?? null, versions, matches_plan }
   }
 
   /** «Выбрать версию N» (`POST …/images/{version}/choose`): кадр `done`, причины устаревания и ошибка сняты; ошибки и

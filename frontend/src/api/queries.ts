@@ -83,6 +83,9 @@ export const qk = {
   estimate: (id: string, stamp: number) => ['projects', id, 'plan', 'estimate', stamp] as const,
   /** Сходство VO плана с референсом; `stamp` — как у сметы, `'list'` — без привязки к экрану плана */
   similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
+  /** Отчёт последнего импорта плана с экрана 3 (мост, JSON, перевод канона) — живёт в памяти вкладки, не запрос:
+   *  ключ вне префикса выпуска, чтобы перезапросы project.json его не трогали */
+  importReport: (id: string) => ['importReport', id] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
   /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
@@ -564,7 +567,8 @@ export function useUpdateEpisodeCanon(id: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<ImportResult>(`/projects/${segment(id)}/canon/update`),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      storeImportReport(client, id, result)
       void client.invalidateQueries({ queryKey: qk.project(id) })
       void client.invalidateQueries({ queryKey: qk.episode(id) })
       void client.invalidateQueries({ queryKey: qk.episodeLists })
@@ -1067,6 +1071,7 @@ export function useApplyPlanAnswer(id: string) {
     },
     onSuccess: (result) => {
       if (result.import_result) {
+        storeImportReport(client, id, result.import_result)
         // Новая версия плана: план, счётчики выпуска и его стадия на доске
         void client.invalidateQueries({ queryKey: qk.plan(id) })
         void client.invalidateQueries({ queryKey: qk.episode(id) })
@@ -1074,6 +1079,26 @@ export function useApplyPlanAnswer(id: string) {
       }
     },
   })
+}
+
+/** Отчёт импорта для экрана 3 (M6.11): что изменилось и чьи картинки устарели. Пустой отчёт (тот же план) не
+ *  заменяет прежний — показывать нечего */
+function storeImportReport(client: QueryClient, id: string, result: ImportResult) {
+  if (result.changes.length) client.setQueryData(qk.importReport(id), result)
+}
+
+/** Последний отчёт импорта выпуска; `dismiss` — «Скрыть». Запроса нет: данные кладут мутации импорта */
+export function useImportReport(id: string) {
+  const client = useQueryClient()
+  const key = qk.importReport(id)
+  const report = useQuery({
+    queryKey: key,
+    queryFn: () => client.getQueryData<ImportResult | null>(key) ?? null,
+    initialData: null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+  return { report: report.data, dismiss: () => client.setQueryData(key, null) }
 }
 
 /** Проверка плана из JSON-редактора без записи: те же правила, что у импорта; кэш не трогает */
@@ -1090,7 +1115,8 @@ export function useSaveDirectorVersion(id: string) {
   return useMutation({
     mutationFn: (plan: Record<string, unknown>) =>
       api.post<ImportResult>(`/projects/${segment(id)}/director`, plan, { query: { source: 'manual' }, timeoutMs: 60_000 }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      storeImportReport(client, id, result)
       void client.invalidateQueries({ queryKey: qk.project(id) })
       void client.invalidateQueries({ queryKey: qk.episode(id) })
       void client.invalidateQueries({ queryKey: qk.episodeLists })

@@ -533,6 +533,20 @@ def cancel_episode_jobs(conn: sqlite3.Connection, episode_id: str, kind: str) ->
     return cancelled
 
 
+def cancel_queued_jobs(conn: sqlite3.Connection, job_ids: Sequence[str]) -> list[Job]:
+    """Отменить названные джобы, которые ещё ждут; начатые и законченные не трогаются. Пачки не
+    отменяются — их сводка обновляется событием (правка кадра снимает его заказ, M6.11)."""
+    if not job_ids:
+        return []
+    marks = ", ".join("?" for _ in job_ids)
+    with conn:
+        cancelled = _cancel_queued(conn, f"id IN ({marks})", tuple(job_ids))
+        for batch_id in sorted({job.batch_id for job in cancelled if job.batch_id}):
+            first = next(job.id for job in cancelled if job.batch_id == batch_id)
+            _emit_batch(conn, batch_id, first)
+    return cancelled
+
+
 def _cancel_queued(conn: sqlite3.Connection, where: str, params: Sequence[Any]) -> list[Job]:
     rows = conn.execute(
         "UPDATE jobs SET status = 'cancelled', cancel_requested = 1, finished_at = ?"

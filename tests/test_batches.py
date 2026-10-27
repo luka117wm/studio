@@ -417,6 +417,75 @@ def test_version_drawn_by_the_previous_plan_is_not_chosen(idle: Env) -> None:
     assert list(idle.project()["assets"]) == ["img-s002-v1"]
 
 
+# --- правка кадра и версия по действующему запросу (M6.11) ---------------------------------------
+
+ACTION = {"user_override": {"image": {"prompt": "drops the cartridge case and stares"}}}
+
+
+def test_action_edit_cancels_queued_order_of_that_shot_only(idle: Env) -> None:
+    """Заказ в очереди рисовал бы прежний промпт: правка действия его снимает, пачка идёт дальше;
+    правка VO заказ не трогает — картинка от VO не зависит."""
+    batch_id = generate(idle, {"shots": ["s001", "s002", "s003"]})["batch"]["id"]
+    vo = {"user_override": {"vo": "Another line of voice."}}
+    response = idle.client.patch(BASE, json={"shots": {"s001": ACTION, "s003": vo}})
+    assert response.status_code == 200, response.text
+
+    summary = idle.get(f"/api/batches/{batch_id}")
+    assert (summary["cancelled"], summary["jobs"]["cancelled"], summary["jobs"]["queued"]) == (
+        False,
+        1,
+        2,
+    )
+    assert statuses(idle, ["s001", "s002", "s003"]) == ["todo", "queued", "queued"]
+    assert episode_status(idle) == "generating"
+
+
+def test_version_drawn_by_the_previous_prompt_is_not_chosen(idle: Env) -> None:
+    """Джоб, начатый до правки действия, дорисовывает — но версия сама не выбирается: она по
+    прежнему промпту (обобщение D-1, `current.drawn_by_current`). Без правки — выбирается."""
+    idle.generate("s002")
+    idle.generate("s003")
+    conn = connect(idle.paths.db_path)
+    try:
+        first, second = queue.claim(conn), queue.claim(conn)  # оба уже рисуют
+    finally:
+        conn.close()
+    assert first is not None and second is not None
+    assert idle.client.patch(BASE, json={"shots": {"s002": ACTION}}).status_code == 200
+
+    assert run_handler(idle, first.model_dump(mode="json"))["status"] == "charged"
+    state = idle.shot("s002")
+    assert (state["status"], "image_version" in state) == ("todo", False)
+    assert "img-s002-v1" in idle.project()["assets"]
+    assert idle.get(f"{BASE}/shots/s002/images")["matches_plan"] == []
+
+    assert run_handler(idle, second.model_dump(mode="json"))["status"] == "charged"
+    assert (idle.shot("s003")["status"], idle.shot("s003")["image_version"]) == ("done", 1)
+    assert idle.get(f"{BASE}/shots/s003/images")["matches_plan"] == [1]
+
+
+def test_redraw_with_edit_cancels_queued_order_by_the_old_prompt(idle: Env) -> None:
+    queued = idle.generate("s004")
+    job = idle.post(f"{BASE}/shots/s004/redraw", {"prompt": "climbs the rigging at dusk"})
+    assert idle.get(f"/api/jobs/{queued['id']}")["status"] == "cancelled"
+    assert idle.get(f"/api/jobs/{job['id']}")["status"] == "queued"
+    assert job["payload"]["variant"] == 2
+    assert idle.shot("s004")["status"] == "queued"
+
+
+def test_matches_plan_follows_edits_of_the_action(env: Env) -> None:
+    env.draw("s001")
+    assert env.get(f"{BASE}/shots/s001/images")["matches_plan"] == [1]
+    assert env.client.patch(BASE, json={"shots": {"s001": ACTION}}).status_code == 200
+    assert env.get(f"{BASE}/shots/s001/images")["matches_plan"] == []
+    back = {"user_override": {"image": {"prompt": None}}}
+    assert env.client.patch(BASE, json={"shots": {"s001": back}}).status_code == 200
+    # Версия снова по действующему запросу, но кадр `stale` до выбора человеком: правку
+    # туда-обратно не угадываем.
+    assert env.get(f"{BASE}/shots/s001/images")["matches_plan"] == [1]
+    assert env.shot("s001")["status"] == "stale"
+
+
 def test_unknown_batch_is_404(idle: Env) -> None:
     for method, url in (
         ("GET", "/api/batches/nope"),

@@ -4,6 +4,11 @@ PATCH принимает только `ProjectPatch` — заявку и пра�
 Остальное в project.json пишет пайплайн: импорт плана, генерация, выравнивание, учёт расходов.
 Правка кадра проверяется так же, как кадр плана: план плюс правка должны пройти `Shot` и
 `check_shot`. Правка промпта или крупности у нарисованного кадра делает его `stale`.
+
+Правка утверждённого плана (M6.11; устав M6, решение 9) — не новая версия: утверждение и стадия
+остаются. Правка промпта или крупности снимает ждущие заказы кадра (они рисовали бы прежний запрос),
+статус выпуска пересчитывается; правка VO выпуска по референсу, поднявшая сходство выше порога, —
+422 у поля (принцип 11: утверждение её уже не проверит).
 """
 
 import json
@@ -12,9 +17,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
-from app.api.deps import DbDep, PathsDep
+from app.api.deps import DbDep, PathsDep, ReferenceConfigDep
 from app.api.director import read_version
 from app.api.episodes import Episode, require_episode
+from app.api.references import episode_reference
 from app.models.director import Director
 from app.models.project import Project, ProjectPatch, ShotPatch, ShotState, merge_patch
 from app.models.validators import (
@@ -24,8 +30,20 @@ from app.models.validators import (
     describe_error,
     describe_shot_errors,
 )
-from app.pipeline.director_import import apply_override, edit_stale, prune_override
-from app.pipeline.director_import.effective import OVERRIDE_FIELDS, overridden_fields
+from app.pipeline.director_import import (
+    apply_override,
+    edit_stale,
+    effective_plan,
+    prune_override,
+)
+from app.pipeline.director_import.effective import (
+    OVERRIDE_FIELDS,
+    image_edits,
+    overridden_fields,
+)
+from app.pipeline.images.batch import cancel_for_edit
+from app.pipeline.images.status import refresh_episode_status
+from app.pipeline.script.approve import ReferenceText, similarity_message, vo_similarity
 from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
@@ -138,19 +156,38 @@ async def get_project(episode_id: str, paths: PathsDep, db: DbDep) -> Project:
 
 @router.patch("/projects/{episode_id}")
 async def patch_project(
-    episode_id: str, body: dict[str, Any], paths: PathsDep, db: DbDep
+    episode_id: str,
+    body: dict[str, Any],
+    paths: PathsDep,
+    db: DbDep,
+    reference_config: ReferenceConfigDep,
 ) -> Project:
     """Тело — `ProjectPatch`. Словари сливаются рекурсивно, остальное заменяется; `null` у поля
     правки кадра — сброс этой правки. `updated_at` ставит сервер. При любой ошибке — 422, файл
-    не меняется.
+    не меняется. Утверждение и стадию правка не трогает; ждущие заказы кадров с новым промптом
+    или крупностью снимаются, статус выпуска на стадии `generate` пересчитывается.
 
     Чтение и запись идут без `await` — относительно других запросов операция последовательна.
     """
     episode = require_episode(db, episode_id)
     path = paths.project_path(episode.channel, episode.id)
     with update_lock(path):  # джоб кадра пишет project.json из потока (L-049)
-        project = patched_project(paths, episode, read_json(path), body)
+        current = read_json(path)
+        project = patched_project(paths, episode, current, body)
+        before = Project.model_validate(current)
+        director = read_version(paths, episode, before.director_version)
+        edited = [shot_id for shot_id, patch in body.get("shots", {}).items() if patch]
+        redraw: list[str] = []
+        if director is not None and edited:
+            reference = episode_reference(db, before, reference_config)
+            _check_similarity(director, before, project, reference, edited)
+            redraw = image_edited(director, before, project, edited)
         write_json_atomic(path, project.model_dump(mode="json"))
+    # После замка: снятие заказа пишет project.json само (`shot_assets.settle`).
+    if redraw:
+        cancel_for_edit(db, paths, episode.id, redraw)
+    if edited:
+        refresh_episode_status(paths, episode.id)
     return project
 
 
@@ -189,6 +226,62 @@ def patched_project(
         assert director is not None  # `_check_shot_ids` не пропускает правки без плана
         project = _apply_edits(project, before, director, edited)
     return project
+
+
+def image_edited(
+    director: Director, before: Project, after: Project, shot_ids: list[str]
+) -> list[str]:
+    """Кадры, у которых правка поменяла промпт или крупность действующего кадра."""
+    plan = {s.id: s for s in director.shots}
+    edited = []
+    for shot_id in shot_ids:
+        if shot_id not in plan or shot_id not in after.shots:
+            continue
+        was = apply_override(plan[shot_id], before.shots.get(shot_id, ShotState()).user_override)
+        now = apply_override(plan[shot_id], after.shots[shot_id].user_override)
+        if image_edits(was, now):
+            edited.append(shot_id)
+    return edited
+
+
+def _check_similarity(
+    director: Director,
+    before: Project,
+    after: Project,
+    reference: ReferenceText | None,
+    shot_ids: list[str],
+) -> None:
+    """Правка VO утверждённого плана выпуска по референсу (принцип 11): сходство действующего плана
+    выше порога и выросло от правки — 422 у VO поправленных кадров, файл не меняется. До
+    утверждения так же откажет «Утвердить план»; правка, снижающая сходство, проходит всегда."""
+    approved = before.approved_version is not None
+    if reference is None or not approved or before.approved_version != before.director_version:
+        return
+    was = effective_plan(director, before)
+    now = effective_plan(director, after)
+    old_vo = {shot.id: shot.vo for shot in was.shots}
+    changed = [s.id for s in now.shots if s.id in shot_ids and old_vo.get(s.id) != s.vo]
+    if not changed:
+        return
+    found = vo_similarity(now, reference)
+    if found.ok or found.ratio <= vo_similarity(was, reference).ratio:
+        return
+    message = similarity_message(found)
+    raise HTTPException(
+        status_code=422,
+        detail=[
+            {
+                "type": "similarity",
+                "loc": ["shots", shot_id, "user_override", "vo"],
+                "msg": f"кадр {shot_id}: {_lower_first(message)}",
+            }
+            for shot_id in changed
+        ],
+    )
+
+
+def _lower_first(text: str) -> str:
+    return text[:1].lower() + text[1:]
 
 
 def _check_shot_ids(

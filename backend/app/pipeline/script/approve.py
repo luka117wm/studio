@@ -1,9 +1,12 @@
 """«Утвердить план» (M4.6): проверки перед стадией «Генерация» (принцип 10, устав M4, решение 8).
 
 Проверки — список `CHECKS`: функция от `ApprovalSubject` возвращает проблемы, пустой список —
-можно утверждать. Сходство VO с референсом (принцип 11, M4.10) — `not_like_reference`; канон выпуска
-(устав M5, решение 8) — `canon_ready`. Сами проверки ничего не пишут; утверждение не ставит джобов и
-не резервирует бюджет — это M6. Контракт — `docs/episodes.md`, «Утверждение плана».
+можно утверждать. Сходство VO с референсом (принцип 11, M4.10) — `not_like_reference`, по VO
+действующего плана (версия плюс правки): правка, повторяющая субтитры, ловится так же, как план из
+чата; правку VO после утверждения сверяет PATCH кадра тем же правилом (`vo_similarity`, M6.11).
+Канон выпуска (устав M5, решение 8) — `canon_ready`. Сами проверки ничего не пишут; утверждение
+не ставит джобов и не резервирует бюджет — это M6. Контракт — `docs/episodes.md`, «Утверждение
+плана».
 """
 
 from collections import Counter
@@ -13,6 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.reference import Similarity
 from app.pipeline.canon.episode_canon import CanonIssue, CanonTarget, EpisodeCanon
 from app.pipeline.director_import import EffectivePlan
 from app.pipeline.research.similarity import percent, similarity
@@ -137,25 +141,29 @@ def shots_filled(subject: ApprovalSubject) -> list[ApprovalProblem]:
     return problems
 
 
+def vo_similarity(plan: EffectivePlan, reference: ReferenceText) -> Similarity:
+    """Сходство VO действующего плана (без убранных кадров) с текстом референса."""
+    vo = [shot.vo for shot in plan.shots if shot.status != "removed"]
+    return similarity(vo, reference.text, reference.ngram, reference.threshold)
+
+
+def similarity_message(found: Similarity) -> str:
+    phrases = "; ".join(f"«{phrase}»" for phrase in found.phrases)
+    return (
+        f"Сходство с референсом {percent(found.ratio)} при пороге {percent(found.threshold)}:"
+        f" перепишите совпавшие фразы — {phrases}."
+    )
+
+
 def not_like_reference(subject: ApprovalSubject) -> list[ApprovalProblem]:
-    """Принцип 11: VO плана выпуска по референсу не повторяет текст референса. Плана нет — проверять
-    нечего (об этом скажет `plan_assembled`)."""
+    """Принцип 11: VO действующего плана выпуска по референсу не повторяет текст референса. Плана
+    нет — проверять нечего (об этом скажет `plan_assembled`)."""
     if subject.plan is None or subject.reference is None:
         return []
-    ref = subject.reference
-    vo = [shot.vo for shot in subject.plan.shots if shot.status != "removed"]
-    found = similarity(vo, ref.text, ref.ngram, ref.threshold)
+    found = vo_similarity(subject.plan, subject.reference)
     if found.ok:
         return []
-    phrases = "; ".join(f"«{phrase}»" for phrase in found.phrases)
-    return [
-        ApprovalProblem(
-            check="similarity",
-            shot_id=None,
-            message=f"Сходство с референсом {percent(found.ratio)} при пороге"
-            f" {percent(found.threshold)}: перепишите совпавшие фразы — {phrases}.",
-        )
-    ]
+    return [ApprovalProblem(check="similarity", shot_id=None, message=similarity_message(found))]
 
 
 def canon_ready(subject: ApprovalSubject) -> list[ApprovalProblem]:

@@ -389,6 +389,25 @@ def cancel_for_new_plan(conn: sqlite3.Connection, paths: StudioPaths, episode_id
     return len(cancelled)
 
 
+def cancel_for_edit(
+    conn: sqlite3.Connection, paths: StudioPaths, episode_id: str, shot_ids: Sequence[str]
+) -> int:
+    """Правка промпта или крупности кадра (M6.11) снимает его ждущие заказы: они рисовали бы
+    прежний запрос. Пачка не отменяется; начатый джоб доделывает, но его версия сама не выберется
+    (`current.drawn_by_current`). Кадры — к своему статусу. Возвращает, сколько отменено."""
+    if not shot_ids:
+        return 0
+    marks = ", ".join("?" for _ in shot_ids)
+    rows = conn.execute(
+        "SELECT id FROM jobs WHERE episode_id = ? AND kind = ? AND status = 'queued'"
+        f" AND json_extract(payload, '$.shot_id') IN ({marks}) ORDER BY rowid",
+        (episode_id, SHOT_KIND, *shot_ids),
+    ).fetchall()
+    cancelled = queue.cancel_queued_jobs(conn, [row["id"] for row in rows])
+    _settle(paths, cancelled)
+    return len(cancelled)
+
+
 def _settle(paths: StudioPaths, jobs: Sequence[Job]) -> None:
     by_episode: dict[tuple[Channel, str], list[str]] = defaultdict(list)
     for job in jobs:

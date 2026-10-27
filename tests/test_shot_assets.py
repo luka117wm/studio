@@ -280,9 +280,17 @@ def test_list_is_newest_first_with_metadata(
     assert [v["version"] for v in body["versions"]] == [2, 1]
     assert body["versions"][0] == project(paths)["assets"]["img-s001-v2"]
     assert (body["versions"][0]["cached"], body["versions"][0]["usd_micro"]) == (True, 0)
+    # Хэши фикстуры — не запросы сборщика: ни одна версия не нарисована по действующему запросу.
+    assert body["matches_plan"] == []
 
     empty = planned.get(f"{SHOTS_URL}/s004/images").json()
-    assert empty == {"shot_id": "s004", "status": "todo", "image_version": None, "versions": []}
+    assert empty == {
+        "shot_id": "s004",
+        "status": "todo",
+        "image_version": None,
+        "versions": [],
+        "matches_plan": [],
+    }
 
 
 def test_missing_thumb_is_built_on_request(

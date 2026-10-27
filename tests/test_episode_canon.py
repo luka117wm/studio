@@ -400,7 +400,7 @@ def test_update_moves_to_latest_and_marks_drawn_shots_stale(
     publish(paths, PERIODS, "caribbean-1716", PERIOD_V1)
     publish(paths, PERIODS, "caribbean-1716", PERIOD_V2)
     set_stage(paths, "generate")
-    draw(EPISODE, "s001")  # картинка есть только у s001
+    drawn = draw(EPISODE, "s001")  # картинка есть только у s001
     before = project(paths)
 
     response = planned.post(UPDATE_URL)
@@ -408,6 +408,7 @@ def test_update_moves_to_latest_and_marks_drawn_shots_stale(
     result = response.json()
     assert (result["version"], result["created"], result["changed"]) == ("v002", True, 10)
     reason = "Эпоха caribbean-1716: periods/caribbean-1716/v001 → periods/caribbean-1716/v002"
+    # Дата и цена выбранной версии (M6.11): «картинка 12:41, $0.067 — устарела».
     assert result["changes"][0] == {
         "shot_id": "s001",
         "section": "r1",
@@ -415,9 +416,10 @@ def test_update_moves_to_latest_and_marks_drawn_shots_stale(
         "change": reason,
         "fields": [],
         "stale": True,
-        "drawn_at": None,
-        "price": None,
+        "drawn_at": drawn.created_at,
+        "price": {"usd_micro": drawn.usd_micro, "usd": "$0.067"},
     }
+    assert result["changes"][1]["drawn_at"] is None and result["changes"][1]["price"] is None
 
     v001, v002 = version_file(paths, 1), version_file(paths, 2)
     assert v002["canon_ref"] == V001_REFS | {

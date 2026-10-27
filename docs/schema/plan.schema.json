@@ -1721,14 +1721,13 @@
         "price": {
           "anyOf": [
             {
-              "type": "integer"
+              "$ref": "#/$defs/Money"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Price"
+          "default": null
         }
       },
       "required": [

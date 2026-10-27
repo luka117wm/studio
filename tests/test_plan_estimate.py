@@ -1,8 +1,10 @@
-"""M4.6: смета действующего плана. Ожидаемые суммы считаются прямо из YAML — не кодом gateway."""
+"""M4.6: смета действующего плана. Ожидаемые суммы считаются прямо из YAML — не кодом gateway.
+M6.11: кадры с годной картинкой не считаются — строка «Уже нарисовано»."""
 
 import json
 import math
 import shutil
+import time
 from collections.abc import Iterator
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
@@ -27,6 +29,8 @@ from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
+from episode_env import BASE, Env, make_env
+from episode_env import PLAN as CANON_PLAN
 
 CONFIG = REPO_ROOT / "config"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -314,3 +318,64 @@ def test_stale_price_marks_line_and_estimate(
     estimate = plan_estimate(effective(planned), gateway, "bridge", budgets, {}, formats.estimate)
     assert estimate.stale_pricing is True
     assert [line.cost.stale_pricing for line in estimate.lines] == [True, False, False, False]
+
+
+# --- после генерации (M6.11) ---------------------------------------------------------------------
+
+CANON_SHOTS = [shot["id"] for shot in CANON_PLAN["shots"]]
+SMALL = 67_000  # маршрут `small` тестового конфига (`episode_env`), 1K
+
+
+def plan_lines(env: Env) -> dict[str, dict[str, Any]]:
+    return by_title(env.get(f"{BASE}/estimate"))
+
+
+def draw_all(env: Env, shot_ids: list[str]) -> None:
+    batch_id = env.post(f"{BASE}/generate", {"shots": shot_ids})["batch"]["id"]
+    deadline = time.monotonic() + 15
+    while not env.get(f"/api/batches/{batch_id}")["finished"]:
+        assert time.monotonic() < deadline, "batch stuck"
+        time.sleep(0.02)
+
+
+def test_drawn_shots_are_not_counted_and_action_edit_brings_one_back(tmp_path: Path) -> None:
+    """Приёмка M6.11 «78 из 104 — 26; правка действия одного — 27» на 20 кадрах фикстуры канона:
+    15 нарисованы — 5; правка действия нарисованного — 6; правка VO картинку не трогает."""
+    with make_env(tmp_path, workers=3) as env:
+        draw_all(env, CANON_SHOTS[:15])
+        lines = plan_lines(env)
+        assert list(lines)[:2] == ["Кадры", "Уже нарисовано"]
+        assert lines["Кадры"]["label"] == "5 × $0.067"
+        assert lines["Кадры"]["usd"]["usd_micro"] == 5 * SMALL
+        assert lines["Уже нарисовано"]["label"] == "15 кадров"
+        assert lines["Уже нарисовано"]["usd"] == {"usd_micro": 0, "usd": "$0"}
+
+        edit = {"user_override": {"image": {"prompt": "drops the cartridge case and stares"}}}
+        response = env.client.patch(BASE, json={"shots": {"s001": edit}})
+        assert response.status_code == 200, response.text
+        lines = plan_lines(env)
+        assert (lines["Кадры"]["label"], lines["Уже нарисовано"]["label"]) == (
+            "6 × $0.067",
+            "14 кадров",
+        )
+
+        vo = {"user_override": {"vo": "A different line of voice, same picture."}}
+        assert env.client.patch(BASE, json={"shots": {"s002": vo}}).status_code == 200
+        assert plan_lines(env)["Кадры"]["label"] == "6 × $0.067"
+
+
+def test_stale_failed_and_foreign_hash_are_drawn_again(tmp_path: Path) -> None:
+    """Годная картинка: выбрана версия, кадр не `stale` и не `failed`, хэш — действующего
+    запроса. Версия по другому запросу (хэш не совпал) перерисовывается, даже если кадр `done`."""
+    with make_env(tmp_path, workers=3) as env:
+        draw_all(env, CANON_SHOTS[:4])
+        data = env.project()
+        data["shots"]["s001"].update(status="stale", stale_reasons=["Промпт изменён вручную"])
+        data["shots"]["s002"].update(status="failed", error="Gemini не нарисовал картинку")
+        data["assets"]["img-s003-v1"]["hash"] = "sha256:" + "0" * 64
+        env.write_project(data)
+        assert env.shot("s003")["status"] == "done"
+
+        lines = plan_lines(env)
+        assert lines["Уже нарисовано"]["label"] == "1 кадр"
+        assert lines["Кадры"]["label"] == f"{len(CANON_SHOTS) - 1} × $0.067"
