@@ -1,9 +1,10 @@
-/* Поток SSE в e2e, которым управляет тест: `EventSource` страницы — фейк, события джобов шлёт `emitJob` (формат —
-   docs/jobs.md, «Поток SSE»). Нужен там, где экран ждёт прогресса джоба — лист опорных портретов; остальным e2e хватает
-   пустого потока из `./api`. Переподключений нет: обрыв потока `live.ts` встречает перезапросом всех данных экрана, а
-   heartbeat не даёт сторожу `sse.ts` (35 с тишины) счесть поток мёртвым. */
+/* Поток SSE в e2e, которым управляет тест: `EventSource` страницы — фейк, события джобов шлёт `emitJob`, сводку пачки —
+   `emitBatch` (формат — docs/jobs.md, «Поток SSE»). Нужен там, где экран ждёт прогресса джоба — лист опорных портретов,
+   пачка кадров экрана 4; остальным e2e хватает пустого потока из `./api`. Переподключений нет: обрыв потока `live.ts`
+   встречает перезапросом всех данных экрана, а heartbeat не даёт сторожу `sse.ts` (35 с тишины) счесть поток мёртвым. */
 import type { Page } from '@playwright/test'
-import type { JobEventData } from '../src/types/job'
+import type { BatchSummary } from '../src/types/batch'
+import type { Job, JobEventData } from '../src/types/job'
 
 type JobEventType = 'job.queued' | 'job.started' | 'job.progress' | 'job.done' | 'job.failed' | 'job.cancelled'
 
@@ -65,12 +66,34 @@ export async function installFakeEvents(page: Page) {
   })
 }
 
-/** Событие джоба в открытый поток страницы */
-export async function emitJob(page: Page, type: JobEventType, data: JobEventData) {
+async function emit(page: Page, type: string, data: unknown) {
   await page.evaluate(
     ([eventType, payload]) => (window as unknown as { __studioEvents: { emit: (t: string, d: unknown) => void } }).__studioEvents.emit(eventType, payload),
     [type, data] as const,
   )
+}
+
+/** Событие джоба в открытый поток страницы */
+export async function emitJob(page: Page, type: JobEventType, data: JobEventData) {
+  await emit(page, type, data)
+}
+
+/** `batch.updated` — сводка пачки целиком, как её отдаёт `GET /api/batches/{id}` */
+export async function emitBatch(page: Page, summary: BatchSummary) {
+  await emit(page, 'batch.updated', summary)
+}
+
+/** Джоб из моков (`api.generation`) в форме события: тип события — по его статусу */
+export function jobEvent(job: Job): [JobEventType, JobEventData] {
+  const type: Record<Job['status'], JobEventType> = {
+    queued: 'job.queued',
+    running: 'job.started',
+    done: 'job.done',
+    failed: 'job.failed',
+    cancelled: 'job.cancelled',
+  }
+  const { id: job_id, kind, status, progress, message, attempts, cancel_requested, episode_id, batch_id, channel, error } = job
+  return [type[status], { job_id, kind, status, progress, message, attempts, cancel_requested, episode_id, batch_id, channel, error }]
 }
 
 /** Состояние джоба уровня канала (опорные) в форме события */

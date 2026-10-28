@@ -3759,6 +3759,18 @@ export function createMockApi() {
     return job ?? null
   }
 
+  /** Воркер взял джоб кадра из очереди: `running`, кадр «рисуется». Пачку на паузе пул не берёт (docs/generation.md,
+   *  «Пауза…») — тогда `null`, джоб в очереди. Событие SSE тест шлёт сам */
+  function startShot(episodeId: string, shot: string): Job | null {
+    const episode = one(episodeId)
+    const job = activeJob(episodeId, shot)
+    if (!episode || !job || job.status !== 'queued') return null
+    if (job.batch_id && batchRows.get(job.batch_id)?.paused) return null
+    Object.assign(job, { status: 'running', progress: 0, attempts: 1, started_at: NOW, message: `Кадр ${shot} · рисуется` })
+    setShot(episode, shot, { status: 'generating' })
+    return job
+  }
+
   const vlmOn = (episode: EpisodeListItem) => profiles.find((p) => p.id === episode.channel)?.checks?.anachronism !== false
 
   /** Что поставит перепроверка кадра (`check_order` бэкенда): кадр в плане, выбранная версия, есть что проверять */
@@ -3861,17 +3873,24 @@ export function createMockApi() {
   }
 
   /** «Пираты» на экране 4 по артборду 4: план v004 из 104 кадров утверждён. `drawn` — пачка 78 из 104 с версиями 1–3 и
-   *  двумя отказами фильтра (s047, s071); без него — ни картинок, ни пачки (пустое состояние). По умолчанию у «Пиратов»
-   *  план артборда 3: его снимают эталоны и тесты экрана 3 (L-048) */
-  function generateArtboard({ drawn = true }: { drawn?: boolean } = {}) {
+   *  двумя отказами фильтра (s047, s071); без него — ни картинок, ни пачки (пустое состояние). `approved: false` — тот
+   *  же план без картинок ещё не утверждён, выпуск на стадии «Сценарий» (сквозной сценарий M6.12 начинает с экрана 3).
+   *  По умолчанию у «Пиратов» план артборда 3: его снимают эталоны и тесты экрана 3 (L-048) */
+  function generateArtboard({ drawn = true, approved = true }: { drawn?: boolean; approved?: boolean } = {}) {
     const episode = one('pirate')!
-    const plan = generationPlan(episode)
+    const plan = { ...generationPlan(episode), approved_version: approved ? 'v004' : null }
     plans.set(episode.id, plan)
     overrides.set(episode.id, {})
     pinEpisode(episode)
-    Object.assign(projectOf(episode), { director_version: plan.version, approved_version: plan.version, approved_at: NOW, shots: {}, assets: {} })
-    Object.assign(episode, { stage: 'generate', status: drawn ? 'generating' : 'queued', updated_at: NOW })
-    if (!drawn) {
+    Object.assign(projectOf(episode), {
+      director_version: plan.version,
+      approved_version: plan.approved_version,
+      approved_at: approved ? NOW : null,
+      shots: {},
+      assets: {},
+    })
+    Object.assign(episode, { stage: approved ? 'generate' : 'script', status: drawn && approved ? 'generating' : 'queued', updated_at: NOW })
+    if (!drawn || !approved) {
       episode.summary = summary({ shots_total: plan.shots.length })
       for (const shot of plan.shots) setShot(episode, shot.id, { status: 'todo' })
       return
@@ -4139,9 +4158,9 @@ export function createMockApi() {
     },
     /** Наборы частей моста по выпуску: принятые части и последний обмен */
     parts: partSets,
-    /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `drawShot` — конец джоба кадра, `finishCheck` —
-     *  конец перепроверки */
-    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, drawShot, refuseShot, finishCheck },
+    /** Генерация кадров: пачки, джобы кадров, пропущенные кадры смет; `startShot` — воркер взял джоб кадра, `drawShot` —
+     *  его конец, `finishCheck` — конец перепроверки */
+    generation: { batches: batchRows, jobs: shotJobs, skipped: skippedShots, startShot, drawShot, refuseShot, finishCheck },
     generateArtboard,
   }
 }

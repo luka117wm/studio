@@ -1,17 +1,19 @@
 /* Снимки оболочки: 11 маршрутов на трёх ширинах; при 1536 — диалог, меню, тост, восемь вкладок каталога (регрессия кита),
    режимы экранов 2 и 3: «План кадров», «JSON», вкладка «Референс» (M4.12), слои и лист экрана 12 и канон выпуска,
-   который не готов, на экране 3 (M5.11). Данные — моки API (`./api`), часы — «сейчас» артборда 1 (11 сентября, 12:41),
-   анимации выключены конфигом. Экраны выпуска открывают Pirate Ship из моков, экран 1 снимается в режиме «Все каналы». */
+   который не готов, на экране 3 (M5.11), экран 4: выбор, сравнение версий, «Подозрительные» и до первой пачки (M6.12).
+   Данные — моки API (`./api`), часы — «сейчас» артборда 1 (11 сентября, 12:41), анимации выключены конфигом. Экраны
+   выпуска открывают Pirate Ship из моков, экран 1 снимается в режиме «Все каналы»; экран 4 — «Пираты» артборда 4
+   (`generateArtboard`), без него у выпуска план артборда 3 и экран 4 — «План не утверждён». */
 import type { Page } from '@playwright/test'
 import type { MockApi } from '../src/mocks/api'
 import type { PeriodDoc } from '../src/types/canon'
 import { expect, test } from './api'
 
-const SCREENS: { id: string; path: string }[] = [
+const SCREENS: { id: string; path: string; prepare?: (api: MockApi) => void }[] = [
   { id: '01-episodes', path: '/episodes' },
   { id: '02-ideas', path: '/ideas' },
   { id: '03-script', path: '/episodes/pirate/script' },
-  { id: '04-generate', path: '/episodes/pirate/generate' },
+  { id: '04-generate', path: '/episodes/pirate/generate', prepare: (api) => api.generateArtboard() },
   { id: '05-edit', path: '/episodes/pirate/edit' },
   { id: '06-inspector', path: '/episodes/pirate/edit/s004' },
   { id: '07-export', path: '/episodes/pirate/export' },
@@ -42,6 +44,11 @@ async function open(page: Page, path: string) {
   if (path === '/episodes/pirate/script') {
     await expect(page.getByRole('article', { name: 'Лист сценария' })).toContainText('Cursus — Every Rank on a Pirate Ship')
     await expect(page.getByRole('region', { name: 'Смета по плану' })).toContainText('Итого')
+  }
+  // Экран 4 — пачка артборда в полосе очередей, иначе главное действие до первой пачки
+  if (path.startsWith('/episodes/pirate/generate')) {
+    const strip = page.getByRole('region', { name: 'Очереди генерации' })
+    await expect(strip.getByText(/^Кадры: (78 из 104|очередь пуста)$/)).toBeVisible()
   }
   // Экран 12 — форма слоя на месте; кадры стиля — шесть миниатюр
   if (path === '/canon') {
@@ -79,7 +86,8 @@ function pirateCanonNotReady(api: MockApi) {
 
 test.describe('экраны', () => {
   for (const s of SCREENS) {
-    test(s.id, async ({ page }) => {
+    test(s.id, async ({ page, apiMock }) => {
+      s.prepare?.(apiMock.api)
       await open(page, s.path)
       await expect(page).toHaveScreenshot(`${s.id}.png`)
     })
@@ -203,5 +211,54 @@ test.describe('экран 12 и канон на экране 3 (только 153
     await canon.scrollIntoViewIfNeeded()
     await expect(page.locator('footer[role="status"]')).toContainText('Канон:')
     await expect(page).toHaveScreenshot('03-script-canon.png')
+  })
+})
+
+test.describe('экран 4 (только 1536)', () => {
+  test.skip(({ viewport }) => viewport?.width !== 1536, 'режимы экрана 4 снимаются на базовой ширине')
+
+  /** Кадр выбирается кликом справа от кнопок слоя действий: в центре плитки наведение успевает поднять слой, и клик
+   *  уходит общему предку — кнопке выбора нажатие не достаётся */
+  const pick = (page: Page, shot: string, shift = false) =>
+    page.getByRole('button', { name: `Выбрать ${shot}` }).click({ position: { x: 150, y: 45 }, modifiers: shift ? ['Shift'] : [] })
+
+  test('выбор', async ({ page, apiMock }) => {
+    apiMock.api.generateArtboard()
+    await open(page, '/episodes/pirate/generate')
+    // Как в артборде: выбраны кадры «Able seaman» и начало «Boatswain», среди них отказ фильтра s047
+    await page.getByRole('region', { name: 'Able seaman' }).evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    await pick(page, 's035')
+    await pick(page, 's050', true)
+    await page.mouse.move(1376, 400)
+    const bar = page.getByRole('region', { name: 'Выбор кадров' })
+    await expect(bar).toContainText('Выбрано 16 кадров, из них 1 с ошибкой')
+    await expect(bar.getByRole('button', { name: 'Перерисовать выбранные (16, ~$1.07)' })).toBeEnabled()
+    await expect(page.getByRole('group', { name: /^Действия кадра/ })).toHaveCount(0)
+    await thumbsLoaded(page)
+    await expect(page).toHaveScreenshot('04-generate-selection.png')
+  })
+
+  test('сравнение версий', async ({ page, apiMock }) => {
+    apiMock.api.generateArtboard()
+    await open(page, '/episodes/pirate/generate?view=compare&shot=s061')
+    await expect(page.getByRole('list', { name: 'Версии кадра s061' }).getByRole('listitem')).toHaveCount(3)
+    await expect(page.getByRole('button', { name: 'Добавить версию (~$0.07)' })).toBeEnabled()
+    await thumbsLoaded(page)
+    await expect(page).toHaveScreenshot('04-generate-compare.png')
+  })
+
+  test('подозрительные', async ({ page, apiMock }) => {
+    apiMock.api.generateArtboard()
+    await open(page, '/episodes/pirate/generate?view=suspects')
+    await expect(page.getByRole('list', { name: 'Подозрительные: Смотреть первыми' }).getByRole('listitem')).toHaveCount(4)
+    await thumbsLoaded(page)
+    await expect(page).toHaveScreenshot('04-generate-suspects.png')
+  })
+
+  test('до первой пачки', async ({ page, apiMock }) => {
+    apiMock.api.generateArtboard({ drawn: false })
+    await open(page, '/episodes/pirate/generate')
+    await expect(page.getByRole('button', { name: 'Сгенерировать 104 кадра (~$6.97)' })).toBeEnabled()
+    await expect(page).toHaveScreenshot('04-generate-empty.png')
   })
 })
