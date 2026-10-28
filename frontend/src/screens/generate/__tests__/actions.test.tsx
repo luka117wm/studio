@@ -140,6 +140,20 @@ describe('действия кадра', () => {
     expect(window.location.pathname).toBe('/episodes/pirate/edit/s003')
   })
 
+  test('клик мышью — фокус на плитке, а действия — пока она под указателем; стрелка с клавиатуры — действия по фокусу', async () => {
+    const user = userEvent.setup()
+    await openGenerate(artboardApi())
+    await user.click(tileButton('s003'))
+    expect(document.activeElement).toBe(tileButton('s003'))
+    expect(actionLabels('s003')).toHaveLength(3)
+    // Указатель ушёл — слой не закрывает картинку выбранного кадра (артборд 4, сверка M6.12)
+    await user.unhover(tileButton('s003'))
+    expect(screen.queryByRole('group', { name: 'Действия кадра s003' })).toBeNull()
+    await user.keyboard('{ArrowRight}')
+    expect(document.activeElement).toBe(tileButton('s004'))
+    expect(actionLabels('s004')).toEqual(['Перерисовать', 'С правкой…', 'Открыть в монтаже'])
+  })
+
   test('отказ фильтра — причина целиком и «С правкой…» первым; номер в цвете fail', async () => {
     await openGenerate(artboardApi())
     const tile = screen.getByRole('listitem', { name: 's047, ошибка' })

@@ -2,8 +2,9 @@
    статуса, номер кадра (у сбоя — цвет fail), глиф статуса по design/CLAUDE.md, точки версий («Версия 2 из 3,
    выбрана»), у сбоя — причина внизу, целиком — в подсказке кнопки выбора (под слоем действий полосу не дублируем).
    Вся площадь — кнопка выбора (клик, ⇧-клик — диапазон, Space с клавиатуры); выбранная — рамка accent и галочка.
-   Наведение и фокус открывают действия кадра (`ShotActions`, M6.8): они монтируются только у активной плитки — у сотни
-   плиток нет сотни смет. Пометки проверок выбранной версии (M6.10) — warning-треугольники перед глифом статуса, текст —
+   Наведение и фокус с клавиатуры открывают действия кадра (`ShotActions`, M6.8): они монтируются только у активной
+   плитки — у сотни плиток нет сотни смет. Фокус от нажатия мышью слоя не держит: иначе действия закрывали бы картинку
+   выбранного кадра и после ухода мыши (артборд 4 — только наведение; найдено сверкой M6.12). Пометки проверок выбранной версии (M6.10) — warning-треугольники перед глифом статуса, текст —
    в подсказке плитки и имени треугольника; выбор и действия от них не зависят. */
 import { Check } from 'lucide-react'
 import { useRef, useState, type FocusEvent } from 'react'
@@ -33,6 +34,8 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, checkedEa
   const [focused, setFocused] = useState(false)
   // Клик с клавиатуры (Space, Enter) — без координат и без ⇧ в событии: ⇧ помним с keydown
   const shift = useRef(false)
+  // Фокус пришёл от нажатия указателем — у мыши для действий есть наведение
+  const pressed = useRef(false)
   const glyph = TILE_GLYPH[shot.status]
   const failed = shot.status === 'failed'
   const generating = shot.status === 'generating'
@@ -44,8 +47,14 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, checkedEa
   const stale = shot.status === 'stale' ? shot.staleReasons : []
   const hint = [...stale, ...marks].join('; ')
 
+  const onFocus = () => {
+    setFocused(!pressed.current)
+    pressed.current = false
+  }
   const onBlur = (e: FocusEvent<HTMLLIElement>) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false)
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    pressed.current = false
+    setFocused(false)
   }
 
   return (
@@ -57,7 +66,10 @@ export function ShotTile({ episodeId, shot, selected, model, tabbable, checkedEa
       title={hint || undefined}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
-      onFocus={() => setFocused(true)}
+      onPointerDown={() => {
+        pressed.current = true
+      }}
+      onFocus={onFocus}
       onBlur={onBlur}
       className={cn(
         'relative aspect-video overflow-hidden rounded-clip border',
