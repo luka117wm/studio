@@ -72,12 +72,12 @@ describe('вход, карточки, выход', () => {
     expect(row(card(1), 'Модель')).toBe('Nano Banana 2')
     expect(row(card(1), 'Seed')).toEqual('418 902')
     expect(row(card(1), 'Создана')).toBe(formatCreated('2026-09-11T08:41:00+00:00'))
-    expect(row(card(1), 'Цена')).toBe('$0.07')
+    expect(row(card(1), 'Цена')).toBe('$0.067')
     expect(row(card(1), 'Соответствие канону')).toBe('среднее')
     expect(row(card(2), 'Соответствие канону')).toBe('высокое')
     expect(within(card(2)).getByRole('img', { name: 'Сходство лица: высокое' }).getAttribute('data-status')).toBe('ready')
     expect(row(card(3), 'Модель')).toBe('Nano Banana Pro')
-    expect(row(card(3), 'Цена')).toBe('$0.13')
+    expect(row(card(3), 'Цена')).toBe('$0.134')
     expect(within(card(1)).queryByText('Анахронизмы')).toBeNull()
 
     // Картинка — миниатюра 320, по клику — файл версии

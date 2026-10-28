@@ -15,6 +15,17 @@ export function formatUsd(micro: number): string {
   return `${sign}$${(cents / 100).toFixed(2)}`
 }
 
+const MICRO_PER_MILL = 1_000
+
+/** Цена одного вызова (картинки, вопроса) → «$0.067», «$0.32», «<$0.001» — как `format_unit_usd` в
+ *  `backend/app/cost/money.py`: до десятых цента с округлением половины вверх, где они есть, иначе — `formatUsd`. */
+export function formatUnitUsd(micro: number): string {
+  const mills = Math.floor((Math.trunc(micro) + MICRO_PER_MILL / 2) / MICRO_PER_MILL)
+  if (micro > 0 && mills === 0) return '<$0.001'
+  if (mills % 10 === 0) return formatUsd(micro)
+  return `$${(mills / 1000).toFixed(3)}`
+}
+
 /** Секунды → «19:48», «1:02:03»; оценка — с «~»: «~18:00». */
 export function formatDuration(seconds: number, options: { estimate?: boolean } = {}): string {
   const total = Math.max(0, Math.round(seconds))

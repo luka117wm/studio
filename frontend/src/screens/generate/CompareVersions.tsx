@@ -12,7 +12,7 @@ import type { Project } from '@/types/project'
 import type { StageCatalog } from '@/types/provider'
 import { budgetRefusal } from '../../api/client'
 import { shotFile, shotThumb, useChooseVersion, useJobs, useRedraw, useRedrawEstimate } from '../../api/queries'
-import { formatUsd } from '../../app/format'
+import { formatUnitUsd, formatUsd } from '../../app/format'
 import { useUiStore } from '../../store/uiStore'
 import { Button, StatusGlyph, cn } from '../../ui'
 import { HATCH } from '../../ui/internal/hatch'
@@ -171,7 +171,7 @@ function VersionItem({ episodeId, shotId, card, total, chosen, staleReasons, mod
     ['Модель', modelLabel, 'text-ink'],
     ['Seed', card.seed === null ? '—' : card.seed.toLocaleString('ru-RU')],
     ['Создана', card.createdAt ? formatCreated(card.createdAt) : '—'],
-    ['Цена', card.cached ? `${formatUsd(0)}, из кэша` : formatUsd(card.usdMicro), 'text-ink'],
+    ['Цена', card.cached ? `${formatUsd(0)}, из кэша` : formatUnitUsd(card.usdMicro), 'text-ink'],
   ]
   return (
     <li

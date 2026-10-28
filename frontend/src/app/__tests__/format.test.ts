@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatDuration, formatEpisodeDuration, formatSlotDate, formatUsd } from '../format'
+import { formatDuration, formatEpisodeDuration, formatSlotDate, formatUnitUsd, formatUsd } from '../format'
 
 describe('formatUsd — то же правило, что `format_usd` бэкенда', () => {
   test.each([
@@ -16,6 +16,22 @@ describe('formatUsd — то же правило, что `format_usd` бэкен
     [-1, '-<$0.01'],
   ])('%i микродолларов → %s', (micro, text) => {
     expect(formatUsd(micro)).toBe(text)
+  })
+})
+
+describe('formatUnitUsd — то же правило, что `format_unit_usd` бэкенда', () => {
+  test.each([
+    [0, '$0'],
+    [67_000, '$0.067'], // Nano Banana 2, картинка 1K
+    [134_000, '$0.134'],
+    [34_000, '$0.034'],
+    [320_000, '$0.32'], // десятых цента нет — как сумма
+    [69_600, '$0.07'],
+    [1_000_000, '$1'],
+    [500, '$0.001'], // половина десятой цента — вверх
+    [499, '<$0.001'],
+  ])('%i микродолларов → %s', (micro, text) => {
+    expect(formatUnitUsd(micro)).toBe(text)
   })
 })
 
