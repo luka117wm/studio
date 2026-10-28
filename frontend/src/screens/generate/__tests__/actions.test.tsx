@@ -48,7 +48,7 @@ describe('выбор и полоса выбора', () => {
   test('⇧-клик s035 → s050 — 16 кадров, из них 1 с ошибкой; сумма — смета бэкенда; смена модели меняет сумму', async () => {
     const user = userEvent.setup()
     const { stub } = await openGenerate(artboardApi())
-    expect(within(bar()).getByText('Клик выбирает кадр, ⇧-клик — диапазон. Наведение открывает действия кадра')).toBeTruthy()
+    expect(within(bar()).getByText('Клик выбирает, ⇧-клик — диапазон, наведение — действия')).toBeTruthy()
     expect(redrawSelected()).toHaveProperty('disabled', true)
 
     await user.click(tileButton('s035'))
@@ -107,7 +107,7 @@ describe('выбор и полоса выбора', () => {
     await waitFor(() => expect(toasts()).toContain('Поставлено 2 кадра, ~$0.07'))
     await screen.findByRole('listitem', { name: 's001, в очереди' }, { timeout: 3000 })
     expect(screen.getByRole('listitem', { name: 's002, в очереди' })).toBeTruthy()
-    expect(within(bar()).getByText(/^Клик выбирает кадр/)).toBeTruthy()
+    expect(within(bar()).getByText(/^Клик выбирает,/)).toBeTruthy()
   })
 
   test('отказ бюджета — текст бэкенда в полосе, тоста об успехе нет, выбор на месте', async () => {
@@ -273,6 +273,6 @@ describe('клавиатура сетки', () => {
     await user.keyboard('{Control>}a{/Control}')
     expect(within(bar()).getByText('Выбрано 104 кадра, из них 2 с ошибкой')).toBeTruthy()
     await user.keyboard('{Escape}')
-    expect(within(bar()).getByText(/^Клик выбирает кадр/)).toBeTruthy()
+    expect(within(bar()).getByText(/^Клик выбирает,/)).toBeTruthy()
   })
 })

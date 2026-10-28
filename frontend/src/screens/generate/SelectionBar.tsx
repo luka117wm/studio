@@ -13,7 +13,8 @@ import { Button, SegmentedControl } from '../../ui'
 import { plural } from '../episodes/board'
 import { SHOTS, shortLabels } from './grid'
 
-export const SELECTION_HINT = 'Клик выбирает кадр, ⇧-клик — диапазон. Наведение открывает действия кадра'
+// Влезает в полосу на 1536 (368 из 396 px): длиннее обрезается многоточием (сверка M6.12)
+export const SELECTION_HINT = 'Клик выбирает, ⇧-клик — диапазон, наведение — действия'
 
 export interface SelectionBarProps {
   episodeId: string
