@@ -3,6 +3,8 @@
 // (`live.ts`), опроса по таймеру нет.
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
+import type { BatchEstimate, BatchResult, BatchSummary } from '@/types/batch'
+import type { BatchCreate } from '@/types/batch_request'
 import type { BridgeSettings } from '@/types/bridge'
 import type {
   AnchorSetState,
@@ -16,7 +18,8 @@ import type {
   PeriodPrompt,
   StyleDoc,
 } from '@/types/canon'
-import type { ChannelProfile, FormatPreview } from '@/types/channel'
+import type { ChannelChecksInput, ChannelProfile, FormatPreview } from '@/types/channel'
+import type { CheckEstimate } from '@/types/check'
 import type { CostSummary } from '@/types/cost'
 import type { Director } from '@/types/director'
 import type { EpisodeCreate, EpisodeListItem, EpisodePatch } from '@/types/episode'
@@ -33,10 +36,13 @@ import type {
   ShotPrompt,
   SimilarityReport,
 } from '@/types/plan'
+import type { StageCatalog } from '@/types/provider'
 import type { ReferenceCreate, ReferenceEpisodeCreate, ReferencePrompt, ReferenceVideo } from '@/types/reference'
-import type { EpisodeBrief, ImportResult, Project } from '@/types/project'
+import type { EpisodeBrief, ImportResult, Project, ShotImages } from '@/types/project'
+import type { RedrawBody } from '@/types/shot'
+import type { RedrawEstimate } from '@/types/shot_redraw'
 import type { Slot, SlotAssign } from '@/types/slot'
-import { ApiError, api } from './client'
+import { ApiError, api, budgetRefusal } from './client'
 
 export type ChannelId = EpisodeListItem['channel']
 /** Канал или режим просмотра «Все каналы» (решение 4 устава M3) */
@@ -77,10 +83,27 @@ export const qk = {
   estimate: (id: string, stamp: number) => ['projects', id, 'plan', 'estimate', stamp] as const,
   /** Сходство VO плана с референсом; `stamp` — как у сметы, `'list'` — без привязки к экрану плана */
   similarity: (id: string, stamp: number | 'list') => ['projects', id, 'plan', 'similarity', stamp] as const,
+  /** Отчёт последнего импорта плана с экрана 3 (мост, JSON, перевод канона) — живёт в памяти вкладки, не запрос:
+   *  ключ вне префикса выпуска, чтобы перезапросы project.json его не трогали */
+  importReport: (id: string) => ['importReport', id] as const,
   /** Файл версии плана как есть — неизменяемый */
   directorVersion: (id: string, version: string) => ['projects', id, 'director', version] as const,
   /** Предпросмотр запроса кадра; `stamp` — как у сметы: правка кадра перезапрашивает план, а с ним и промпт */
   shotPrompt: (id: string, shotId: string, stamp: number) => ['projects', id, 'plan', 'prompt', shotId, stamp] as const,
+  /** Смета пачки «Сгенерировать N кадров» — под префиксом выпуска: запись project.json перезапрашивает и её;
+   *  это же префикс смет пачки выбранных кадров (`generateEstimateOf`) */
+  generateEstimate: (id: string) => ['projects', id, 'generate', 'estimate'] as const,
+  generateEstimateOf: (id: string, query: { shots: string; model: string; redraw: boolean }) =>
+    ['projects', id, 'generate', 'estimate', query] as const,
+  /** Цена и вариант перерисовки кадра моделью — под префиксом выпуска */
+  redrawEstimate: (id: string, shotId: string, model: string) => ['projects', id, 'shots', shotId, 'redraw', model] as const,
+  /** Смета перепроверки выбранных кадров и цена вопроса к VLM (M6.10); префикс — конец перепроверки и запись кадров */
+  checkEstimates: (id: string) => ['projects', id, 'check'] as const,
+  checkEstimate: (id: string, shots: string) => ['projects', id, 'check', 'estimate', shots] as const,
+  /** Каталог моделей этапа с ценой единицы (`GET /api/providers/catalog/{stage}`) — меняется только с конфигом */
+  catalog: (stage: string) => ['catalog', stage] as const,
+  /** Сводка пачки: ответ постановки, паузы и отмены и событие `batch.updated` кладут её сюда целиком */
+  batch: (id: string) => ['batches', id] as const,
   /** Префикс канона канала: публикация и конец джоба опорных перезапрашивают всё под ним */
   canon: (channel: string) => ['canon', channel] as const,
   canonSummary: (channel: string) => ['canon', channel, 'summary'] as const,
@@ -319,13 +342,233 @@ export function useShotPrompt(id: string, shotId: string | null, planStamp: numb
   })
 }
 
+// --- кадры выпуска (экран 4, docs/generation.md) ---------------------------------------------------
+
+/** Вид джоба кадра: его события двигают плитки экрана 4 */
+export const SHOT_JOB = 'shot_image'
+/** Вид джоба перепроверки (M6.5–M6.6): его конец меняет пометки выбранной версии */
+export const CHECK_JOB = 'shot_check'
+
+/** Миниатюра версии кадра, webp 160 или 320; адрес версии неизменяем — браузер кэширует его навсегда */
+export function shotThumb(id: string, shotId: string, version: number, width: 160 | 320 = 320): string {
+  return `/api/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/thumb?w=${width}`
+}
+
+/** Картинка версии как есть (png, jpg или webp — как отдала модель) */
+export function shotFile(id: string, shotId: string, version: number): string {
+  return `/api/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/file`
+}
+
+/** Пачка выпуска — последняя, у которой есть джоб кадра в снимке джобов (`qk.jobs`: снимок и поток SSE).
+ *  Эндпоинта «пачка выпуска» нет, снимок держит 200 последних джобов. */
+export function latestBatchId(items: readonly JobEventData[], episodeId: string): string | null {
+  for (let i = items.length - 1; i >= 0; i -= 1) {
+    const job = items[i]!
+    if (job.episode_id === episodeId && job.kind === SHOT_JOB && job.batch_id !== null) return job.batch_id
+  }
+  return null
+}
+
+/** Сводка пачки выпуска: `null` — пачек не было, `undefined` — ещё грузится (снимок джобов или сама сводка) */
+export function useEpisodeBatch(episodeId: string): { data: BatchSummary | null | undefined; error: Error | null } {
+  const items = useJobs().data?.items
+  const batchId = items ? latestBatchId(items, episodeId) : null
+  const batch = useQuery({
+    queryKey: qk.batch(batchId ?? ''),
+    queryFn: ({ signal }) => api.get<BatchSummary>(`/batches/${segment(batchId ?? '')}`, { signal }),
+    enabled: batchId !== null,
+  })
+  if (!items) return { data: undefined, error: null }
+  return { data: batchId === null ? null : batch.data, error: batch.error }
+}
+
+/** Смета пачки до клика: кадры без картинки и `stale`, цена кадра модели по умолчанию. До утверждения бэкенд
+ *  ответил бы 409 — не запрашивается. */
+export function useGenerateEstimate(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.generateEstimate(id),
+    queryFn: ({ signal }) => api.get<BatchEstimate>(`/projects/${segment(id)}/generate/estimate`, { signal }),
+    enabled,
+  })
+}
+
+/** Каталог моделей этапа: сегменты модели и цена единицы в подсказке (`docs/providers.md`, «API») */
+export function useCatalog(stage: string) {
+  return useQuery({
+    queryKey: qk.catalog(stage),
+    queryFn: ({ signal }) => api.get<StageCatalog>(`/providers/catalog/${segment(stage)}`, { signal }),
+    staleTime: Infinity,
+  })
+}
+
+/** Смета пачки выбранных кадров следующим вариантом (`redraw: true`) выбранной моделью; ничего не выбрано — нет
+ *  запроса. Пока идёт новая смета, видна прежняя. */
+export function useRedrawBatchEstimate(id: string, shots: readonly string[], model: string | null) {
+  const query = { shots: shots.join(','), model: model ?? '', redraw: true }
+  return useQuery({
+    queryKey: qk.generateEstimateOf(id, query),
+    queryFn: ({ signal }) => api.get<BatchEstimate>(`/projects/${segment(id)}/generate/estimate`, { signal, query }),
+    enabled: shots.length > 0 && model !== null,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Какой вариант и почём нарисует «Перерисовать» кадра этой моделью; `enabled` — подсказка или диалог открыты */
+export function useRedrawEstimate(id: string, shotId: string, model: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.redrawEstimate(id, shotId, model ?? ''),
+    queryFn: ({ signal }) =>
+      api.get<RedrawEstimate>(`/projects/${segment(id)}/shots/${segment(shotId)}/redraw/estimate`, { signal, query: { model: model ?? undefined } }),
+    enabled: enabled && model !== null,
+  })
+}
+
+/** «Перерисовать» и «С правкой…» (`POST …/redraw`): джоб следующего варианта. С `prompt` бэкенд сначала проверяет
+ *  правку (стоп-лист — 422 в форме PATCH, ничего не пишет), затем бюджет — 409. */
+export function useRedraw(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ shotId, ...body }: RedrawBody & { shotId: string }) =>
+      api.post<Job>(`/projects/${segment(id)}/shots/${segment(shotId)}/redraw`, body),
+    onSuccess: (job, { shotId, prompt }) => {
+      rememberJob(client, job)
+      refreshShots(client, id)
+      // Следующий вариант сдвинулся, а правка действия видна на листе и в диалоге
+      void client.invalidateQueries({ queryKey: ['projects', id, 'shots', shotId] })
+      if (prompt !== undefined && prompt !== null) void client.invalidateQueries({ queryKey: qk.plan(id), exact: true })
+    },
+  })
+}
+
+/** Смета перепроверки до клика (M6.10, `GET …/check/estimate?shots=`): сколько кадров встанет, сумма вопросов к VLM
+ *  (лицо бесплатно), пропущенные с причиной и цена вопроса одного кадра — для подписи выключателя, и при выключенной
+ *  проверке. Без кадров — только цена вопроса. Пока идёт новая смета, видна прежняя (`isPlaceholderData`, L-056). */
+export function useCheckEstimate(id: string, shots: readonly string[]) {
+  const list = shots.join(',')
+  return useQuery({
+    queryKey: qk.checkEstimate(id, list),
+    queryFn: ({ signal }) => api.get<CheckEstimate>(`/projects/${segment(id)}/check/estimate`, { signal, query: { shots: list || undefined } }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** «Перепроверить выбранные»: `POST …/shots/{id}/check` по кадрам сметы по очереди. Отказ (бюджет — 409) останавливает
+ *  постановку: уже поставленные джобы остаются, ошибка несёт их число (`CheckRefused`). */
+export class CheckRefused extends Error {
+  /** Джобы, поставленные до отказа */
+  readonly queued: Job[]
+  /** На каком кадре отказ */
+  readonly shotId: string
+  constructor(error: unknown, queued: Job[], shotId: string) {
+    super(budgetRefusal(error)?.message ?? (error as Error).message)
+    this.queued = queued
+    this.shotId = shotId
+  }
+}
+
+export function useCheckShots(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: async (shots: readonly string[]) => {
+      const queued: Job[] = []
+      for (const shotId of shots) {
+        try {
+          const job = await api.post<Job>(`/projects/${segment(id)}/shots/${segment(shotId)}/check`)
+          rememberJob(client, job)
+          queued.push(job)
+        } catch (error) {
+          throw new CheckRefused(error, queued, shotId)
+        }
+      }
+      return queued
+    },
+    onSettled: () => void client.invalidateQueries({ queryKey: qk.checkEstimates(id) }),
+  })
+}
+
+/** «Выбрать версию N» (`POST …/images/{version}/choose`): выбранная идёт в монтаж, кадр `done`. Ответ (`ShotImages`)
+ *  сразу кладётся в project.json кэша — рамка и плитка переезжают без ожидания перезапроса; статус выпуска (пометки
+ *  проверок — у выбранной) приходит перезапросом выпуска. */
+export function useChooseVersion(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ shotId, version }: { shotId: string; version: number }) =>
+      api.post<ShotImages>(`/projects/${segment(id)}/shots/${segment(shotId)}/images/${version}/choose`),
+    onSuccess: (images) => {
+      client.setQueryData<Project>(qk.project(id), (project) => {
+        const state = project?.shots[images.shot_id]
+        if (!project || !state) return project
+        const chosen = { ...state, image_version: images.image_version, status: images.status, stale_reasons: [], error: null }
+        return { ...project, shots: { ...project.shots, [images.shot_id]: chosen } }
+      })
+      refreshShots(client, id)
+    },
+  })
+}
+
+/** Пачка известна снимку джобов сразу после постановки, не дожидаясь потока: строка её первого джоба */
+async function trackBatch(client: QueryClient, batchId: string) {
+  const list = await api.get<JobList>('/jobs', { query: { batch: batchId, limit: 1 } })
+  for (const job of list.items) rememberJob(client, job)
+}
+
+/** После записи кадров выпуска: project.json (статусы, версии), сметы пачки и перепроверки, выпуск и его строка в
+ *  списках */
+function refreshShots(client: QueryClient, id: string) {
+  void client.invalidateQueries({ queryKey: qk.project(id), exact: true })
+  void client.invalidateQueries({ queryKey: qk.generateEstimate(id) })
+  void client.invalidateQueries({ queryKey: qk.checkEstimates(id) })
+  void client.invalidateQueries({ queryKey: qk.episode(id) })
+  void client.invalidateQueries({ queryKey: qk.episodeLists })
+}
+
+const settledJobs = (summary: BatchSummary) => summary.jobs.done + summary.jobs.failed + summary.jobs.cancelled
+
+/** Сводка из ответа записи не затирает более позднюю из потока: событие конца джоба могло прийти раньше ответа */
+function storeBatch(client: QueryClient, summary: BatchSummary) {
+  client.setQueryData<BatchSummary>(qk.batch(summary.id), (current) =>
+    current && settledJobs(current) > settledJobs(summary) ? current : summary,
+  )
+}
+
+/** «Сгенерировать N кадров» — пачка из кадров без картинки и `stale` (`POST …/generate`, тело пустое);
+ *  «Перерисовать выбранные» — `{shots, model, redraw: true}`. Отказ — 409 с текстом: бюджет суммой
+ *  (`BudgetRefusal`), рисовать нечего, кадры заняты (`BatchRefusal`) */
+export function useGenerate(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (body: BatchCreate) => api.post<BatchResult>(`/projects/${segment(id)}/generate`, body),
+    onSuccess: (result) => {
+      storeBatch(client, result.batch)
+      void trackBatch(client, result.batch.id).catch(() => {}) // поток SSE всё равно принесёт джобы пачки
+      refreshShots(client, id)
+    },
+  })
+}
+
+export type BatchAction = 'pause' | 'resume' | 'cancel'
+
+/** Пауза, продолжение, отмена пачки — ответ сводкой. Отмена возвращает кадры из очереди к их статусу. */
+export function useBatchAction(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: ({ batchId, action }: { batchId: string; action: BatchAction }) =>
+      api.post<BatchSummary>(`/batches/${segment(batchId)}/${action}`),
+    onSuccess: (summary, { action }) => {
+      storeBatch(client, summary)
+      if (action === 'cancel') refreshShots(client, id)
+    },
+  })
+}
+
 /** «Перевести на новые версии» (M5.2): новая версия плана `manual` с последними версиями канона, затронутые кадры —
  *  `stale` с причиной. Меняются план, project.json, стадия выпуска (`generate` → `script`) и его счётчики. */
 export function useUpdateEpisodeCanon(id: string) {
   const client = useQueryClient()
   return useMutation({
     mutationFn: () => api.post<ImportResult>(`/projects/${segment(id)}/canon/update`),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      storeImportReport(client, id, result)
       void client.invalidateQueries({ queryKey: qk.project(id) })
       void client.invalidateQueries({ queryKey: qk.episode(id) })
       void client.invalidateQueries({ queryKey: qk.episodeLists })
@@ -770,6 +1013,21 @@ export function usePatchChannelSeeds(channel: ChannelId) {
   })
 }
 
+/** Выключатель проверки анахронизмов канала (`PATCH /api/channels/{id} {checks}`, M6.6): цена кадра включает вопрос
+ *  к VLM — сметы выпусков (пачка, перерисовка, перепроверка) заново */
+export function usePatchChannelChecks(channel: ChannelId) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (checks: ChannelChecksInput) => api.patch<ChannelProfile>(`/channels/${segment(channel)}`, { checks }),
+    onSuccess: (profile) => {
+      client.setQueryData<ChannelProfile[]>(qk.channels, (list) => list?.map((c) => (c.id === profile.id ? profile : c)))
+      void client.invalidateQueries({
+        predicate: ({ queryKey }) => queryKey[0] === 'projects' && queryKey.some((part) => part === 'estimate' || part === 'redraw'),
+      })
+    },
+  })
+}
+
 export function usePatchEpisode(id: string) {
   const client = useQueryClient()
   return useMutation({
@@ -813,6 +1071,7 @@ export function useApplyPlanAnswer(id: string) {
     },
     onSuccess: (result) => {
       if (result.import_result) {
+        storeImportReport(client, id, result.import_result)
         // Новая версия плана: план, счётчики выпуска и его стадия на доске
         void client.invalidateQueries({ queryKey: qk.plan(id) })
         void client.invalidateQueries({ queryKey: qk.episode(id) })
@@ -820,6 +1079,26 @@ export function useApplyPlanAnswer(id: string) {
       }
     },
   })
+}
+
+/** Отчёт импорта для экрана 3 (M6.11): что изменилось и чьи картинки устарели. Пустой отчёт (тот же план) не
+ *  заменяет прежний — показывать нечего */
+function storeImportReport(client: QueryClient, id: string, result: ImportResult) {
+  if (result.changes.length) client.setQueryData(qk.importReport(id), result)
+}
+
+/** Последний отчёт импорта выпуска; `dismiss` — «Скрыть». Запроса нет: данные кладут мутации импорта */
+export function useImportReport(id: string) {
+  const client = useQueryClient()
+  const key = qk.importReport(id)
+  const report = useQuery({
+    queryKey: key,
+    queryFn: () => client.getQueryData<ImportResult | null>(key) ?? null,
+    initialData: null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+  return { report: report.data, dismiss: () => client.setQueryData(key, null) }
 }
 
 /** Проверка плана из JSON-редактора без записи: те же правила, что у импорта; кэш не трогает */
@@ -836,7 +1115,8 @@ export function useSaveDirectorVersion(id: string) {
   return useMutation({
     mutationFn: (plan: Record<string, unknown>) =>
       api.post<ImportResult>(`/projects/${segment(id)}/director`, plan, { query: { source: 'manual' }, timeoutMs: 60_000 }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      storeImportReport(client, id, result)
       void client.invalidateQueries({ queryKey: qk.project(id) })
       void client.invalidateQueries({ queryKey: qk.episode(id) })
       void client.invalidateQueries({ queryKey: qk.episodeLists })

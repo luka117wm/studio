@@ -104,10 +104,10 @@ def overridden_fields(override: ShotOverride | None) -> list[OverrideField]:
 def edit_stale(state: ShotState, before: Shot, after: Shot) -> ShotState:
     """Правка поменяла поле, от которого зависит уже нарисованная картинка, — кадр `stale`.
 
-    `before` и `after` — действующий кадр до и после правки. Картинка есть у `done`, у `stale` —
-    возможно; у остальных статусов рисовать ещё нечего, и правка просто войдёт в генерацию.
+    `before` и `after` — действующий кадр до и после правки. Картинка есть у кадра с выбранной
+    версией (`has_image`, M6.1); у остальных рисовать ещё нечего, и правка войдёт в генерацию.
     """
-    if state.status not in ("done", "stale"):
+    if not state.has_image:
         return state
     reasons = [
         MANUAL_STALE_REASONS[change.field]
@@ -120,6 +120,12 @@ def edit_stale(state: ShotState, before: Shot, after: Shot) -> ShotState:
     return state.model_copy(
         update={"status": "stale", "stale_reasons": [*state.stale_reasons, *new]}
     )
+
+
+def image_edits(before: Shot, after: Shot) -> bool:
+    """Правка поменяла поле, из которого собирается запрос картинки (промпт, крупность): заказы
+    кадра в очереди рисовали бы прежний запрос (M6.11)."""
+    return any(change.field in MANUAL_STALE_REASONS for change in diff_shots(before, after))
 
 
 def effective_plan(

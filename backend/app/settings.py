@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Очередь джобов (M2.5, docs/jobs.md). 0 воркеров — очередь без исполнения (тесты API);
     # больше 4 — нельзя: рендер не больше 4 воркеров (принцип 12).
     job_workers: int = Field(default=3, ge=0, le=4)
+    # Одновременных джобов кадра (M6.3): вид `shot_image` берёт не больше стольких из общего пула
+    # (`job_workers`), остальное — другим видам. Больше `job_workers` смысла нет — пул не растёт.
+    images_parallel: int = Field(default=3, ge=1, le=4)
     job_max_attempts: int = Field(default=3, ge=1)
     job_retry_wait_s: float = Field(default=1.0, ge=0)  # база экспоненты: 1, 2, 4 … с
     sse_heartbeat_s: float = Field(default=15.0, gt=0)

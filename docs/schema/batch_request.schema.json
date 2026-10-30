@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/batch_request",
+  "title": "batch_request",
+  "description": "Модели API Studio, группа «batch_request». Сгенерировано из Pydantic.",
+  "$defs": {
+    "BatchCreate": {
+      "additionalProperties": false,
+      "description": "Тело `POST …/generate`: кадры (нет — без картинки и `stale`), модель (ключ каталога\n`images` или ID модели; нет — профиль по умолчанию), `redraw` — новый вариант и у готовых.",
+      "properties": {
+        "shots": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shots"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "redraw": {
+          "default": false,
+          "title": "Redraw",
+          "type": "boolean"
+        }
+      },
+      "title": "BatchCreate",
+      "type": "object"
+    },
+    "RetryFailed": {
+      "additionalProperties": false,
+      "description": "Тело `POST /api/batches/{id}/retry-failed`: кадры явно (так повторяются и отказы модели\nбез правки); нет — все упавшие, кроме таких отказов.",
+      "properties": {
+        "shots": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shots"
+        }
+      },
+      "title": "RetryFailed",
+      "type": "object"
+    }
+  }
+}

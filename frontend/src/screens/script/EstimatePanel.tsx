@@ -1,9 +1,13 @@
 /* «Смета по плану» в правой панели экрана 3 (артборд 3; принцип 6 — цена до клика): строки кадров, голоса,
    анимации и плана с подписями единиц, итог, остаток месячного бюджета, предупреждения о лимитах. Всё считает
-   бэкенд (`GET …/estimate`, M4.6): здесь ни цен, ни правил превышения. */
+   бэкенд (`GET …/estimate`, M4.6): здесь ни цен, ни правил превышения. После генерации «Кадры» — только кадры без
+   годной картинки, нарисованные — строкой «Уже нарисовано · 78 кадров · $0» (M6.11): она приглушена, это не трата. */
 import { useEstimate } from '../../api/queries'
-import { Skeleton, StatusGlyph } from '../../ui'
+import { Skeleton, StatusGlyph, cn } from '../../ui'
 import type { PlanEstimate } from '@/types/plan'
+
+/** Строка нарисованных кадров (`estimate.py::DRAWN_TITLE`): $0, не трата */
+const DRAWN = 'Уже нарисовано'
 
 export function EstimatePanel({ episodeId, planStamp }: { episodeId: string; planStamp: number }) {
   const estimate = useEstimate(episodeId, planStamp)
@@ -32,7 +36,9 @@ function EstimateBody({ estimate }: { estimate: PlanEstimate }) {
           <div key={line.title} className="flex items-baseline gap-2 text-12">
             <dt className="min-w-0 flex-1 truncate text-muted">{line.title}</dt>
             <dd className="font-dense text-muted">{line.label}</dd>
-            <dd className="w-14 shrink-0 text-right font-medium text-ink">{line.usd.usd}</dd>
+            <dd className={cn('w-14 shrink-0 text-right', line.title === DRAWN ? 'text-muted' : 'font-medium text-ink')}>
+              {line.usd.usd}
+            </dd>
           </div>
         ))}
       </dl>

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api import (
+    batches,
     bridge,
     canon,
     channels,
@@ -17,6 +18,7 @@ from app.api import (
     projects,
     providers,
     references,
+    shots,
     slots,
 )
 
@@ -28,6 +30,8 @@ api_router.include_router(episodes.router)
 api_router.include_router(slots.router)
 api_router.include_router(formats.router)
 api_router.include_router(projects.router)
+api_router.include_router(shots.router)
+api_router.include_router(batches.router)
 api_router.include_router(director.router)
 api_router.include_router(plan.router)
 api_router.include_router(jobs.router)

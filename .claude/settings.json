@@ -23,8 +23,6 @@
       "Read(./data/**)",
       "Edit(./data/**)",
       "Read(./.claude/settings.local.json)",
-      "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
       "Bash(git reset --hard:*)",
       "Bash(rm -rf:*)",
       "Edit(./design/**)",

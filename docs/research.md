@@ -47,7 +47,9 @@
 `profile.json → seeds` канала: короткие строки-направления для промпта идей («pirate ships», «Roman legions»).
 Живут в профиле, не в коде и не в конфиге.
 
-- `PATCH /api/channels/{id} {seeds}` — только семена; профиль пишется атомарно (temp → rename, L-003).
+- `PATCH /api/channels/{id} {seeds?, checks?}` — присланные поля: семена и, с M6.6, проверки кадров
+  (`checks.anachronism`, `docs/generation.md`, «Проверка анахронизмов»); ни одного — 422 «Править нечего — …».
+  Профиль пишется атомарно (temp → rename, L-003).
 - Строки после `strip`, пустые выбрасываются; не больше 20, каждая до 80 знаков, без повторов без учёта регистра.
   Нарушение — 422 одной фразой: «Семя «pirates» повторяется — оставьте одно.»
 - Пустой список допустим: промпт тогда опирается на формат канала. В `profile.json` и в ответе API поле есть всегда,
@@ -95,7 +97,7 @@ count}` и строка журнала моста `task: ideas`, `prompted`. К�
 | `POST /api/ideas` `IdeaCreate {channel, title, angle, hook_promise, summary, score, score_reason}` | 201 `Idea`: `manual`, сразу `backlog`; 404 — канала нет |
 | `PATCH /api/ideas/{id}` `IdeaPatch` | `Idea`; тексты и оценка (`score: null` — сброс), статус по таблице; 409 — переход; 422 — `channel`, `source`, `episode_id`, `id`, даты; 404 — идеи нет |
 | `POST /api/ideas/prompt`, `POST /api/ideas/answer` | выше |
-| `PATCH /api/channels/{id}` `{seeds}` | `ChannelProfile` |
+| `PATCH /api/channels/{id}` `{seeds?, checks?}` | `ChannelProfile` |
 
 ### Выпуск из идеи
 

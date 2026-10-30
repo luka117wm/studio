@@ -2,7 +2,7 @@
 
 import copy
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.director import Director
-from app.models.project import Project, ShotState, merge_patch
+from app.models.project import Asset, Project, ShotState, merge_patch
 from app.models.validators import DirectorValidationError
 from app.pipeline.director_import import (
     PartsError,
@@ -22,7 +22,6 @@ from app.pipeline.director_import import (
 )
 from app.pipeline.director_import.stale import decide, lock_conflicts, text_change
 from app.settings import Settings
-from app.storage.atomic import read_json, write_json_atomic
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
@@ -30,6 +29,8 @@ from app.tools.seed import seed
 FIXTURES = Path(__file__).parent / "fixtures"
 EPISODE = "c07-pirate-ship"
 URL = f"/api/projects/{EPISODE}/director"
+# Фикстура `draw` из conftest.py: версия картинки кадра, первая — выбранная.
+DrawShot = Callable[..., Asset]
 
 
 def load(name: str) -> dict[str, Any]:
@@ -74,13 +75,6 @@ def project_on_disk(paths: StudioPaths) -> dict[str, Any]:
     return data
 
 
-def pipeline_writes(paths: StudioPaths, patch: dict[str, Any]) -> None:
-    """То, что пишет пайплайн (ассеты, статусы кадров), — прямо в project.json: PATCH их не
-    принимает."""
-    path = paths.project_path("cursus", EPISODE)
-    write_json_atomic(path, merge_patch(read_json(path), patch))
-
-
 def statuses(project: dict[str, Any]) -> dict[str, str]:
     return {shot_id: state["status"] for shot_id, state in project["shots"].items()}
 
@@ -88,7 +82,7 @@ def statuses(project: dict[str, Any]) -> dict[str, str]:
 # --- версии --------------------------------------------------------------------------------------
 
 
-def test_first_import_writes_v001_and_queues_all(
+def test_first_import_writes_v001_and_all_shots_are_todo(
     episode: TestClient, paths: StudioPaths, v1: dict[str, Any]
 ) -> None:
     response = episode.post(URL, json=v1)
@@ -113,7 +107,7 @@ def test_first_import_writes_v001_and_queues_all(
     assert json.loads(version_path.read_text(encoding="utf-8")) == v1
     project = project_on_disk(paths)
     assert project["director_version"] == "v001"
-    assert statuses(project) == {f"s{n:03d}": "queued" for n in range(1, 11)}
+    assert statuses(project) == {f"s{n:03d}": "todo" for n in range(1, 11)}
     assert all(state["stale_reasons"] == [] for state in project["shots"].values())
     info = project["director_versions"]["v001"]
     assert info["hash"].startswith("sha256:") and info["parts"] == 1 and info["shots"] == 10
@@ -145,9 +139,14 @@ def test_reimport_of_same_plan_creates_no_version(
 
 
 def test_second_version_merges_stale_added_removed(
-    episode: TestClient, paths: StudioPaths, v1: dict[str, Any], v2: dict[str, Any]
+    episode: TestClient,
+    paths: StudioPaths,
+    v1: dict[str, Any],
+    v2: dict[str, Any],
+    draw: DrawShot,
 ) -> None:
     assert episode.post(URL, json=v1).status_code == 200
+    draw(EPISODE, "s002")  # картинка есть только у s002
     response = episode.post(URL, json=v2)
     assert response.status_code == 200, response.text
     result = response.json()
@@ -159,7 +158,8 @@ def test_second_version_merges_stale_added_removed(
     assert by_id["s002"]["change"] == (
         "Промпт: добавлено „his small silhouette framed by the low doorway“"
     )
-    assert by_id["s008"]["stale"] is True and by_id["s008"]["fields"] == ["image.appearances"]
+    # Облики сменились, но картинки нет — устаревать нечему (M6.1).
+    assert by_id["s008"]["stale"] is False and by_id["s008"]["fields"] == ["image.appearances"]
     assert by_id["s008"]["change"] == "Облики: добавлен gun-captain@caribbean-1716"
     # VO без блокировки — в отчёте, но кадр не stale.
     assert by_id["s009"]["stale"] is False and by_id["s009"]["fields"] == ["vo"]
@@ -178,11 +178,11 @@ def test_second_version_merges_stale_added_removed(
 
     project = project_on_disk(paths)
     assert project["director_version"] == "v002"
-    expected = {f"s{n:03d}": "queued" for n in range(1, 12)}
-    expected.update({"s002": "stale", "s008": "stale", "s006": "removed"})
+    expected = {f"s{n:03d}": "todo" for n in range(1, 12)}
+    expected.update({"s002": "stale", "s006": "removed"})
     assert statuses(project) == expected
-    assert [s for s, st in statuses(project).items() if st == "stale"] == ["s002", "s008"]
     assert project["shots"]["s002"]["stale_reasons"] == [by_id["s002"]["change"]]
+    # У кадра без картинки причина — история изменения, а не статус.
     assert project["shots"]["s008"]["stale_reasons"] == [by_id["s008"]["change"]]
     assert project["shots"]["s009"]["stale_reasons"] == []
     assert project["shots"]["s006"]["stale_reasons"] == ["Кадр убран из плана v002"]
@@ -198,8 +198,47 @@ def test_second_version_merges_stale_added_removed(
     assert (info["added"], info["changed"], info["removed"], info["shots"]) == (1, 3, 1, 10)
 
 
+def test_report_names_when_and_for_how_much_the_picture_was_drawn(
+    episode: TestClient,
+    paths: StudioPaths,
+    v1: dict[str, Any],
+    v2: dict[str, Any],
+    draw: DrawShot,
+) -> None:
+    """M6.11: у строки кадра с картинкой — дата и цена выбранной версии («картинка 12:41, $0.067 —
+    устарела»), у кадра без картинки — null. `changed` — изменённые кадры, и без `stale` (VO)."""
+    assert episode.post(URL, json=v1).status_code == 200
+    chosen = draw(EPISODE, "s002")
+    draw(EPISODE, "s002", variant=2, cached=True)  # ждёт выбора человека: в отчёте — выбранная
+    removed = draw(EPISODE, "s006", cached=True)
+    result = episode.post(URL, json=v2).json()
+    by_id = {c["shot_id"]: c for c in result["changes"]}
+
+    assert by_id["s002"]["stale"] is True
+    assert (by_id["s002"]["drawn_at"], by_id["s002"]["price"]) == (
+        chosen.created_at,
+        {"usd_micro": 67_000, "usd": "$0.067"},
+    )
+    # Убранный кадр тоже называет свою картинку; из кэша она стоила $0.
+    assert (by_id["s006"]["kind"], by_id["s006"]["drawn_at"], by_id["s006"]["price"]) == (
+        "removed",
+        removed.created_at,
+        {"usd_micro": 0, "usd": "$0"},
+    )
+    for shot_id in ("s008", "s009", "s011"):
+        assert (by_id[shot_id]["drawn_at"], by_id[shot_id]["price"]) == (None, None)
+
+    changed = [c for c in result["changes"] if c["kind"] == "changed"]
+    assert result["changed"] == len(changed) == 3
+    assert [c["shot_id"] for c in changed if not c["stale"]] == ["s008", "s009"]
+
+
 def test_locked_fields_survive_and_flag_stale(
-    episode: TestClient, paths: StudioPaths, v1: dict[str, Any], v2: dict[str, Any]
+    episode: TestClient,
+    paths: StudioPaths,
+    v1: dict[str, Any],
+    v2: dict[str, Any],
+    draw: DrawShot,
 ) -> None:
     assert episode.post(URL, json=v1).status_code == 200
     override = {"image": {"prompt": "my own prompt"}}
@@ -214,6 +253,8 @@ def test_locked_fields_survive_and_flag_stale(
         },
     )
     assert patch.status_code == 200, patch.text
+    draw(EPISODE, "s002")
+    draw(EPISODE, "s009")
 
     result = episode.post(URL, json=v2).json()
     by_id = {c["shot_id"]: c for c in result["changes"]}
@@ -223,6 +264,7 @@ def test_locked_fields_survive_and_flag_stale(
     assert by_id["s009"]["stale"] is True
     assert project["shots"]["s009"] == {
         "status": "stale",
+        "image_version": 1,
         "duration_locked": True,
         "prompt_locked": False,
         "user_override": None,
@@ -238,25 +280,17 @@ def test_locked_fields_survive_and_flag_stale(
         "План изменил image.prompt, но действует ручная правка image.prompt",
     ]
     # Ручная правка поля, которое план не менял, — не конфликт и не stale.
-    assert project["shots"]["s003"]["status"] == "queued"
+    assert project["shots"]["s003"]["status"] == "todo"
     assert project["shots"]["s003"]["user_override"] == {"motion": {"strength": 0.2}}
     assert "s003" not in by_id
 
 
 def test_canon_version_bump_marks_only_affected_shots(
-    episode: TestClient, paths: StudioPaths, v1: dict[str, Any]
+    episode: TestClient, paths: StudioPaths, v1: dict[str, Any], draw: DrawShot
 ) -> None:
     assert episode.post(URL, json=v1).status_code == 200
-    asset = {
-        "id": "img-s002-v1",
-        "shot_id": "s002",
-        "kind": "image",
-        "version": 1,
-        "path": "media/s002/v001.png",
-        "hash": "abc",
-        "status": "ok",
-    }
-    pipeline_writes(paths, {"assets": {asset["id"]: asset}, "shots": {"s002": {"status": "done"}}})
+    draw(EPISODE, "s002")
+    assets = project_on_disk(paths)["assets"]
 
     bumped = copy.deepcopy(v1)
     bumped["canon_ref"]["appearances"]["you@powder-monkey-11"] = (
@@ -266,48 +300,91 @@ def test_canon_version_bump_marks_only_affected_shots(
     assert result["version"] == "v002"
     with_boy = [s["id"] for s in v1["shots"] if s["image"]["appearances"]]
     assert [c["shot_id"] for c in result["changes"]] == with_boy
-    assert all(c["stale"] and c["fields"] == [] for c in result["changes"])
+    assert all(c["fields"] == [] for c in result["changes"])
+    assert [c["shot_id"] for c in result["changes"] if c["stale"]] == ["s002"]
 
     project = project_on_disk(paths)
+    reason = (
+        "Облик you@powder-monkey-11: characters/you/v004#powder-monkey-11 → "
+        "characters/you/v005#powder-monkey-11"
+    )
     for shot_id, state in project["shots"].items():
-        if shot_id in with_boy:
-            assert state["status"] == "stale"
-            assert state["stale_reasons"] == [
-                "Облик you@powder-monkey-11: characters/you/v004#powder-monkey-11 → "
-                "characters/you/v005#powder-monkey-11"
-            ]
+        if shot_id == "s002":
+            assert (state["status"], state["stale_reasons"]) == ("stale", [reason])
+        elif shot_id in with_boy:
+            # Картинки нет: статус прежний, причина — в истории кадра.
+            assert (state["status"], state["stale_reasons"]) == ("todo", [reason])
         else:
-            assert state["status"] == "queued" and state["stale_reasons"] == []
+            assert (state["status"], state["stale_reasons"]) == ("todo", [])
     # Картинка на месте (принцип 14).
-    assert project["assets"] == {asset["id"]: asset}
+    assert project["assets"] == assets
 
 
-def test_removed_shot_keeps_assets_and_returns_as_queued(
+def test_shot_without_image_keeps_status_and_collects_history(
     episode: TestClient, paths: StudioPaths, v1: dict[str, Any], v2: dict[str, Any]
 ) -> None:
+    """Хвост M5.2: кадр без картинки не становится `stale` — ни от изменения промпта, ни от
+    конфликта с блокировкой. Причины копятся историей без повторов."""
     assert episode.post(URL, json=v1).status_code == 200
-    asset = {
-        "id": "img-s006-v1",
-        "shot_id": "s006",
-        "kind": "image",
-        "version": 1,
-        "path": "media/s006/v001.png",
-        "hash": "h6",
-    }
-    pipeline_writes(paths, {"assets": {asset["id"]: asset}})
+    patch = episode.patch(
+        "/api/projects/" + EPISODE, json={"shots": {"s009": {"duration_locked": True}}}
+    )
+    assert patch.status_code == 200, patch.text
+    lock = "План изменил текст VO (длительность), но длительность заблокирована"
+
+    result = episode.post(URL, json=v2).json()
+    by_id = {c["shot_id"]: c for c in result["changes"]}
+    assert not any(c["stale"] for c in result["changes"])
+    shots = project_on_disk(paths)["shots"]
+    assert (shots["s009"]["status"], shots["s009"]["stale_reasons"]) == ("todo", [lock])
+    assert shots["s002"]["stale_reasons"] == [by_id["s002"]["change"]]
+
+    # Назад к v1: VO снова другой — та же причина не дублируется; промпт — новая причина.
+    back = episode.post(URL, json=v1).json()
+    back_s002 = next(c for c in back["changes"] if c["shot_id"] == "s002")
+    shots = project_on_disk(paths)["shots"]
+    assert (shots["s009"]["status"], shots["s009"]["stale_reasons"]) == ("todo", [lock])
+    assert shots["s002"]["status"] == "todo"
+    assert shots["s002"]["stale_reasons"] == [by_id["s002"]["change"], back_s002["change"]]
+
+
+def test_removed_shot_keeps_assets_and_returns_as_todo_or_stale(
+    episode: TestClient,
+    paths: StudioPaths,
+    v1: dict[str, Any],
+    v2: dict[str, Any],
+    draw: DrawShot,
+) -> None:
+    assert episode.post(URL, json=v1).status_code == 200
+    draw(EPISODE, "s006")
     assert episode.post(URL, json=v2).status_code == 200
     project = project_on_disk(paths)
     assert project["shots"]["s006"]["status"] == "removed"
     assert project["assets"]["img-s006-v1"]["path"] == "media/s006/v001.png"
 
-    # Возврат к v1: тот же хэш → файл не пишется, версия переиспользуется, s006 снова queued.
+    # Возврат к v1: тот же хэш → файл не пишется, версия переиспользуется. У s006 картинка
+    # есть, но с чем её сравнить, мёрдж не знает — `stale`, пусть человек сверит.
     back = episode.post(URL, json=v1).json()
     assert back["version"] == "v001" and back["created"] is False
     assert (back["added"], back["changed"], back["removed"]) == (1, 3, 1)
+    returned = next(c for c in back["changes"] if c["shot_id"] == "s006")
+    assert (returned["kind"], returned["change"], returned["stale"]) == (
+        "added",
+        "Кадр вернулся в план",
+        True,
+    )
     project = project_on_disk(paths)
     assert project["director_version"] == "v001"
-    assert project["shots"]["s006"]["status"] == "queued"
+    assert project["shots"]["s006"]["status"] == "stale"
+    assert project["shots"]["s006"]["stale_reasons"] == [
+        "Кадр снова в плане v001: картинка — от прежнего кадра, сверьте её"
+    ]
     assert project["shots"]["s011"]["status"] == "removed"
+
+    # Кадр без картинки возвращается в `todo`.
+    assert episode.post(URL, json=v2).status_code == 200
+    state = project_on_disk(paths)["shots"]["s011"]
+    assert (state["status"], state["stale_reasons"]) == ("todo", [])
     assert sorted(p.name for p in paths.director_dir("cursus", EPISODE).iterdir()) == [
         "v001.json",
         "v002.json",
@@ -552,8 +629,11 @@ def test_merge_is_pure_and_idempotent(v1: dict[str, Any], v2: dict[str, Any]) ->
     after_v2, report = merge_into_project(
         after_v1, first, second, "v002", parts=1, created=True, now="t2"
     )
-    assert after_v1.shots["s002"].status == "queued"
-    assert after_v2.shots["s002"].status == "stale"
+    assert after_v1.shots["s002"].status == "todo"
+    # Картинки нет — изменение промпта уходит в историю, статус прежний.
+    assert after_v2.shots["s002"].status == "todo"
+    assert after_v2.shots["s002"].stale_reasons == [report.changes[0].change]
+    assert report.changes[0].stale is False
     assert after_v2.updated_at == "t2"
     # Тот же план поверх себя — ничего не меняется, кроме времени.
     again, empty = merge_into_project(
@@ -562,6 +642,21 @@ def test_merge_is_pure_and_idempotent(v1: dict[str, Any], v2: dict[str, Any]) ->
     assert empty.changes == [] and again.shots == after_v2.shots
     assert again.director_versions["v002"].imported_at == "t2"
     assert report.changes[0].shot_id == "s002"
+
+    asset = {"id": "img-s002-v1", "shot_id": "s002", "kind": "image", "version": 1}
+    drawn = Project.model_validate(
+        merge_patch(
+            after_v1.model_dump(mode="json"),
+            {
+                "assets": {"img-s002-v1": {**asset, "path": "media/s002/v001.png", "hash": "h"}},
+                "shots": {"s002": {"status": "done", "image_version": 1}},
+            },
+        )
+    )
+    stale_v2, stale_report = merge_into_project(
+        drawn, first, second, "v002", parts=1, created=True, now="t2"
+    )
+    assert stale_v2.shots["s002"].status == "stale" and stale_report.changes[0].stale is True
 
 
 # --- вспомогательное -----------------------------------------------------------------------------

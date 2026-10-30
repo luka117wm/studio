@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from pydantic.json_schema import GenerateJsonSchema, models_json_schema
 from pydantic_core import core_schema
 
+from app.api.batches import BatchCreate, RetryFailed
 from app.api.bridge import BridgeSettings
 from app.api.canon import (
     AppearanceCopy,
@@ -33,16 +34,18 @@ from app.api.formats import FormatPreview
 from app.api.ideas import IdeasAnswerBody, IdeasAnswerResult, IdeasPrompt, IdeasPromptBody
 from app.api.jobs import JobCreate, JobList
 from app.api.plan import PlanAnswer, PlanAnswerResult, PlanCheck, PlanParts, PlanPrompt
+from app.api.providers import StageCatalog
 from app.api.references import (
     ReferenceAnswer,
     ReferenceCreate,
     ReferenceEpisodeCreate,
     ReferencePrompt,
 )
+from app.api.shots import RedrawBody, RedrawEstimate, ShotGenerate
 from app.api.slots import Slot, SlotAssign
 from app.cost.budget import BudgetRefusal
 from app.jobs.handlers.anchors import AnchorsEstimate
-from app.jobs.queue import Job, JobEventData, JobSummary
+from app.jobs.queue import BatchSummary, Job, JobEventData, JobSummary
 from app.log import configure_logging
 from app.models.canon import (
     CanonSummary,
@@ -61,8 +64,12 @@ from app.models.reference import ReferenceVideo, SimilarityReport
 from app.pipeline.bridge import BridgeError, BridgeRun
 from app.pipeline.canon.anchors import AnchorSetState
 from app.pipeline.canon.episode_canon import CanonNeeded, EpisodeCanon
+from app.pipeline.checks.shot_check import CheckEstimate
 from app.pipeline.director_import import EffectivePlan, ImportResult
+from app.pipeline.images.batch import BatchEstimate, BatchRefusal, BatchResult
 from app.pipeline.images.prompt_builder import ShotPrompt
+from app.pipeline.images.shot_assets import ShotImages
+from app.pipeline.images.shot_job import ShotRefusal
 from app.pipeline.script.approve import ApprovalRefusal
 from app.pipeline.script.estimate import PlanEstimate
 from app.providers.base import Cost, KeyStatus
@@ -82,6 +89,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (EpisodeBrief, "serialization"),
         (DirectorVersionInfo, "serialization"),
         (ImportResult, "serialization"),
+        (ShotImages, "serialization"),
     ],
     # Тело PATCH — отдельно: `EpisodeBrief`, `ShotOverride`, `SfxSpec` в двух режимах в одной
     # группе pydantic назвал бы `…-Input`/`…-Output`, и тип ответа сменил бы имя.
@@ -111,7 +119,7 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (Cost, "serialization"),
         (BudgetRefusal, "serialization"),
     ],
-    "provider": [(KeyStatus, "serialization")],
+    "provider": [(KeyStatus, "serialization"), (StageCatalog, "serialization")],
     "bridge": [
         (BridgeSettings, "serialization"),
         (BridgeRun, "serialization"),
@@ -138,7 +146,22 @@ API_GROUPS: dict[str, list[tuple[type[BaseModel], Mode]]] = {
         (SimilarityReport, "serialization"),
         (EpisodeCanon, "serialization"),
         (ShotPrompt, "serialization"),
+        (ShotRefusal, "serialization"),
     ],
+    # Тело `POST …/shots/{id}/generate` (M6.2) — своя группа, как тела других запросов (L-031).
+    "shot": [(ShotGenerate, "validation"), (RedrawBody, "validation")],
+    # Цена перерисовки (M6.4) — ответ, своя группа: тела `shot` — в режиме validation (L-031).
+    "shot_redraw": [(RedrawEstimate, "serialization")],
+    # Смета перепроверки кадров (M6.10) — ответ.
+    "check": [(CheckEstimate, "serialization")],
+    # Пачка кадров (M6.3): ответы; тела — отдельно (L-031).
+    "batch": [
+        (BatchSummary, "serialization"),
+        (BatchResult, "serialization"),
+        (BatchEstimate, "serialization"),
+        (BatchRefusal, "serialization"),
+    ],
+    "batch_request": [(BatchCreate, "validation"), (RetryFailed, "validation")],
     "reference": [
         (ReferenceVideo, "serialization"),
         (ReferencePrompt, "serialization"),

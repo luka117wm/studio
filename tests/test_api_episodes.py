@@ -415,7 +415,7 @@ def test_patch_project_merges_and_keeps_rest(seeded: TestClient, paths: StudioPa
     )
     assert first.status_code == 200, first.text
     assert first.json()["shots"]["s001"] == {
-        "status": "queued",
+        "status": "todo",
         "duration_locked": True,
         "prompt_locked": False,
         "user_override": None,

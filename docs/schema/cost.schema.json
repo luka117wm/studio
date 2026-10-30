@@ -359,6 +359,18 @@
             }
           ],
           "title": "Input Hash"
+        },
+        "shot_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Id"
         }
       },
       "required": [

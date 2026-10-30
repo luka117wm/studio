@@ -1,7 +1,7 @@
 """M4.6: «Утвердить план» — проверки, стадия `generate`, повтор, возврат в `script` новой версии."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.canon import Character, Period, Style
-from app.models.project import merge_patch
+from app.models.project import Asset, merge_patch
 from app.pipeline.canon import episode_canon
 from app.pipeline.canon.episode_canon import AnchorSheet
 from app.pipeline.script import approve
@@ -30,6 +30,7 @@ APPROVE_URL = f"{EPISODE_URL}/approve"
 DIRECTOR_URL = f"/api/projects/{EPISODE}/director"
 PLAN_URL = f"/api/projects/{EPISODE}/plan"
 FIX_HINT = " — допишите на листе сценария или в таблице плана и утвердите снова."
+DrawShot = Callable[..., Asset]  # фикстура `draw` из conftest.py
 
 
 def load(name: str) -> dict[str, Any]:
@@ -265,6 +266,40 @@ def test_same_plan_again_keeps_generate(planned: TestClient) -> None:
     assert again.status_code == 200
     assert again.json()["created"] is False
     assert stage(planned) == "generate"
+
+
+def test_edit_after_approval_keeps_approval_and_stales_drawn_shot(
+    planned: TestClient, paths: StudioPaths, draw: DrawShot
+) -> None:
+    """Устав M6, решение 9: правка кадра на листе — не новая версия плана. Кадр с картинкой —
+    `stale` с причиной, без картинки — просто правка; утверждение и стадия на месте, статус выпуска
+    пересчитан (`stale` — что проверить руками)."""
+    assert planned.post(APPROVE_URL).status_code == 200
+    draw(EPISODE, "s001")
+    edits = {
+        "s001": {"user_override": {"image": {"prompt": "drops the cartridge case on the deck"}}},
+        "s002": {"user_override": {"image": {"prompt": "counts the powder kegs by lantern"}}},
+        "s003": {"user_override": {"vo": "A calmer line for the third shot."}},
+    }
+    response = planned.patch(f"/api/projects/{EPISODE}", json={"shots": edits})
+    assert response.status_code == 200, response.text
+
+    project = on_disk(paths)
+    assert project["approved_version"] == project["director_version"] == "v001"
+    shots = project["shots"]
+    assert (shots["s001"]["status"], shots["s001"]["stale_reasons"]) == (
+        "stale",
+        ["Промпт изменён вручную"],
+    )
+    assert (shots["s002"]["status"], shots["s002"]["stale_reasons"]) == ("todo", [])
+    assert (shots["s003"]["status"], shots["s003"]["stale_reasons"]) == ("todo", [])
+    episode = planned.get(EPISODE_URL).json()
+    assert (episode["stage"], episode["status"]) == ("generate", "warning")
+    plan = planned.get(PLAN_URL).json()
+    assert (plan["version"], plan["approved_version"]) == ("v001", "v001")
+    # Утверждать снова нечего: повтор ничего не пишет.
+    assert planned.post(APPROVE_URL).status_code == 200
+    assert on_disk(paths)["updated_at"] == project["updated_at"]
 
 
 def test_new_version_at_late_stage_keeps_stage(planned: TestClient, paths: StudioPaths) -> None:

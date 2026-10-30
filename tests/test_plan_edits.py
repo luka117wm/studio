@@ -2,7 +2,7 @@
 
 import copy
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.director import Director
-from app.models.project import Project, ShotOverride, ShotState, merge_patch
+from app.models.project import Asset, Project, ShotOverride, ShotState
 from app.models.validators import DirectorValidationError, ValidationItem, validate_director
 from app.pipeline.director_import import effective_plan, prune_override
 from app.pipeline.director_import.effective import (
@@ -21,13 +21,15 @@ from app.pipeline.director_import.effective import (
 )
 from app.pipeline.director_import.stale import STALE_FIELDS
 from app.settings import Settings
-from app.storage.atomic import read_json, write_json_atomic
+from app.storage.atomic import read_json
 from app.storage.db import connect
 from app.storage.paths import StudioPaths
 from app.tools.seed import seed
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EPISODE = "c07-pirate-ship"
+# Фикстура `draw` из conftest.py: версия картинки кадра, первая — выбранная.
+DrawShot = Callable[..., Asset]
 PROJECT_URL = f"/api/projects/{EPISODE}"
 DIRECTOR_URL = f"/api/projects/{EPISODE}/director"
 PLAN_URL = f"/api/projects/{EPISODE}/plan"
@@ -81,12 +83,6 @@ def planned(episode: TestClient, v1: dict[str, Any]) -> TestClient:
 def on_disk(paths: StudioPaths) -> dict[str, Any]:
     data: dict[str, Any] = read_json(paths.project_path("cursus", EPISODE))
     return data
-
-
-def pipeline_writes(paths: StudioPaths, patch: dict[str, Any]) -> None:
-    """Статусы кадров пишет пайплайн (генерация), не PATCH — кладём прямо в файл."""
-    path = paths.project_path("cursus", EPISODE)
-    write_json_atomic(path, merge_patch(read_json(path), patch))
 
 
 def edit(client: TestClient, shot_id: str, override: dict[str, Any] | None) -> Any:
@@ -268,8 +264,11 @@ def test_pipeline_fields_are_422(
 # --- ручной stale ---------------------------------------------------------------------------------
 
 
-def test_prompt_edit_makes_drawn_shot_stale(planned: TestClient, paths: StudioPaths) -> None:
-    pipeline_writes(paths, {"shots": {"s002": {"status": "done"}, "s004": {"status": "done"}}})
+def test_prompt_edit_makes_drawn_shot_stale(
+    planned: TestClient, paths: StudioPaths, draw: DrawShot
+) -> None:
+    draw(EPISODE, "s002")
+    draw(EPISODE, "s004")
 
     edit(planned, "s002", {"image": {"prompt": "steps into the dark magazine with a lantern"}})
     state = on_disk(paths)["shots"]["s002"]
@@ -281,7 +280,7 @@ def test_prompt_edit_makes_drawn_shot_stale(planned: TestClient, paths: StudioPa
         "Крупность изменена вручную",
     ]
 
-    # VO на картинку не влияет; без картинки (queued) рисовать заново нечего.
+    # VO на картинку не влияет; без картинки (todo) рисовать заново нечего.
     edit(planned, "s004", {"vo": NEW_VO})
     edit(planned, "s005", {"image": {"prompt": "the boy flinches and covers his ears"}})
     project = on_disk(paths)
@@ -289,7 +288,7 @@ def test_prompt_edit_makes_drawn_shot_stale(planned: TestClient, paths: StudioPa
         "done",
         [],
     )
-    assert project["shots"]["s005"]["status"] == "queued"
+    assert project["shots"]["s005"]["status"] == "todo"
 
 
 def test_manual_stale_reasons_cover_editable_stale_fields() -> None:
@@ -300,8 +299,9 @@ def test_manual_stale_reasons_cover_editable_stale_fields() -> None:
 
 
 def test_vo_edit_survives_new_version_with_other_vo(
-    planned: TestClient, paths: StudioPaths, v2: dict[str, Any]
+    planned: TestClient, paths: StudioPaths, v2: dict[str, Any], draw: DrawShot
 ) -> None:
+    draw(EPISODE, "s009")
     assert edit(planned, "s009", {"vo": NEW_VO}).status_code == 200
     result = planned.post(DIRECTOR_URL, json=v2).json()
     assert result["version"] == "v002"
@@ -350,7 +350,7 @@ def test_effective_plan_overlays_edits_and_keeps_removed(
     assert removed["status"] == "removed"
     assert removed["stale_reasons"] == ["Кадр убран из плана v002"]
     assert removed["vo"] == v1_s006["vo"] and removed["image"] == v1_s006["image"]
-    assert by_id["s011"]["status"] == "queued"
+    assert by_id["s011"]["status"] == "todo"
 
 
 def test_effective_plan_is_pure(v1: dict[str, Any]) -> None:

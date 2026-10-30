@@ -10,10 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.models.canon import APPEARANCE_ID_PATTERN
-from app.models.director import EPISODE_ID_PATTERN
+from app.models.director import EPISODE_ID_PATTERN, SHOT_ID_PATTERN
 
 _ID_RE = re.compile(EPISODE_ID_PATTERN)
 _APPEARANCE_ID_RE = re.compile(APPEARANCE_ID_PATTERN)
+_SHOT_ID_RE = re.compile(SHOT_ID_PATTERN)
+_EXT_RE = re.compile(r"^[a-z0-9]+$")
 
 
 def check_id(value: str, what: str = "id") -> str:
@@ -27,6 +29,13 @@ def check_appearance_id(value: str) -> str:
     """id облика (`you@powder-monkey-11`) — имя каталога листа портретов; иначе ValueError."""
     if not _APPEARANCE_ID_RE.fullmatch(value):
         raise ValueError(f"appearance {value!r} must match {APPEARANCE_ID_PATTERN}")
+    return value
+
+
+def check_shot_id(value: str) -> str:
+    """id кадра (`s001`) — имя каталога его картинок; иначе ValueError."""
+    if not _SHOT_ID_RE.fullmatch(value):
+        raise ValueError(f"shot {value!r} must match {SHOT_ID_PATTERN}")
     return value
 
 
@@ -52,6 +61,11 @@ class StudioPaths:
     def schedule_path(self) -> Path:
         """Расписание публикаций, одно на оба канала (`docs/slots.md`)."""
         return self.root / "schedule.json"
+
+    @property
+    def models_dir(self) -> Path:
+        """Веса локальных моделей (M6.5: проверка лица); качает `app.tools.fetch_models`."""
+        return self.root / "models"
 
     # --- канал: data/channels/<channel>/{profile.json, oauth/, canon/} -------------------------
 
@@ -152,6 +166,24 @@ class StudioPaths:
 
     def media_dir(self, channel: str, episode: str) -> Path:
         return self.episode_dir(channel, episode) / "media"
+
+    def shot_media_dir(self, channel: str, episode: str, shot: str) -> Path:
+        """Версии картинки кадра: `media/<кадр>/vNNN.<ext>` (M6.1)."""
+        return self.media_dir(channel, episode) / check_shot_id(shot)
+
+    def shot_image_path(
+        self, channel: str, episode: str, shot: str, version: int, ext: str
+    ) -> Path:
+        """`media/s001/v003.png`: версия неизменяема, пишется один раз; расширение — по MIME."""
+        if not 1 <= version <= 999:
+            raise ValueError(f"shot image version must be in 1..999, got {version}")
+        if not _EXT_RE.fullmatch(ext):
+            raise ValueError(f"file extension {ext!r} must match {_EXT_RE.pattern}")
+        return self.shot_media_dir(channel, episode, shot) / f"v{version:03d}.{ext}"
+
+    def shot_thumbs_dir(self, channel: str, episode: str, shot: str) -> Path:
+        """Миниатюры версий кадра: `thumbs/v003-160.webp`, `-320.webp` (принцип 12)."""
+        return self.shot_media_dir(channel, episode, shot) / "thumbs"
 
     def cache_dir(self, channel: str, episode: str) -> Path:
         return self.episode_dir(channel, episode) / "cache"

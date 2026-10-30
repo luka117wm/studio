@@ -1,4 +1,4 @@
-// Поток событий джобов `GET /api/events` (docs/jobs.md, «Поток SSE»).
+// Поток событий джобов и сводок пачек `GET /api/events` (docs/jobs.md, «Поток SSE»).
 // На обрыве браузер переподключается сам и шлёт Last-Event-ID. Но закрытый EventSource (бэкенд
 // лежал при подключении, ответ не 200) больше не пытается — тогда новый EventSource с
 // `?last_event_id=` последнего события, паузы 1, 2, 4 … 30 с. Heartbeat держит соединение и не
@@ -6,6 +6,7 @@
 // Сторож: прокси Vite не передаёт браузеру обрыв начатого потока, когда uvicorn умирает, — поток
 // «открыт», но молчит (L-023). Нет ни heartbeat, ни события дольше `SILENCE_LIMIT_MS` — поток мёртв,
 // переподключаемся.
+import type { BatchSummary } from '@/types/batch'
 import type { JobEventData } from '@/types/job'
 
 export const EVENTS_URL = '/api/events'
@@ -27,6 +28,18 @@ export interface JobEvent {
   data: JobEventData
 }
 
+/** Сводка пачки после перехода её джоба, паузы, продолжения или отмены (M6.3); id — из того же журнала, курсор общий */
+export const BATCH_EVENT = 'batch.updated'
+
+export interface BatchEvent {
+  type: typeof BATCH_EVENT
+  id: number
+  /** Сводка целиком — клиент заменяет её */
+  data: BatchSummary
+}
+
+export type StreamEvent = JobEvent | BatchEvent
+
 export type StreamState = 'connecting' | 'open' | 'reconnecting' | 'closed'
 
 export interface SubscribeOptions {
@@ -41,9 +54,9 @@ export const RECONNECT_MAX_MS = 30_000
 export const SILENCE_LIMIT_MS = 35_000
 const CLOSED = 2 // EventSource.CLOSED
 
-/** Подписка на события джобов. Возвращает отписку: закрывает поток и отменяет переподключение. */
+/** Подписка на события джобов и пачек. Возвращает отписку: закрывает поток и отменяет переподключение. */
 export function subscribe(
-  onEvent: (event: JobEvent) => void,
+  onEvent: (event: StreamEvent) => void,
   options: SubscribeOptions = {},
 ): () => void {
   const { onState } = options
@@ -67,20 +80,20 @@ export function subscribe(
     }, SILENCE_LIMIT_MS)
   }
 
-  const handle = (type: JobEventType, event: MessageEvent<string>) => {
+  const handle = (type: StreamEvent['type'], event: MessageEvent<string>) => {
     if (stopped) return // событие, уже стоявшее в очереди браузера, после отписки не доставляем
     alive()
     const id = Number(event.lastEventId)
     if (!Number.isInteger(id) || id <= 0) return
     if (cursor !== null && id <= cursor) return
-    let data: JobEventData
+    let data: unknown
     try {
-      data = JSON.parse(event.data) as JobEventData
+      data = JSON.parse(event.data)
     } catch {
       return // битое событие не роняет подписку; следующее состояние джоба придёт целиком
     }
     cursor = id
-    onEvent({ type, id, data })
+    onEvent({ type, id, data } as StreamEvent)
   }
 
   const reconnect = () => {
@@ -111,7 +124,7 @@ export function subscribe(
       if (current.readyState === CLOSED) reconnect()
       else onState?.('reconnecting') // браузер переподключается сам и шлёт Last-Event-ID
     }
-    for (const type of JOB_EVENT_TYPES) {
+    for (const type of [...JOB_EVENT_TYPES, BATCH_EVENT] as const) {
       current.addEventListener(type, (event) => handle(type, event))
     }
     current.addEventListener('heartbeat', () => {

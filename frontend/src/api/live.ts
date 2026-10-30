@@ -5,10 +5,12 @@
 // поток снова открыт → всё перезапрашивается, а экран ошибки снимается сам. Джоб уровня канала (опорные): прогресс
 // перезапрашивает наборы опорных канала с тем же порогом — новые кандидаты видны по ходу сборки (M5.9), конец —
 // канон этого канала (M5.7). Конец любого джоба перезапрашивает сводки расходов: шапка показывает расход месяца.
+// Экран 4 (M6.7): сводка пачки из `batch.updated` кладётся в кэш как есть, без перезапроса; переход джоба кадра
+// перезапрашивает project.json выпуска (статусы и версии плиток) и смету пачки — с тем же порогом.
 import type { QueryClient } from '@tanstack/react-query'
 import type { JobEventData } from '@/types/job'
-import { fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
-import { subscribe as subscribeSse, type JobEvent, type JobEventType, type StreamState } from './sse'
+import { CHECK_JOB, SHOT_JOB, fetchJobs, isBackendDown, qk, type LiveJobs } from './queries'
+import { BATCH_EVENT, subscribe as subscribeSse, type JobEvent, type JobEventType, type StreamEvent, type StreamState } from './sse'
 
 export const SUMMARY_THROTTLE_MS = 1_000
 const FINAL: ReadonlySet<JobEventType> = new Set(['job.done', 'job.failed', 'job.cancelled'])
@@ -65,7 +67,17 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
     windows.delete(key)
   }
 
-  const onEvent = (event: JobEvent) => {
+  const refreshShots = (episodeId: string) => {
+    void client.invalidateQueries({ queryKey: qk.project(episodeId), exact: true })
+    void client.invalidateQueries({ queryKey: qk.generateEstimate(episodeId) })
+    void client.invalidateQueries({ queryKey: qk.checkEstimates(episodeId) })
+  }
+
+  const onEvent = (event: StreamEvent) => {
+    if (event.type === BATCH_EVENT) {
+      client.setQueryData(qk.batch(event.data.id), event.data)
+      return
+    }
     client.setQueryData<LiveJobs>(qk.jobs, (jobs) => applyJobEvent(jobs, event))
     const final = FINAL.has(event.type)
     // Конец джоба: платный списал деньги — расход месяца в шапке заново (найдено вживую в M5.9)
@@ -84,6 +96,10 @@ export function startLive(client: QueryClient, options: LiveOptions = {}): () =>
     }
     const episodeId = event.data.episode_id
     if (episodeId === null) return
+    // Джоб кадра сменил статус (поставлен, начал, кончил): плитки читают project.json. Сотня концов подряд — один
+    // перезапрос в секунду, хвост окна не теряется. Конец перепроверки (M6.10) записал пометки выбранной версии
+    const shotsChanged = event.data.kind === SHOT_JOB ? event.type !== 'job.progress' : event.data.kind === CHECK_JOB && final
+    if (shotsChanged) throttled(`shots:${episodeId}`, () => refreshShots(episodeId))
     const key = `episode:${episodeId}`
     if (!final) {
       throttled(key, () => refreshEpisode(episodeId))

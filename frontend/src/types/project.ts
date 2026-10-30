@@ -1,8 +1,17 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/project.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:4b05e45b411c05c23d07d3623441c9f0e151003eaa51ce4b5216640eb489d79d
+ * @generated sha256:f7d78f819628ed2e7aa879732157d303902a768aa006d1c089883c99fe8e8065
  */
+export interface AnachronismCheck {
+  status: 'ok' | 'suspect' | 'failed' | 'off'
+  found: string[]
+  period?: string | null
+  usd_micro?: number | null
+  reason?: string | null
+  checked_at: string
+}
+
 export interface AnimateOverride {
   recommended?: boolean | null
   reason?: string | null
@@ -18,6 +27,22 @@ export interface Asset {
   path: string
   hash: string
   status: 'ok' | 'stale' | 'failed'
+  model?: string | null
+  model_id?: string | null
+  seed?: number | null
+  variant?: number | null
+  usd_micro?: number | null
+  created_at?: string | null
+  cached?: boolean | null
+  checks?: AssetChecks | null
+}
+
+/**
+ * Проверки консистентности версии (устав M6, решение 7): лицо (M6.5), анахронизмы (M6.6).
+ */
+export interface AssetChecks {
+  face?: FaceCheck | null
+  anachronism?: AnachronismCheck | null
 }
 
 /**
@@ -50,6 +75,26 @@ export interface EpisodeBrief {
   reference_mode: 'none' | 'structure_clone' | 'own_version'
 }
 
+export interface FaceCheck {
+  status: 'ok' | 'low' | 'no_face' | 'skipped'
+  appearances: FaceMatch[]
+  faces: number
+  threshold?: number | null
+  reason?: string | null
+  checked_at: string
+}
+
+/**
+ * Облик кадра против выбранного фаса его листа: лучшее сходство среди лиц кадра.
+ */
+export interface FaceMatch {
+  id: string
+  status: 'ok' | 'low' | 'no_face' | 'skipped'
+  score?: number | null
+  front?: string | null
+  reason?: string | null
+}
+
 export interface ImageOverride {
   prompt?: string | null
   shot_size?: ('establishing' | 'action' | 'reaction' | 'detail') | null
@@ -62,6 +107,14 @@ export interface ImportResult {
   changed: number
   removed: number
   changes: ShotChange[]
+}
+
+/**
+ * Деньги в ответе API: по `usd_micro` считать, `usd` показывать.
+ */
+export interface Money {
+  usd_micro: number
+  usd: string
 }
 
 export interface MotionOverride {
@@ -125,7 +178,18 @@ export interface ShotChange {
   fields: string[]
   stale: boolean
   drawn_at: string | null
-  price: number | null
+  price: Money | null
+}
+
+/**
+ * Версии картинки кадра: новые сверху; `image_version` — выбранная, null — не выбрана.
+ */
+export interface ShotImages {
+  shot_id: string
+  status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
+  image_version: number | null
+  versions: Asset[]
+  matches_plan: number[]
 }
 
 /**
@@ -142,10 +206,12 @@ export interface ShotOverride {
 
 export interface ShotState {
   status: 'todo' | 'queued' | 'generating' | 'done' | 'failed' | 'stale' | 'removed'
+  image_version?: number | null
   duration_locked: boolean
   prompt_locked: boolean
   user_override: ShotOverride | null
   stale_reasons: string[]
+  error?: string | null
 }
 
 export interface Source {

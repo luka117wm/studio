@@ -1,5 +1,7 @@
-// Живые обновления кэша: снимок → поток с курсора, замена строки джоба, порог перезапроса выпуска, переподключение.
+// Живые обновления кэша: снимок → поток с курсора, замена строки джоба, порог перезапроса выпуска, сводка пачки и
+// плитки экрана 4, переподключение.
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import type { BatchSummary } from '@/types/batch'
 import type { JobEventData } from '@/types/job'
 import { createQueryClient } from '../queryClient'
 import { ApiError } from '../client'
@@ -112,6 +114,36 @@ describe('startLive', () => {
     expect(keys()).toEqual([ANCHORS, ANCHORS, COST, JSON.stringify(qk.canon('cursus'))]) // списано — расход месяца заново
     vi.advanceTimersByTime(SUMMARY_THROTTLE_MS * 3)
     expect(keys()).toHaveLength(4) // окно закрыто конечным событием
+    stop()
+  })
+
+  test('batch.updated — сводка пачки в кэш как есть, без перезапросов', async () => {
+    const { client, source, keys, stop } = await started()
+    const summary = { id: 'b1', episode_id: 'pirate', paused: true } as BatchSummary
+    source.emit('batch.updated', summary, 1201)
+    expect(client.getQueryData(qk.batch('b1'))).toEqual(summary)
+    expect(keys()).toEqual([])
+    expect(client.getQueryData<LiveJobs>(qk.jobs)?.items).toHaveLength(1) // снимок джобов не тронут
+    stop()
+  })
+
+  test('джоб кадра: старт и конец перезапрашивают project.json выпуска (точно) и смету пачки, с порогом', async () => {
+    const { source, invalidate, stop } = await started()
+    vi.useFakeTimers()
+    const shot = (fields: Partial<JobEventData>) => job({ job_id: 'job-s1', kind: 'shot_image', episode_id: 'pirate', batch_id: 'b1', ...fields })
+    const project = () => invalidate.mock.calls.filter(([filters]) => JSON.stringify(filters?.queryKey) === JSON.stringify(qk.project('pirate')))
+    const estimate = () => invalidate.mock.calls.filter(([filters]) => JSON.stringify(filters?.queryKey) === JSON.stringify(qk.generateEstimate('pirate')))
+    source.emit('job.started', shot({ progress: 0 }), 1201)
+    expect(project()).toEqual([[{ queryKey: qk.project('pirate'), exact: true }]])
+    expect(estimate()).toHaveLength(1)
+    source.emit('job.progress', shot({ progress: 0.5 }), 1202) // прогресс кадра плиток не меняет
+    source.emit('job.done', shot({ status: 'done', progress: 1 }), 1203)
+    source.emit('job.done', shot({ job_id: 'job-s2', status: 'done', progress: 1 }), 1204)
+    expect(project()).toHaveLength(1) // внутри окна — только отметка
+    vi.advanceTimersByTime(SUMMARY_THROTTLE_MS)
+    expect(project()).toHaveLength(2) // хвост окна
+    vi.advanceTimersByTime(SUMMARY_THROTTLE_MS * 3)
+    expect(project()).toHaveLength(2)
     stop()
   })
 

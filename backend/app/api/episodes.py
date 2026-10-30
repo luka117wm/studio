@@ -182,12 +182,14 @@ def find_episode(db: sqlite3.Connection, episode_id: str) -> Episode | None:
 
 def mark_plan_imported(db: sqlite3.Connection, episode_id: str, *, new_version: bool) -> None:
     """Импорт плана (устав M4, решение 7): стадия `idea` → `script`. Новая текущая версия плана
-    возвращает в `script` и утверждённый выпуск (`generate`) — утвердить нужно снова. Поздние
+    возвращает в `script` и утверждённый выпуск (`generate`) — утвердить нужно снова; статус
+    генерации (`generating`, `ready`, `warning`, M6.3) к сценарию не относится — `queued`. Поздние
     стадии не трогаются: что делать с планом после начала генерации, решит M6.
     """
     stages = ("idea", "generate") if new_version else ("idea",)
     db.execute(
-        "UPDATE episodes SET stage = 'script', updated_at = ?"
+        "UPDATE episodes SET stage = 'script',"
+        " status = CASE WHEN stage = 'generate' THEN 'queued' ELSE status END, updated_at = ?"
         f" WHERE id = ? AND stage IN ({', '.join('?' * len(stages))})",
         (now_iso(), episode_id, *stages),
     )

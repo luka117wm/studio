@@ -1,5 +1,6 @@
 // Режим «JSON» экрана 3 на моке плана «Пиратов» (v003): текст версии, синтаксис без запроса, ошибки бэкенда с
-// подсветкой и переходом к строке, «Сохранить как версию» с двумя тостами, вопрос при уходе с правками.
+// подсветкой и переходом к строке, «Сохранить как версию» с двумя тостами, вопрос при уходе с правками. Подсветка и
+// номера рисуют только окно видимых строк (M6.11): на плане ~4 500 строк в DOM — сотня строк, не тысячи.
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -33,6 +34,9 @@ async function editor() {
 const setText = (area: HTMLTextAreaElement, value: string) => fireEvent.change(area, { target: { value } })
 const lineOf = (text: string, needle: string) => text.split('\n').findIndex((l) => l.includes(needle)) + 1
 const save = (panel: HTMLElement) => within(panel).getByRole('button', { name: 'Сохранить как версию' })
+/** Номера строк, нарисованные сейчас (окно), и подсвеченные ошибкой среди них */
+const numbers = () => [...document.querySelectorAll('[data-line-numbers] > div[class]')].map((row) => row.textContent)
+const failedRows = () => [...document.querySelectorAll('[data-line-numbers] [data-failed]')].map((row) => row.textContent)
 
 describe('JSON', () => {
   test('открывается файл текущей версии в 2 пробела; сохранять нечего', async () => {
@@ -69,14 +73,45 @@ describe('JSON', () => {
     expect(within(panel).getByText('1 ошибка')).toBeTruthy()
     const voLine = text.split('\n').findIndex((l, i) => i > lineOf(text, '"id": "s003"') - 1 && l.includes('"vo": ""')) + 1
     expect(within(problem).getByText(`строка ${voLine}`)).toBeTruthy()
-    const failed = [...document.querySelectorAll('[data-line-numbers] [data-failed]')].map((row) => row.textContent)
-    expect(failed).toEqual([String(voLine)])
 
     await userEvent.click(problem)
     expect(document.activeElement).toBe(area)
     const offset = text.split('\n').slice(0, voLine - 1).reduce((sum, l) => sum + l.length + 1, 0)
     expect(area.selectionStart).toBe(offset)
+    // Строка ошибки — в окне после перехода, номер подсвечен
+    await waitFor(() => expect(failedRows()).toEqual([String(voLine)]))
     expect(save(panel).hasAttribute('disabled')).toBe(true)
+  })
+
+  test('план ~4 500 строк: в DOM только окно строк, прокрутка и переход к ошибке в конце рисуют нужные', async () => {
+    const { area, panel } = await editor()
+    const plan = JSON.parse(area.value) as { shots: { id: string; vo: string }[]; facts: unknown[] }
+    const template = plan.shots
+    plan.shots = Array.from({ length: 112 }, (_, i) => ({ ...template[i % template.length]!, id: `s${String(i + 1).padStart(3, '0')}` }))
+    plan.facts = []
+    plan.shots.at(-1)!.vo = ''
+    const text = JSON.stringify(plan, null, 2)
+    const total = text.split('\n').length
+    expect(total).toBeGreaterThan(4000)
+    setText(area, text)
+
+    const problem = await within(panel).findByRole('button', { name: /s112 пустой vo/ }, { timeout: 3000 })
+    const rows = () => document.querySelectorAll('[data-line-numbers] > div[class]').length
+    const layerRows = () => area.parentElement!.querySelectorAll('[aria-hidden] > div[class]').length
+    expect(rows()).toBeLessThan(200)
+    expect(layerRows()).toBe(rows())
+    expect(numbers()[0]).toBe('1')
+
+    area.scrollTop = 2000 * 20
+    fireEvent.scroll(area)
+    await waitFor(() => expect(numbers()).toContain('2001'))
+    expect(numbers()).not.toContain('1')
+    expect(rows()).toBeLessThan(200)
+
+    await userEvent.click(problem)
+    const voLine = Number(within(problem).getByText(/^строка \d+$/).textContent!.split(' ')[1])
+    expect(voLine).toBeGreaterThan(total - 100)
+    await waitFor(() => expect(failedRows()).toEqual([String(voLine)]))
   })
 
   test('«Сохранить как версию» — тост с номером и режим «Сценарий»', async () => {

@@ -7,7 +7,7 @@
 
 from typing import Annotated
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, Field, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.models.director import Channel, EpisodeFormat, StrictModel
@@ -70,6 +70,17 @@ def _clean_seeds(value: list[str]) -> list[str]:
 Seeds = Annotated[list[str], AfterValidator(_clean_seeds)]
 
 
+def _is_none(value: object) -> bool:
+    return value is None
+
+
+class ChannelChecks(StrictModel):
+    """Проверки готовых кадров канала (устав M6, решение 7). Лицо — локально и бесплатно, всегда;
+    анахронизмы — платный вопрос к VLM, его можно выключить: выключенная не платит и не помечает."""
+
+    anachronism: bool = True
+
+
 class ChannelProfile(StrictModel):
     id: Channel
     name: str
@@ -81,9 +92,27 @@ class ChannelProfile(StrictModel):
     # Семена ниши для промпта идей (M4.8): короткие строки; `[]` — семян нет. Профили до M4.8
     # поля не имеют — читаются с пустым списком.
     seeds: list[str] = []
+    # Проверки готовых кадров (M6.6). Поля нет — значения по умолчанию (всё включено); в ответе
+    # без поля, пока его не меняли (L-033).
+    checks: ChannelChecks | None = Field(default=None, exclude_if=_is_none)
+
+    @property
+    def effective_checks(self) -> ChannelChecks:
+        return self.checks or ChannelChecks()
 
 
 class ChannelPatch(StrictModel):
-    """Тело `PATCH /api/channels/{id}`: пока только семена ниши; профиль пишется атомарно."""
+    """Тело `PATCH /api/channels/{id}`: семена ниши (M4.8), проверки кадров (M6.6). Поле не
+    прислано — не меняется; профиль пишется атомарно."""
 
-    seeds: Seeds
+    seeds: Seeds | None = None
+    checks: ChannelChecks | None = None
+
+    @model_validator(mode="after")
+    def _something(self) -> "ChannelPatch":
+        if self.seeds is None and self.checks is None:
+            raise PydanticCustomError(
+                "empty_patch",
+                "Править нечего — пришлите семена ниши (seeds) или проверки (checks).",
+            )
+        return self

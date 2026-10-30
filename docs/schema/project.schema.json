@@ -4,6 +4,77 @@
   "title": "project",
   "description": "Модели API Studio, группа «project». Сгенерировано из Pydantic.",
   "$defs": {
+    "AnachronismCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "suspect",
+            "failed",
+            "off"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "found": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Found",
+          "type": "array"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period"
+        },
+        "usd_micro": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Usd Micro"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "checked_at": {
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "found",
+        "checked_at"
+      ],
+      "title": "AnachronismCheck",
+      "type": "object"
+    },
     "AnimateOverride": {
       "additionalProperties": false,
       "properties": {
@@ -114,6 +185,103 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant"
+        },
+        "usd_micro": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Usd Micro"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "cached": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached"
+        },
+        "checks": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssetChecks"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -126,6 +294,36 @@
         "status"
       ],
       "title": "Asset",
+      "type": "object"
+    },
+    "AssetChecks": {
+      "additionalProperties": false,
+      "description": "Проверки консистентности версии (устав M6, решение 7): лицо (M6.5), анахронизмы (M6.6).",
+      "properties": {
+        "face": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FaceCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "anachronism": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnachronismCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "AssetChecks",
       "type": "object"
     },
     "DirectorVersionInfo": {
@@ -275,6 +473,133 @@
       "title": "EpisodeBrief",
       "type": "object"
     },
+    "FaceCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "low",
+            "no_face",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "appearances": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FaceMatch"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "faces": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Faces",
+          "type": "integer"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "checked_at": {
+          "title": "Checked At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "appearances",
+        "faces",
+        "checked_at"
+      ],
+      "title": "FaceCheck",
+      "type": "object"
+    },
+    "FaceMatch": {
+      "additionalProperties": false,
+      "description": "Облик кадра против выбранного фаса его листа: лучшее сходство среди лиц кадра.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "low",
+            "no_face",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "front": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Front"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "title": "FaceMatch",
+      "type": "object"
+    },
     "ImageOverride": {
       "additionalProperties": false,
       "properties": {
@@ -352,6 +677,25 @@
         "changes"
       ],
       "title": "ImportResult",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
       "type": "object"
     },
     "MotionOverride": {
@@ -640,14 +984,13 @@
         "price": {
           "anyOf": [
             {
-              "type": "integer"
+              "$ref": "#/$defs/Money"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Price"
+          "default": null
         }
       },
       "required": [
@@ -661,6 +1004,64 @@
         "price"
       ],
       "title": "ShotChange",
+      "type": "object"
+    },
+    "ShotImages": {
+      "additionalProperties": false,
+      "description": "Версии картинки кадра: новые сверху; `image_version` — выбранная, null — не выбрана.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "queued",
+            "generating",
+            "done",
+            "failed",
+            "stale",
+            "removed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "image_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Image Version"
+        },
+        "versions": {
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "title": "Versions",
+          "type": "array"
+        },
+        "matches_plan": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Matches Plan",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_id",
+        "status",
+        "image_version",
+        "versions",
+        "matches_plan"
+      ],
+      "title": "ShotImages",
       "type": "object"
     },
     "ShotOverride": {
@@ -759,6 +1160,19 @@
           "title": "Status",
           "type": "string"
         },
+        "image_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image Version"
+        },
         "duration_locked": {
           "default": false,
           "title": "Duration Locked",
@@ -787,6 +1201,18 @@
           },
           "title": "Stale Reasons",
           "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
         }
       },
       "required": [

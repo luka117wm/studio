@@ -17,6 +17,7 @@ from app.jobs.worker import TransientError, is_retryable, retry_after_s
 from app.providers.anthropic import AnthropicProvider
 from app.providers.base import (
     CharQuota,
+    ImageRef,
     ImageRequest,
     KeyStatus,
     ProviderError,
@@ -29,6 +30,7 @@ from app.providers.base import (
     TextRequest,
     Usage,
     VideoRequest,
+    VisionRequest,
     status_error,
 )
 from app.providers.elevenlabs import ElevenLabsProvider
@@ -74,6 +76,8 @@ def test_usage_rejects_foreign_request_kinds() -> None:
         GeminiProvider(KEY).usage(route, SpeechRequest(text="hi", voice_id="v"))
     with pytest.raises(RouteError):
         ElevenLabsProvider(KEY).usage(route, TextRequest(prompt="hi", max_output_tokens=1))
+    with pytest.raises(RouteError):
+        AnthropicProvider(KEY).usage(route, ASK)
     speech = ElevenLabsProvider(KEY).usage(route, SpeechRequest(text="hello", voice_id="v"))
     assert [(u.unit, u.quantity) for u in speech] == [("char", 5)]
 
@@ -391,6 +395,44 @@ def test_network_error_names_the_exception_when_its_text_is_empty() -> None:
             " детали.",
         ),
         (
+            # Категория фильтра, если модель её назвала (`safetyRatings` с `blocked`, M6.2):
+            # что смягчить в действии кадра. Незаблокированные категории не называются.
+            candidate(
+                finish="IMAGE_SAFETY",
+                safetyRatings=[
+                    {
+                        "category": "HARM_CATEGORY_IMAGE_DANGEROUS_CONTENT",
+                        "probability": "HIGH",
+                        "blocked": True,
+                    },
+                    {"category": "HARM_CATEGORY_HARASSMENT", "probability": "NEGLIGIBLE"},
+                ],
+            ),
+            "Gemini не нарисовал картинку (IMAGE_SAFETY) — сработал фильтр безопасности: насилие и"
+            " опасные действия — смягчите действие кадра.",
+        ),
+        (
+            {
+                "promptFeedback": {
+                    "blockReason": "SAFETY",
+                    "safetyRatings": [
+                        {
+                            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                            "probability": "MEDIUM",
+                            "blocked": True,
+                        },
+                        {
+                            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                            "probability": "HIGH",
+                            "blocked": True,
+                        },
+                    ],
+                }
+            },
+            "Gemini не нарисовал картинку (SAFETY) — сработал фильтр безопасности: откровенное"
+            " содержание, насилие и опасные действия — смягчите действие кадра.",
+        ),
+        (
             {"promptFeedback": {"blockReason": "PROHIBITED_CONTENT"}},
             "Gemini не нарисовал картинку (PROHIBITED_CONTENT) — запрещённое содержание —"
             " перепишите промпт кадра.",
@@ -425,6 +467,153 @@ def test_gemini_image_without_key_and_video_without_network() -> None:
     video = VideoRequest(prompt="sway", start_frame="abc", seconds=4)
     with pytest.raises(NotImplementedError, match="M8"):
         asyncio.run(GeminiProvider(KEY).call(ANCHORS, video))
+
+
+# --- вопрос о картинке Gemini (M6.6) ------------------------------------------------------------
+
+CHECK = Route(
+    stage="check",
+    key="flash-lite",
+    kind="vision",
+    provider="gemini",
+    model="gemini-3.5-flash-lite",
+    params={"media_resolution": "low", "thinking_level": "minimal", "max_output_tokens": 256},
+)
+SCHEMA = {
+    "type": "object",
+    "properties": {"found": {"type": "array", "items": {"type": "string"}}},
+    "required": ["found"],
+}
+ASK = VisionRequest(
+    prompt="Name forbidden items.",
+    image=ImageRef(path="projects/cursus/e/media/s001/thumbs/v001-320.webp", sha256="0" * 64),
+    response_schema=SCHEMA,
+    max_output_tokens=256,
+)
+THUMB = RefImage(data=b"RIFF\x00\x00\x00\x00WEBPthumb", mime_type="image/webp")
+
+
+def ask(handler: Any, refs: list[RefImage] | None = None, key: SecretStr = KEY) -> Result:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    provider = GeminiProvider(key, http_client=client)
+    return asyncio.run(provider.call(CHECK, ASK, [THUMB] if refs is None else refs))
+
+
+def test_gemini_vision_asks_for_json_and_charges_actual_tokens() -> None:
+    """Текст и картинка, ответ JSON по схеме; разрешение, рассуждение и лимит — из маршрута;
+    расход — по `usageMetadata`: выход вместе с размышлением, части размышления не берутся."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        body = {
+            "candidates": [
+                {
+                    "content": {
+                        "role": "model",
+                        "parts": [
+                            {"text": "thinking about it", "thought": True},
+                            {"text": '{"found": ["wristwatches"]}'},
+                        ],
+                    },
+                    "finishReason": "STOP",
+                }
+            ],
+            "usageMetadata": {
+                "promptTokenCount": 612,
+                "candidatesTokenCount": 9,
+                "thoughtsTokenCount": 40,
+                "totalTokenCount": 661,
+            },
+        }
+        return httpx.Response(**_json(200, body))
+
+    result = ask(handler)
+    assert (result.data, result.ext, result.meta) == (
+        b'{"found": ["wristwatches"]}',
+        "json",
+        {"finish": "STOP"},
+    )
+    assert result.usage == [
+        Usage(unit="token_in", quantity=612),
+        Usage(unit="token_out", quantity=49),
+    ]
+    [sent] = seen
+    assert sent.url.path.endswith("/models/gemini-3.5-flash-lite:generateContent")
+    body = json.loads(sent.content)
+    [content] = body["contents"]
+    assert content["parts"][0] == {"text": "Name forbidden items."}
+    inline = content["parts"][1]["inlineData"]
+    # SDK пишет тип snake_case (`mime_type`), API принимает оба написания.
+    assert (inline["data"], inline.get("mimeType", inline.get("mime_type"))) == (
+        b64(THUMB.data),
+        "image/webp",
+    )
+    config = body["generationConfig"]
+    # Вложенное поле SDK 2.25 пишет snake_case — API принимает оба написания (живой тест).
+    assert config.pop("thinkingConfig") in (
+        {"thinkingLevel": "MINIMAL"},
+        {"thinking_level": "MINIMAL"},
+    )
+    assert config == {
+        "responseMimeType": "application/json",
+        "responseJsonSchema": SCHEMA,
+        "maxOutputTokens": 256,
+        "mediaResolution": "MEDIA_RESOLUTION_LOW",
+    }
+
+
+def test_gemini_vision_estimate_counts_image_by_media_resolution() -> None:
+    usage = GeminiProvider(KEY).usage(CHECK, ASK)
+    text = ASK.prompt + json.dumps(SCHEMA, sort_keys=True)
+    assert usage == [
+        Usage(unit="token_in", quantity=-(-len(text) // 3) + 280),
+        Usage(unit="token_out", quantity=256),
+    ]
+    high = CHECK.model_copy(update={"params": {"media_resolution": "high"}})
+    assert GeminiProvider(KEY).usage(high, ASK)[0].quantity == -(-len(text) // 3) + 1120
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        (
+            {"promptFeedback": {"blockReason": "SAFETY"}},
+            "Gemini не ответил на вопрос о картинке (SAFETY) — перепроверьте кадр позже.",
+        ),
+        (
+            {"candidates": [{"content": {"role": "model", "parts": []}, "finishReason": "OTHER"}]},
+            "Gemini не ответил на вопрос о картинке (OTHER) — перепроверьте кадр позже.",
+        ),
+    ],
+)
+def test_gemini_vision_without_answer_is_a_refusal(body: dict[str, Any], message: str) -> None:
+    with pytest.raises(ProviderError) as caught:
+        ask(lambda request: httpx.Response(**_json(200, body)))
+    assert str(caught.value) == message
+    assert not is_retryable(caught.value)
+
+
+def test_gemini_vision_errors_and_wrong_image_count() -> None:
+    with pytest.raises(ProviderError, match=r"запрос отклонён \(400\): bad schema"):
+        ask(
+            lambda r: httpx.Response(
+                **_json(
+                    400,
+                    {"error": {"code": 400, "message": "bad schema", "status": "INVALID_ARGUMENT"}},
+                )
+            )
+        )
+    with pytest.raises(TransientError):
+        ask(lambda r: httpx.Response(**_json(503, {"error": {"code": 503, "message": "busy"}})))
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("без картинки и без ключа сеть не нужна")
+
+    with pytest.raises(RouteError, match="ровно одна картинка"):
+        ask(handler, refs=[])
+    with pytest.raises(ProviderError, match="GEMINI_API_KEY не задан"):
+        ask(handler, key=NO_KEY)
 
 
 def test_elevenlabs_missing_permission_reads_as_no_access() -> None:

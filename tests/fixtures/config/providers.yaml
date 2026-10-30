@@ -31,3 +31,12 @@ stages:
     catalog:
       clip: {provider: fake, model: fake-video, params: {resolution: 720p}}
     profiles: {economy: clip, standard: clip, premium: clip}
+
+  check:
+    kind: vision
+    catalog:
+      vlm:
+        provider: fake
+        model: fake-vlm
+        params: {media_resolution: low, thinking_level: minimal, max_output_tokens: 256}
+    profiles: {economy: vlm, standard: vlm, premium: vlm}

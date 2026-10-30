@@ -8,7 +8,9 @@
 
 Вызов уровня канала (M5.3) — `CallContext(channel=…)` без выпуска: файл — в каталог канона
 канала, строка `assets` и журнала — без выпуска, бюджет — только месячный. Референсы — только
-файлы канона канала (принципы 9, 13), в ключ кэша идут их хэши.
+файлы канона канала (принципы 9, 13), в ключ кэша идут их хэши. Картинка вопроса `vision` (M6.6)
+— только файл своего выпуска (версия кадра), в ключ кэша идёт её хэш; ответ ложится файлом, и
+перепроверка той же картинки тем же вопросом берётся из кэша.
 """
 
 import asyncio
@@ -39,6 +41,7 @@ from app.providers.base import (
     Result,
     Route,
     RouteError,
+    VisionRequest,
     image_mime,
 )
 from app.providers.elevenlabs import ElevenLabsProvider
@@ -84,6 +87,8 @@ def input_hash(route: Route, request: AnyRequest) -> str:
     dumped = request.model_dump(mode="json")
     if isinstance(request, ImageRequest):
         dumped["refs"] = [ref.sha256 for ref in request.refs]
+    if isinstance(request, VisionRequest):
+        dumped["image"] = request.image.sha256
     payload = {
         "provider": route.provider,
         "model": route.model,
@@ -100,6 +105,9 @@ class Gateway:
         self.pricing = pricing
         self.paths = paths
         self._key_statuses: tuple[float, list[KeyStatus]] | None = None
+        # sha256 референсов по (путь, inode, размер, mtime): смета плана собирает запрос каждого
+        # кадра (M6.11), а фасы облика — одни и те же файлы. Файлы канона не переписываются.
+        self._ref_digests: dict[tuple[Path, int, int, int], str] = {}
 
     # --- без сети -----------------------------------------------------------------------------
 
@@ -165,7 +173,9 @@ class Gateway:
         try:
             channel = self._call_channel(conn, ctx.episode_id, ctx.channel)
             asset_dir = self._asset_dir(channel, ctx, route)
-            entry = LedgerContext(channel, ctx.episode_id, ctx.stage, ctx.job_id, digest)
+            # Кадр — только у вызова выпуска: у листов портретов `shot_id` — имя файла кандидата.
+            shot = ctx.shot_id if ctx.episode_id is not None else None
+            entry = LedgerContext(channel, ctx.episode_id, ctx.stage, ctx.job_id, digest, shot)
             cached = self._cached_asset(conn, route.stage, digest)
             if cached is not None:
                 with conn:
@@ -173,7 +183,7 @@ class Gateway:
                 log.info("%s/%s: cache hit %s", route.stage, route.key, digest[:12])
                 return CallOutcome(route, estimate, "cached", digest, cached, None)
 
-            refs = self._load_refs(channel, request)
+            refs = self._load_refs(channel, ctx, request)
             call_id = ledger.new_call_id()
             self._reserve(conn, entry, estimate, call_id)
             provider = self.registry.provider(route.provider)
@@ -201,7 +211,12 @@ class Gateway:
             raise RouteError(f"Референс {path} лежит вне каталога данных.") from None
         if not path.is_file():
             raise RouteError(f"Референс {relative.as_posix()} не найден.")
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        stat = path.stat()
+        key = (path.resolve(), stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        digest = self._ref_digests.get(key)
+        if digest is None:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            self._ref_digests[key] = digest
         return ImageRef(path=relative.as_posix(), sha256=digest)
 
     async def check_keys(self, *, max_age_s: float = 0) -> list[KeyStatus]:
@@ -238,9 +253,21 @@ class Gateway:
         provider = self.registry.provider(route.provider)
         return self.pricing.cost(route, provider.usage(route, request))
 
-    def _load_refs(self, channel: str, request: AnyRequest) -> list[RefImage]:
-        """Байты референсов для провайдера. Только файлы канона канала (принципы 9, 13); файл
-        должен быть на месте и совпадать с хэшем запроса — иначе кэш соврал бы (принцип 8)."""
+    def _load_refs(self, channel: str, ctx: CallContext, request: AnyRequest) -> list[RefImage]:
+        """Байты картинок для провайдера. Референсы кадра — только файлы канона канала (принципы
+        9, 13); картинка вопроса `vision` — только файл своего выпуска. Файл должен быть на месте
+        и совпадать с хэшем запроса — иначе кэш соврал бы (принцип 8)."""
+        if isinstance(request, VisionRequest):
+            if ctx.episode_id is None:
+                raise RouteError("Вопрос о картинке задаётся только в выпуске: назовите выпуск.")
+            episode = self.paths.episode_dir(channel, ctx.episode_id).resolve()
+            ref = request.image
+            if not (self.paths.root / ref.path).resolve().is_relative_to(episode):
+                raise RouteError(
+                    f"Картинка {ref.path} — не из выпуска {ctx.episode_id}: спрашивать можно только"
+                    " о картинках своего выпуска."
+                )
+            return [self._read_ref(ref, "Картинка", "не найдена", "изменилась")]
         if not isinstance(request, ImageRequest):
             return []
         canon = self.paths.canon_dir(channel).resolve()
@@ -252,18 +279,22 @@ class Gateway:
                     f"Референс {ref.path} — не из канона канала {channel}: референсами служат"
                     " только опорные портреты и кадры стиля (принцип 13)."
                 )
-            if not path.is_file():
-                raise RouteError(f"Референс {ref.path} не найден — пересоберите запрос.")
-            data = path.read_bytes()
-            if hashlib.sha256(data).hexdigest() != ref.sha256:
-                raise RouteError(
-                    f"Референс {ref.path} изменился после расчёта хэша — пересоберите запрос."
-                )
-            mime_type = image_mime(data)
-            if mime_type is None:
-                raise RouteError(f"Референс {ref.path} — не PNG, JPEG или WEBP.")
-            loaded.append(RefImage(data=data, mime_type=mime_type))
+            loaded.append(self._read_ref(ref, "Референс", "не найден", "изменился"))
         return loaded
+
+    def _read_ref(self, ref: ImageRef, what: str, missing: str, changed: str) -> RefImage:
+        path = (self.paths.root / ref.path).resolve()
+        if not path.is_file():
+            raise RouteError(f"{what} {ref.path} {missing} — пересоберите запрос.")
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != ref.sha256:
+            raise RouteError(
+                f"{what} {ref.path} {changed} после расчёта хэша — пересоберите запрос."
+            )
+        mime_type = image_mime(data)
+        if mime_type is None:
+            raise RouteError(f"{what} {ref.path} — не PNG, JPEG или WEBP.")
+        return RefImage(data=data, mime_type=mime_type)
 
     def _asset_dir(self, channel: str, ctx: CallContext, route: Route) -> Path:
         """Каталог файла результата: внутри выпуска или, без выпуска, внутри канона канала."""

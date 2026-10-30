@@ -46,7 +46,7 @@ from app.api.episodes import (
     mark_plan_approved,
     require_episode,
 )
-from app.api.references import reference_text, structure_for
+from app.api.references import episode_reference, structure_for
 from app.cost.budget import (
     ANIMATION_STAGE,
     BudgetLevel,
@@ -59,7 +59,7 @@ from app.models.channel import ChannelProfile
 from app.models.director import Director, StrictModel
 from app.models.formats import FormatPreset, FormatsConfig
 from app.models.project import Project
-from app.models.reference import ReferenceConfig, SimilarityReport
+from app.models.reference import SimilarityReport
 from app.models.validators import DirectorValidationError, ValidationItem, validate_director
 from app.pipeline.bridge import (
     BridgeAnswerError,
@@ -84,13 +84,13 @@ from app.pipeline.canon.episode_canon import (
 )
 from app.pipeline.director_import import EffectivePlan, ImportResult, effective_plan
 from app.pipeline.director_import.merge import director_to_json
+from app.pipeline.images.current import CurrentRequests, drawn_shots
 from app.pipeline.images.prompt_builder import ShotPrompt, build_shot_request
-from app.pipeline.research.similarity import similarity
 from app.pipeline.script.approve import (
     ApprovalSubject,
-    ReferenceText,
     approval_problems,
     refusal,
+    vo_similarity,
 )
 from app.pipeline.script.estimate import PlanEstimate, plan_estimate
 from app.pipeline.script.plan_bridge import (
@@ -111,7 +111,7 @@ from app.pipeline.script.plan_bridge import (
     prepare_part,
     voice_for,
 )
-from app.storage.atomic import read_json, write_json_atomic
+from app.storage.atomic import read_json, update_lock, write_json_atomic
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
@@ -423,8 +423,10 @@ async def get_estimate(
     gateway: GatewayDep,
     formats: FormatsDep,
     plan_source: PlanSourceDep,
+    config: CanonConfigDep,
 ) -> PlanEstimate:
-    """Смета действующего плана и остаток бюджетов канала после выпуска. Без плана — 409."""
+    """Смета действующего плана и остаток бюджетов канала после выпуска. Без плана — 409.
+    Кадры с годной картинкой (M6.11) не считаются — строка «Уже нарисовано»."""
     episode = require_episode(db, episode_id)
     project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
     director = read_version(paths, episode, project.director_version)
@@ -440,6 +442,9 @@ async def get_estimate(
         "episode": committed_episode(db, episode.id),
         "animation": committed_episode(db, episode.id, ANIMATION_STAGE),
     }
+    requests = CurrentRequests(
+        paths, gateway, config, channel=episode.channel, project=project, director=director
+    )
     return plan_estimate(
         effective_plan(director, project),
         gateway,
@@ -447,18 +452,8 @@ async def get_estimate(
         load_budgets(paths, episode.channel),
         committed,
         formats.estimate,
+        drawn=drawn_shots(requests, project),
     )
-
-
-def _reference_check(
-    db: sqlite3.Connection, project: Project, config: ReferenceConfig
-) -> ReferenceText | None:
-    """Текст референса выпуска и правило сходства; выпуск не по референсу — None."""
-    reference_id = project.brief.reference_id if project.brief else None
-    text = None if reference_id is None else reference_text(db, reference_id)
-    if text is None:
-        return None
-    return ReferenceText(text=text, ngram=config.ngram, threshold=config.max_similarity)
 
 
 @router.get("/projects/{episode_id}/similarity")
@@ -469,7 +464,7 @@ async def get_similarity(
     референсу — `similarity: null` с причиной."""
     episode = require_episode(db, episode_id)
     project = Project.model_validate(read_json(paths.project_path(episode.channel, episode.id)))
-    reference = _reference_check(db, project, config)
+    reference = episode_reference(db, project, config)
     if reference is None:
         return SimilarityReport(
             similarity=None, reason="Выпуск не по референсу — сравнивать не с чем."
@@ -477,9 +472,7 @@ async def get_similarity(
     director = read_version(paths, episode, project.director_version)
     if director is None:
         return SimilarityReport(similarity=None, reason="Плана ещё нет — сравнивать нечего.")
-    plan = effective_plan(director, project)
-    vo = [shot.vo for shot in plan.shots if shot.status != "removed"]
-    found = similarity(vo, reference.text, reference.ngram, reference.threshold)
+    found = vo_similarity(effective_plan(director, project), reference)
     return SimilarityReport(similarity=found, reason=None)
 
 
@@ -582,31 +575,36 @@ async def approve_plan(
     """
     episode = require_episode(db, episode_id)
     path = paths.project_path(episode.channel, episode.id)
-    project = Project.model_validate(read_json(path))
-    director = read_version(paths, episode, project.director_version)
-    staged = [] if director is not None else staged_parts(paths, episode)
-    canon = None
-    if director is not None and project.director_version is not None:
-        canon = load_episode_canon(paths, episode.channel, director, project.director_version)
-    subject = ApprovalSubject(
-        stage=episode.stage,
-        plan=None if director is None else effective_plan(director, project),
-        staged_parts=[part.meta.part for part in staged],
-        parts_total=staged[0].meta.parts_total if staged else 0,
-        reference=_reference_check(db, project, config),
-        canon=canon,
-    )
-    problems = approval_problems(subject)
-    if problems:
-        raise HTTPException(status_code=409, detail=refusal(problems).model_dump(mode="json"))
-    if project.approved_version == project.director_version and episode.stage == "generate":
-        return episode_item(db, paths, episode.id)
+    with update_lock(path):  # джоб кадра пишет project.json из потока (L-049)
+        project = Project.model_validate(read_json(path))
+        director = read_version(paths, episode, project.director_version)
+        staged = [] if director is not None else staged_parts(paths, episode)
+        canon = None
+        if director is not None and project.director_version is not None:
+            canon = load_episode_canon(paths, episode.channel, director, project.director_version)
+        subject = ApprovalSubject(
+            stage=episode.stage,
+            plan=None if director is None else effective_plan(director, project),
+            staged_parts=[part.meta.part for part in staged],
+            parts_total=staged[0].meta.parts_total if staged else 0,
+            reference=episode_reference(db, project, config),
+            canon=canon,
+        )
+        problems = approval_problems(subject)
+        if problems:
+            raise HTTPException(status_code=409, detail=refusal(problems).model_dump(mode="json"))
+        if project.approved_version == project.director_version and episode.stage == "generate":
+            return episode_item(db, paths, episode.id)
 
-    now = now_iso()
-    approved = project.model_copy(
-        update={"approved_version": project.director_version, "approved_at": now, "updated_at": now}
-    )
-    write_json_atomic(path, approved.model_dump(mode="json"))
+        now = now_iso()
+        approved = project.model_copy(
+            update={
+                "approved_version": project.director_version,
+                "approved_at": now,
+                "updated_at": now,
+            }
+        )
+        write_json_atomic(path, approved.model_dump(mode="json"))
     mark_plan_approved(db, episode.id)
     return episode_item(db, paths, episode.id)
 

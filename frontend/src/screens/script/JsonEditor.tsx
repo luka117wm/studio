@@ -2,9 +2,12 @@
    строк и подсветкой, строки с ошибками — фоном failed, справа — панель проверки со ссылками на строку, внизу —
    «Сохранить как версию». Синтаксис ловится здесь, без запроса; остальное проверяет бэкенд (`director/validate`)
    через 800 мс после ввода. Подсветка — слой `pre` под прозрачной `textarea`: каретка, выделение и прокрутка
-   нативные, слой и номера строк двигаются вслед за прокруткой. Несохранённый текст живёт в памяти по выпуску до
-   сохранения или явного «Уйти без сохранения»: переход на другой экран его не теряет. */
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+   нативные, слой и номера строк двигаются вслед за прокруткой. Слой и номера рисуют только окно видимых строк с
+   запасом (M6.11): на плане 100+ кадров (~4 500 строк) ввод не согласует тысячи элементов, а окно сдвигается
+   шагами — прокрутка внутри шага ничего не перерисовывает. Ошибки и переход к строке — по всему тексту.
+   Несохранённый текст живёт в памяти по выпуску до сохранения или явного «Уйти без сохранения»: переход на другой
+   экран его не теряет. */
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectivePlan, ValidationItem } from '@/types/plan'
 import { DEBOUNCE_MS } from '../../app/autosave'
 import { PanelHeader } from '../../app/PanelHeader'
@@ -19,6 +22,14 @@ import { pendingPartsNote } from './planParts'
 
 /** Высота строки кода, px: `leading-5` у слоя, номеров и `textarea` */
 const LINE_PX = 20
+/** Отступ текста сверху, px: `py-3` у слоя, номеров и `textarea` */
+const PAD_PX = 12
+/** Строк сверх видимых сверху и снизу: быстрая прокрутка не показывает пустоты до перерисовки */
+const OVERSCAN = 40
+/** Окно сдвигается шагами по столько строк: прокрутка внутри шага не перерисовывает слой */
+const STEP = 20
+/** Видимых строк, когда раскладки нет (jsdom, первый кадр) */
+const FALLBACK_ROWS = 40
 const NO_ITEMS: ValidationItem[] = []
 const ERRORS = ['ошибка', 'ошибки', 'ошибок'] as const
 
@@ -30,6 +41,21 @@ const TOKEN_CLASS: Record<TokenKind, string> = {
   punct: 'text-disabled',
   space: '',
   error: 'text-failed-text',
+}
+
+/** Строки, которые рисуют слой и номера, `[first, last)`: видимые плюс запас, границы — кратны шагу */
+interface LineWindow {
+  first: number
+  last: number
+}
+
+function lineWindow(scrollTop: number, height: number): LineWindow {
+  const rows = height > 0 ? Math.ceil(height / LINE_PX) : FALLBACK_ROWS
+  const top = Math.floor(Math.max(0, scrollTop - PAD_PX) / LINE_PX)
+  return {
+    first: Math.max(0, Math.floor((top - OVERSCAN) / STEP) * STEP),
+    last: Math.ceil((top + rows + OVERSCAN) / STEP) * STEP,
+  }
 }
 
 // --- редактор ---------------------------------------------------------------------------------
@@ -127,6 +153,8 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
       const { line, column, message, detail } = parsed.problem
       return [{ key: 'syntax', line, column, where: `строка ${line}:${column}`, text: message, detail }]
     }
+    // Разбор адресов идёт по всему тексту — только когда есть что искать, не на каждый символ
+    if (!items.length) return []
     const where = locate(text)
     return items.map((item, i) => {
       const line = item.shot_id ? shotLine(where, item.shot_id, item.path) : pathLine(where, item.path)
@@ -157,11 +185,15 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
   const area = useRef<HTMLTextAreaElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   const gutter = useRef<HTMLDivElement>(null)
+  const [view, setView] = useState<LineWindow>(() => lineWindow(0, 0))
   const sync = () => {
     const el = area.current
     if (!el) return
     if (layer.current) layer.current.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`
     if (gutter.current) gutter.current.style.transform = `translateY(${-el.scrollTop}px)`
+    const next = lineWindow(el.scrollTop, el.clientHeight)
+    // Тот же шаг — тот же объект: React не перерисовывает
+    setView((prev) => (prev.first === next.first && prev.last === next.last ? prev : next))
   }
   const goTo = (line: number, column: number) => {
     const el = area.current
@@ -202,6 +234,11 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
   }
 
   const lines = useMemo(() => text.split('\n'), [text])
+  // Высота области известна после раскладки; текст стал короче — прокрутка уже прижата, окно — вслед
+  useLayoutEffect(sync, [lines.length])
+  const last = Math.min(view.last, lines.length)
+  const first = Math.min(view.first, last)
+  const shown = lines.slice(first, last)
   const note = !parsed.ok
     ? 'ошибка синтаксиса'
     : failure
@@ -217,21 +254,26 @@ function Editor({ episodeId, plan, base, onSaved }: JsonEditorProps & { base: st
       <div className="flex min-h-0 min-w-0 flex-1 bg-app">
         <div aria-hidden className="w-11 shrink-0 overflow-hidden">
           <div ref={gutter} data-line-numbers className="py-3 font-script text-12 leading-5">
-            {lines.map((_, i) => (
-              <div
-                key={i}
-                data-failed={errorLines.has(i + 1) || undefined}
-                className={cn('h-5 pr-2.5 text-right', errorLines.has(i + 1) ? 'bg-surface-failed text-failed-text' : 'text-queued-text')}
-              >
-                {i + 1}
-              </div>
-            ))}
+            <div style={{ height: first * LINE_PX }} />
+            {shown.map((_, k) => {
+              const i = first + k
+              return (
+                <div
+                  key={i}
+                  data-failed={errorLines.has(i + 1) || undefined}
+                  className={cn('h-5 pr-2.5 text-right', errorLines.has(i + 1) ? 'bg-surface-failed text-failed-text' : 'text-queued-text')}
+                >
+                  {i + 1}
+                </div>
+              )
+            })}
           </div>
         </div>
         <div className="relative min-w-0 flex-1 overflow-hidden">
           <div ref={layer} aria-hidden className="pointer-events-none absolute top-0 left-0 min-w-full py-3 font-script text-12 leading-5">
-            {lines.map((line, i) => (
-              <CodeLine key={i} text={line} failed={errorLines.has(i + 1)} />
+            <div style={{ height: first * LINE_PX }} />
+            {shown.map((line, k) => (
+              <CodeLine key={first + k} text={line} failed={errorLines.has(first + k + 1)} />
             ))}
           </div>
           <textarea

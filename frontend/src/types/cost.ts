@@ -1,7 +1,7 @@
 /*
  * Сгенерировано `pnpm -C frontend typegen` из docs/schema/cost.schema.json (Pydantic-модели бэкенда).
  * Не править руками: меняется модель, затем команда выше.
- * @generated sha256:703dbbc6ba62d459aaea1955e38ec4a38cc473bdaf2ceb6322536aa92217f7bd
+ * @generated sha256:39a7c253987aa1d9c95ccf5996d318ec3af16a54bfd2e72c9b29f1eaea7c5709
  */
 /**
  * Тело 409 при превышении бюджета (`detail`): текст для пользователя и числа для интерфейса.
@@ -74,6 +74,7 @@ export interface LedgerRow {
   status: 'estimated' | 'charged' | 'cached' | 'refused' | 'failed'
   call_id: string | null
   input_hash: string | null
+  shot_id?: string | null
 }
 
 /**

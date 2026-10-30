@@ -29,6 +29,7 @@ import { BriefForm } from './BriefForm'
 import { CanonPanel } from './CanonPanel'
 import { canonNote } from './canonLinks'
 import { EstimatePanel } from './EstimatePanel'
+import { ImportReport } from './ImportReport'
 import { FactCheck } from './FactCheck'
 import { JsonEditor } from './JsonEditor'
 import { discardJsonDraft, hasJsonDraft } from './jsonDrafts'
@@ -151,6 +152,7 @@ function ScriptWorkspace({ episode }: { episode: EpisodeListItem }) {
                   approved={plan.data.approved_version === plan.data.version}
                 />
               )}
+              {plan.data && <ImportReport episodeId={episode.id} onShot={goToShot} />}
               {plan.data && <EstimatePanel episodeId={episode.id} planStamp={plan.dataUpdatedAt} />}
               {project.data?.brief?.reference_id && (
                 <SimilarityPanel episodeId={episode.id} planStamp={plan.data ? plan.dataUpdatedAt : 0} />

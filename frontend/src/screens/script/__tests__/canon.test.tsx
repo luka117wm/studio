@@ -115,7 +115,8 @@ describe('перевести на новые версии', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Перевести на новые версии' }))
     dialog = await screen.findByRole('dialog', { name: 'Перевести на новые версии' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Перевести' }))
-    await waitFor(() => expect(useUiStore.getState().toasts.map((t) => t.message)).toContain('План v004 на новых версиях канона: 6 кадров stale'))
+    // Из шести кадров эпохи s004 и s005 в очереди без картинки — устаревать нечему (M6.1), как у бэкенда
+    await waitFor(() => expect(useUiStore.getState().toasts.map((t) => t.message)).toContain('План v004 на новых версиях канона: 4 кадра stale'))
     expect(requests(stub.fetch, 'POST', '/api/projects/pirate/canon/update')).toHaveLength(1)
     expect(screen.queryByRole('dialog')).toBeNull()
 

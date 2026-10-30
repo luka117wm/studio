@@ -7,6 +7,7 @@
 3 попытки очереди × 3 попытки SDK (`docs/jobs.md`, «Ретраи»).
 """
 
+import json
 import math
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
@@ -18,7 +19,7 @@ from app.jobs.worker import TransientError
 from app.models.director import StrictModel
 
 Unit = Literal["image", "char", "second", "token_in", "token_out", "search"]
-RequestKind = Literal["text", "image", "speech", "video"]
+RequestKind = Literal["text", "image", "speech", "video", "vision"]
 
 # Какие единицы обязательно тратит запрос каждого вида (цена на них проверяется при старте).
 # `search` у текста — только когда запрос разрешает поиск и у модели есть цена поиска.
@@ -27,6 +28,7 @@ UNITS_BY_KIND: dict[RequestKind, tuple[Unit, ...]] = {
     "image": ("image",),
     "speech": ("char",),
     "video": ("second",),
+    "vision": ("token_in", "token_out"),
 }
 # Параметр маршрута, который выбирает вариант цены, если цена единицы задана вариантами.
 VARIANT_PARAM: dict[Unit, str] = {"image": "size", "second": "resolution"}
@@ -38,6 +40,9 @@ SHA256_PATTERN = r"^[0-9a-f]{64}$"
 # Оценка токенов без сети: ≈ 4 символа английского текста на токен, новый токенизатор Claude
 # даёт на ~30 % больше токенов — отсюда 3. Выход — по `max_output_tokens`, верхняя граница.
 CHARS_PER_TOKEN = 3
+# Картинка в запросе `vision`, если провайдер не назвал своё число: оценка сверху (у Gemini 3 —
+# 1120 токенов при разрешении по умолчанию).
+VISION_IMAGE_TOKENS = 1120
 
 
 class ConfigError(Exception):
@@ -93,7 +98,19 @@ class VideoRequest(StrictModel):
     seconds: float = Field(gt=0)
 
 
-AnyRequest = TextRequest | ImageRequest | SpeechRequest | VideoRequest
+class VisionRequest(StrictModel):
+    """Вопрос к модели о картинке (M6.6: проверка анахронизмов): текст, одна картинка и JSON
+    Schema ответа. Картинка — файл версии кадра в своём выпуске (`ImageRef`; в хэш входов идёт
+    только sha256), ответ — строго JSON по схеме."""
+
+    kind: Literal["vision"] = "vision"
+    prompt: str = Field(min_length=1)
+    image: ImageRef
+    response_schema: dict[str, Any] = Field(default_factory=dict)
+    max_output_tokens: int = Field(gt=0)
+
+
+AnyRequest = TextRequest | ImageRequest | SpeechRequest | VideoRequest | VisionRequest
 ProviderRequest = Annotated[AnyRequest, Field(discriminator="kind")]
 
 
@@ -182,7 +199,18 @@ def request_usage(request: AnyRequest) -> list[Usage]:
         return [Usage(unit="image", quantity=1)]
     if isinstance(request, SpeechRequest):
         return [Usage(unit="char", quantity=len(request.text))]
+    if isinstance(request, VisionRequest):
+        return vision_usage(request, VISION_IMAGE_TOKENS)
     return [Usage(unit="second", quantity=request.seconds)]
+
+
+def vision_usage(request: "VisionRequest", image_tokens: int) -> list[Usage]:
+    """Оценка `vision`: текст, схема ответа и картинка на входе, `max_output_tokens` на выходе."""
+    text = request.prompt + json.dumps(request.response_schema, sort_keys=True)
+    return [
+        Usage(unit="token_in", quantity=estimate_tokens(text) + image_tokens),
+        Usage(unit="token_out", quantity=request.max_output_tokens),
+    ]
 
 
 # --- проверка ключа ----------------------------------------------------------------------------

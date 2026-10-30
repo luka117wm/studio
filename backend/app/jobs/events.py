@@ -21,7 +21,15 @@ from typing import Any, Literal
 from app.storage.db import connect, now_iso
 
 EventType = Literal[
-    "job.queued", "job.started", "job.progress", "job.done", "job.failed", "job.cancelled"
+    "job.queued",
+    "job.started",
+    "job.progress",
+    "job.done",
+    "job.failed",
+    "job.cancelled",
+    # Сводка пачки (M6.3) после перехода её джоба, паузы или отмены; `job_id` строки — джоб,
+    # чей переход её изменил, у паузы и отмены — первый джоб пачки.
+    "batch.updated",
 ]
 
 EVENT_RETENTION = timedelta(hours=24)

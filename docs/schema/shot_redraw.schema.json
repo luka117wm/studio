@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/shot_redraw",
+  "title": "shot_redraw",
+  "description": "Модели API Studio, группа «shot_redraw». Сгенерировано из Pydantic.",
+  "$defs": {
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "RedrawEstimate": {
+      "description": "Цена перерисовки до клика: «Перерисовать (~$0.07)», «Добавить версию (~$0.07)».",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "variant": {
+          "title": "Variant",
+          "type": "integer"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "shot_id",
+        "variant",
+        "model",
+        "model_id",
+        "usd"
+      ],
+      "title": "RedrawEstimate",
+      "type": "object"
+    }
+  }
+}

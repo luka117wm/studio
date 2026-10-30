@@ -11,9 +11,13 @@
 одинаково.
 
 Сборка детерминирована: те же входы — побайтово тот же промпт и тот же хэш входов шлюза (ключ кэша
-кадра в M6). Что мешает рисовать, — `problems` по-русски с id кадра, а не исключение: предпросмотр
-показывает их списком. У проблемы канона — адресат `canon` (сущность и вид, как у отказа «Утвердить
-план»): по нему экран ведёт на экран 12, не разбирая текст.
+кадра в M6). Вариант 1 — запрос предпросмотра; вариант N ≥ 2 (перерисовка, M6.2) меняет только
+seed. Модель — ключ каталога `images` или маршрут профиля по умолчанию: от неё зависят хэш, лимит
+референсов и цена.
+
+Что мешает рисовать, — `problems` по-русски с id кадра, а не исключение: предпросмотр показывает
+их списком. У проблемы канона — адресат `canon` (сущность и вид, как у отказа «Утвердить план»):
+по нему экран ведёт на экран 12, не разбирая текст.
 """
 
 from dataclasses import dataclass
@@ -36,7 +40,7 @@ from app.pipeline.canon.episode_canon import (
     ref_tag,
 )
 from app.pipeline.director_import.effective import PlanShot
-from app.providers.base import AspectRatio, Cost, ImageRef, ImageRequest
+from app.providers.base import AspectRatio, Cost, ImageRef, ImageRequest, Route
 from app.providers.gateway import Gateway, input_hash
 from app.storage import canon_store
 from app.storage.canon_store import CHARACTERS, PERIODS, STYLE, CanonNotFound, CanonRefError
@@ -99,7 +103,7 @@ class ShotPrompt(BaseModel):
     dropped: list[DroppedRef]
     seed: int
     aspect_ratio: AspectRatio
-    model: str  # маршрут этапа `images` профиля по умолчанию
+    model: str  # ID модели маршрута `images`: выбранной или профиля по умолчанию
     cost: Cost
     usd: Money  # цена одного кадра, до десятых цента: «$0.067»
     input_hash: str | None  # ключ кэша кадра (M6); null — есть проблемы, рисовать нельзя
@@ -111,6 +115,7 @@ class ShotPrompt(BaseModel):
 class BuiltShot:
     prompt: ShotPrompt
     request: ImageRequest | None  # None — есть проблемы
+    route: Route  # маршрут этапа `images`: выбранная модель или профиль по умолчанию
 
 
 @dataclass(frozen=True)
@@ -379,11 +384,18 @@ def build_shot_request(
     channel: str,
     canon_ref: CanonRef,
     shot: Shot,
+    variant: int = 1,
+    model: str | None = None,
 ) -> BuiltShot:
     """Запрос картинки кадра `shot` действующего плана выпуска `episode_id` по канону `canon_ref`:
-    секции с источниками, итоговый `ImageRequest` и хэш входов шлюза по маршруту `images`."""
+    секции с источниками, итоговый `ImageRequest` и хэш входов шлюза по маршруту `images`.
+
+    `variant` — номер варианта (1 — как в предпросмотре), `model` — ключ каталога `images` или ID
+    модели из него; не из каталога — `RouteError`."""
+    if variant < 1:
+        raise ValueError(f"variant must be >= 1, got {variant}")
     b = _Builder(paths, gateway, config, channel, canon_ref, shot)
-    route = gateway.resolve(IMAGES_STAGE)
+    route = gateway.resolve(IMAGES_STAGE, override=model)
     style = b.style()
     period_ref = b.period_ref()
     period = b.period(period_ref)
@@ -465,9 +477,13 @@ def build_shot_request(
     if period_ref is not None:
         canon["period"] = period_ref
     canon.update({f"appearance:{p.appearance_id}": p.ref for p in people})
-    seed = anchors.seed_of(episode_id, shot.id, *canon.values(), action)
+    # Вариант 1 — seed предпросмотра M5.5; следующие отличаются только номером.
+    extra = (str(variant),) if variant > 1 else ()
+    seed = anchors.seed_of(episode_id, shot.id, *canon.values(), action, *extra)
     aspect = config.shots.aspect_ratio
-    cost = gateway.estimate(IMAGES_STAGE, ImageRequest(prompt=text, aspect_ratio=aspect))
+    cost = gateway.estimate(
+        IMAGES_STAGE, ImageRequest(prompt=text, aspect_ratio=aspect), override=route.key
+    )
 
     request: ImageRequest | None = None
     digest: str | None = None
@@ -497,4 +513,4 @@ def build_shot_request(
         problems=b.problems,
         warnings=b.warnings,
     )
-    return BuiltShot(prompt, request)
+    return BuiltShot(prompt, request, route)

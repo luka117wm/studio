@@ -9,28 +9,12 @@ import { useUiStore } from '../../store/uiStore'
 import { Button, Dialog, Skeleton, StatusGlyph, cn, type Status } from '../../ui'
 import { plural } from '../episodes/board'
 import { CanonLink } from './CanonLink'
-import { canonHref, canonIssues } from './canonLinks'
+import { SHEET_STATUS, canonHref, canonIssues, refState, sheetLabel } from './canonLinks'
 import { pendingPartsNote } from './planParts'
 
 type CanonKind = 'style' | 'period' | 'appearance'
 
 const SHOTS = ['кадр', 'кадра', 'кадров'] as const
-
-/** Статус ссылки плана: прибита последняя версия, есть новее, версия не находится, только черновик, нет версии */
-function refState(item: EpisodeCanonItem): { status: Status; label: string } {
-  if (item.status === 'ready') return { status: 'ready', label: 'готов' }
-  if (item.status === 'draft_only') return { status: 'warning', label: 'только черновик' }
-  if (item.status === 'missing') return { status: 'failed', label: 'нет версии' }
-  return item.resolved ? { status: 'warning', label: `есть ${item.latest}` } : { status: 'failed', label: `не находится, есть ${item.latest}` }
-}
-
-const SHEET: Record<AnchorSheet['status'], Status> = { ready: 'ready', partial: 'warning', outdated: 'warning', missing: 'failed' }
-
-function sheetLabel(sheet: AnchorSheet): string {
-  if (sheet.status === 'missing') return 'листа нет'
-  if (sheet.status === 'outdated') return 'лист устарел'
-  return `лист ${sheet.chosen}/${sheet.total}`
-}
 
 const WORST: Status[] = ['failed', 'warning', 'ready']
 const worst = (...statuses: Status[]) => WORST.find((s) => statuses.includes(s)) ?? 'ready'
@@ -96,7 +80,7 @@ export function CanonPanel({ episodeId, canon, error, approved }: CanonPanelProp
 /** Строка сущности: ссылка, прибитая версия, статус; у облика с найденной версией — ещё лист, ссылкой на лист */
 function CanonRow({ kind, item, title, sheet }: { kind: CanonKind; item: EpisodeCanonItem; title: string; sheet?: AnchorSheet | null }) {
   const state = refState(item)
-  const glyph = sheet ? worst(state.status, SHEET[sheet.status]) : state.status
+  const glyph = sheet ? worst(state.status, SHEET_STATUS[sheet.status]) : state.status
   return (
     <li className="flex min-w-0 items-center gap-2 text-12 leading-4">
       <StatusGlyph status={glyph} label={sheet ? `${state.label}, ${sheetLabel(sheet)}` : state.label} className="shrink-0" />
@@ -106,7 +90,7 @@ function CanonRow({ kind, item, title, sheet }: { kind: CanonKind; item: Episode
       <span className="shrink-0 font-dense text-muted">{item.pinned ?? '—'}</span>
       {(item.status !== 'ready' || !sheet) && <span className={cn('shrink-0', TEXT[state.status])}>{state.label}</span>}
       {sheet && (
-        <CanonLink href={canonHref(kind, item.id, true)} className={cn('shrink-0', TEXT[SHEET[sheet.status]])}>
+        <CanonLink href={canonHref(kind, item.id, true)} className={cn('shrink-0', TEXT[SHEET_STATUS[sheet.status]])}>
           {sheetLabel(sheet)}
         </CanonLink>
       )}

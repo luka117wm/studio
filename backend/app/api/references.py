@@ -19,7 +19,7 @@ from app.api.deps import DbDep, FormatsDep, PathsDep, PromptsDep, ReferenceConfi
 from app.api.episodes import EpisodeCreate, EpisodeListItem, episode_item, insert_episode
 from app.models.director import Channel, StrictModel
 from app.models.formats import FormatsConfig
-from app.models.project import EpisodeBrief
+from app.models.project import EpisodeBrief, Project
 from app.models.reference import ReferenceAnalysis, ReferenceConfig, ReferenceMode, ReferenceVideo
 from app.pipeline.bridge import (
     BridgeAnswerError,
@@ -42,6 +42,7 @@ from app.pipeline.research.reference import (
     review_analysis,
 )
 from app.pipeline.research.subtitles import SubtitlesError, parse_subtitles
+from app.pipeline.script.approve import ReferenceText
 from app.storage.db import now_iso
 from app.storage.paths import StudioPaths
 
@@ -122,6 +123,17 @@ def to_video(row: sqlite3.Row, norm_wpm: int) -> ReferenceVideo:
         created_at=row["created_at"],
         analyzed_at=row["analyzed_at"],
     )
+
+
+def episode_reference(
+    db: sqlite3.Connection, project: Project, config: ReferenceConfig
+) -> ReferenceText | None:
+    """Текст референса выпуска и правило сходства (принцип 11); выпуск не по референсу — None."""
+    reference_id = project.brief.reference_id if project.brief else None
+    text = None if reference_id is None else reference_text(db, reference_id)
+    if text is None:
+        return None
+    return ReferenceText(text=text, ngram=config.ngram, threshold=config.max_similarity)
 
 
 def reference_text(db: sqlite3.Connection, reference_id: str) -> str | None:

@@ -692,7 +692,8 @@ def test_thumbnail_is_webp_of_the_asked_width_and_made_once(env: Env) -> None:
     env.post(f"{SHEET_URL}/front/reject", {"candidate": first["id"]}, 200)
     assert env.client.get(url, params={"w": 160}).status_code == 200
 
-    # Байты фейкового провайдера — не картинка: отказ одной фразой.
+    # Битый файл (сигнатура PNG, дальше мусор) — не картинка: отказ одной фразой.
+    (env.sheet_dir / second["file"]).write_bytes(b"\x89PNG\r\n\x1a\n" + b"broken")
     broken = env.client.get(f"{BASE}/anchors/{LOOK}/{second['id']}/thumb")
     assert broken.status_code == 409
     assert broken.json()["detail"] == (

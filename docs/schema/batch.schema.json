@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "studio.api/batch",
+  "title": "batch",
+  "description": "Модели API Studio, группа «batch». Сгенерировано из Pydantic.",
+  "$defs": {
+    "BatchEstimate": {
+      "description": "Смета пачки до клика: «Сгенерировать N кадров (~$X)» — `GET …/generate/estimate`.",
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "unit": {
+          "$ref": "#/$defs/Money"
+        },
+        "total": {
+          "$ref": "#/$defs/Money"
+        },
+        "shots": {
+          "items": {
+            "$ref": "#/$defs/EstimateShot"
+          },
+          "title": "Shots",
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedShot"
+          },
+          "title": "Skipped",
+          "type": "array"
+        }
+      },
+      "required": [
+        "model",
+        "model_id",
+        "count",
+        "unit",
+        "total",
+        "shots",
+        "skipped"
+      ],
+      "title": "BatchEstimate",
+      "type": "object"
+    },
+    "BatchRefusal": {
+      "description": "Тело 409 «пачка не поставлена» (кроме бюджета — у него `BudgetRefusal`).",
+      "properties": {
+        "code": {
+          "enum": [
+            "plan_not_approved",
+            "nothing_to_draw",
+            "shots_busy"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "skipped": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SkippedShot"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "shots": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Shots",
+          "type": "array"
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Batch Id"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "skipped",
+        "shots",
+        "batch_id"
+      ],
+      "title": "BatchRefusal",
+      "type": "object"
+    },
+    "BatchResult": {
+      "description": "Ответ постановки: сводка новой пачки, пропущенные кадры и предупреждения.",
+      "properties": {
+        "batch": {
+          "$ref": "#/$defs/BatchSummary"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/$defs/SkippedShot"
+          },
+          "title": "Skipped",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "batch",
+        "skipped",
+        "warnings"
+      ],
+      "title": "BatchResult",
+      "type": "object"
+    },
+    "BatchSummary": {
+      "description": "Сводка пачки (M6.3): `GET /api/batches/{id}` и `data` события `batch.updated`.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "episode_id": {
+          "title": "Episode Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "paused": {
+          "title": "Paused",
+          "type": "boolean"
+        },
+        "cancelled": {
+          "title": "Cancelled",
+          "type": "boolean"
+        },
+        "retry_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Retry Of"
+        },
+        "jobs": {
+          "$ref": "#/$defs/JobSummary"
+        },
+        "finished": {
+          "title": "Finished",
+          "type": "boolean"
+        },
+        "estimate": {
+          "$ref": "#/$defs/Money"
+        },
+        "spent": {
+          "$ref": "#/$defs/Money"
+        },
+        "eta_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Eta S"
+        }
+      },
+      "required": [
+        "id",
+        "episode_id",
+        "kind",
+        "model",
+        "created_at",
+        "paused",
+        "cancelled",
+        "retry_of",
+        "jobs",
+        "finished",
+        "estimate",
+        "spent",
+        "eta_s"
+      ],
+      "title": "BatchSummary",
+      "type": "object"
+    },
+    "CanonTarget": {
+      "description": "Что не готово в каноне выпуска: сущность и вид проблемы.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "style",
+            "period",
+            "appearance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "issue": {
+          "enum": [
+            "unpublished",
+            "unresolved",
+            "no_sheet",
+            "sheet_incomplete",
+            "sheet_outdated"
+          ],
+          "title": "Issue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "issue"
+      ],
+      "title": "CanonTarget",
+      "type": "object"
+    },
+    "EstimateShot": {
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "variant": {
+          "title": "Variant",
+          "type": "integer"
+        },
+        "usd": {
+          "$ref": "#/$defs/Money"
+        }
+      },
+      "required": [
+        "shot_id",
+        "variant",
+        "usd"
+      ],
+      "title": "EstimateShot",
+      "type": "object"
+    },
+    "JobSummary": {
+      "description": "Счётчики по статусам — сводка пачки (`GET /api/jobs?batch=`).",
+      "properties": {
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "queued": {
+          "default": 0,
+          "title": "Queued",
+          "type": "integer"
+        },
+        "running": {
+          "default": 0,
+          "title": "Running",
+          "type": "integer"
+        },
+        "done": {
+          "default": 0,
+          "title": "Done",
+          "type": "integer"
+        },
+        "failed": {
+          "default": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "cancelled": {
+          "default": 0,
+          "title": "Cancelled",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "queued",
+        "running",
+        "done",
+        "failed",
+        "cancelled"
+      ],
+      "title": "JobSummary",
+      "type": "object"
+    },
+    "Money": {
+      "description": "Деньги в ответе API: по `usd_micro` считать, `usd` показывать.",
+      "properties": {
+        "usd_micro": {
+          "title": "Usd Micro",
+          "type": "integer"
+        },
+        "usd": {
+          "title": "Usd",
+          "type": "string"
+        }
+      },
+      "required": [
+        "usd_micro",
+        "usd"
+      ],
+      "title": "Money",
+      "type": "object"
+    },
+    "PromptProblem": {
+      "description": "Что мешает рисовать кадр: текст с id кадра и, у проблемы канона, — её адресат.",
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "canon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "PromptProblem",
+      "type": "object"
+    },
+    "SkippedShot": {
+      "description": "Кадр, который пачка не ставит, и почему; у проблем сборщика — список с адресатами.",
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "problems": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PromptProblem"
+          },
+          "title": "Problems",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_id",
+        "reason",
+        "problems"
+      ],
+      "title": "SkippedShot",
+      "type": "object"
+    }
+  }
+}
